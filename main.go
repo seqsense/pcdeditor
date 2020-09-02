@@ -1,8 +1,9 @@
 package main
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
-	"net/http"
 	"syscall/js"
 	"time"
 
@@ -66,10 +67,10 @@ func main() {
 	tick := time.NewTicker(time.Second / 30)
 	defer tick.Stop()
 
-	chNewURL := make(chan string)
+	chNewPath := make(chan string)
 	js.Global().Set("loadPCD",
 		js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			chNewURL <- args[0].String()
+			chNewPath <- args[0].String()
 			return nil
 		}),
 	)
@@ -116,9 +117,9 @@ func main() {
 
 		for {
 			select {
-			case url := <-chNewURL:
+			case path := <-chNewPath:
 				logPrint("loading pcd file")
-				n, err := loadPCD(gl, program, url)
+				n, err := loadPCD(gl, program, path)
 				if err != nil {
 					logPrint(err)
 					continue
@@ -138,13 +139,34 @@ func main() {
 	}
 }
 
-func loadPCD(gl *webgl.WebGL, program webgl.Program, url string) (int, error) {
-	resp, err := http.Get(url)
-	if err != nil {
+func loadPCD(gl *webgl.WebGL, program webgl.Program, path string) (int, error) {
+	var b []byte
+	chErr := make(chan error)
+	js.Global().Call("fetch", path).Call("then",
+		js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			if args[0].Get("ok").Bool() {
+				args[0].Call("arrayBuffer").Call("then",
+					js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+						array := js.Global().Get("Uint8Array").New(args[0])
+						n := array.Get("byteLength").Int()
+						b = make([]byte, n)
+						js.CopyBytesToGo(b, array)
+						chErr <- nil
+						return nil
+					}),
+				)
+				return nil
+			}
+			chErr <- errors.New("failed to fetch file")
+			return nil
+		}),
+	)
+
+	if err := <-chErr; err != nil {
 		return 0, err
 	}
-	pc, err := pcd.Parse(resp.Body)
-	resp.Body.Close()
+
+	pc, err := pcd.Parse(bytes.NewReader(b))
 	if err != nil {
 		return 0, err
 	}
