@@ -6,6 +6,7 @@ import (
 	"time"
 
 	webgl "github.com/at-wat/pcdviewer/gl"
+	"github.com/at-wat/pcdviewer/mat"
 )
 
 func main() {
@@ -74,24 +75,14 @@ func main() {
 
 	gl.UseProgram(program)
 
-	projectionMatrix := [16]float32{
-		1.81, 0, 0, 0,
-		0, 2.41, 0, 0,
-		0, 0, -1, -1,
-		0, 0, -0.20, 0,
-	}
+	projectionMatrix := mat.Perspective(45*3.14/180, 640.0/480.0, 0.1, 100.0)
 	gl.UniformMatrix4fv(projectionMatrixLocation, false, projectionMatrix)
 
-	ang := 0.0
+	ang := float32(0.0)
 	tick := time.NewTicker(time.Second / 30)
 	defer tick.Stop()
 	for {
-		modelViewMatrix := [16]float32{
-			float32(math.Sin(ang)), 0, -float32(math.Cos(ang)), 0,
-			0, 1, 0, 0,
-			float32(math.Cos(ang)), 0, float32(math.Sin(ang)), 0,
-			0, 0, -6, 1,
-		}
+		modelViewMatrix := mat.Translate(0, 0, -6).Mul(mat.Rotate(0, 1, 0, ang))
 		gl.UniformMatrix4fv(modelViewMatrixLocation, false, modelViewMatrix)
 
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)

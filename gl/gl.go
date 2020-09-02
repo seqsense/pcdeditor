@@ -3,6 +3,8 @@ package gl
 import (
 	"errors"
 	"syscall/js"
+
+	"github.com/at-wat/pcdviewer/mat"
 )
 
 var (
@@ -147,7 +149,7 @@ func (gl *WebGL) EnableVertexAttribArray(i int) {
 	gl.gl.Call("enableVertexAttribArray", i)
 }
 
-func (gl *WebGL) UniformMatrix4fv(loc Location, transpose bool, mat [16]float32) {
+func (gl *WebGL) UniformMatrix4fv(loc Location, transpose bool, mat mat.Mat4) {
 	matJS := float32Array.Call("of",
 		mat[0], mat[1], mat[2], mat[3],
 		mat[4], mat[5], mat[6], mat[7],
