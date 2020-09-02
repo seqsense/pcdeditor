@@ -66,11 +66,30 @@ func main() {
 		}),
 	)
 
+	chUpdateView := make(chan float32)
+	viewDistance := float32(100.0)
+	var modelViewMatrixBase mat.Mat4
+	updateView := func(distance float32) {
+		modelViewMatrixBase =
+			mat.Translate(0, 0, -distance).
+				Mul(mat.Rotate(1, 0, 0, 3.14/4))
+	}
+	updateView(viewDistance)
+
+	canvas.Call("addEventListener", "wheel",
+		js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			event := args[0]
+			event.Call("preventDefault")
+			viewDistance += float32(event.Get("deltaY").Int())
+			chUpdateView <- viewDistance
+			return false
+		}),
+	)
+
 	gl.ClearColor(0.0, 0.0, 0.0, 1.0)
 	gl.ClearDepth(1.0)
 
 	var nPoints int
-	modelViewMatrixBase := mat.Translate(0, 0, -100).Mul(mat.Rotate(1, 0, 0, 3.14/4))
 	for {
 		newWidth := gl.Canvas.ClientWidth()
 		newHeight := gl.Canvas.ClientHeight()
@@ -91,6 +110,9 @@ func main() {
 			select {
 			case url := <-chNewURL:
 				nPoints = loadPCD(gl, program, url)
+				continue
+			case d := <-chUpdateView:
+				updateView(d)
 				continue
 			case <-tick.C:
 			}
