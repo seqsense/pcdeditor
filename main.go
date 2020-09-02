@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"syscall/js"
 	"time"
@@ -13,9 +14,17 @@ import (
 func main() {
 	doc := js.Global().Get("document")
 	canvas := doc.Call("getElementById", "mapCanvas")
+
+	logDiv := doc.Call("getElementById", "log")
+	logPrint := func(msg interface{}) {
+		html := logDiv.Get("innerHTML").String()
+		logDiv.Set("innerHTML", fmt.Sprintf("%s%s<br/>", html, msg))
+	}
+
 	gl, err := webgl.New(canvas)
 	if err != nil {
-		panic(err)
+		logPrint(err)
+		return
 	}
 
 	vs := gl.CreateShader(gl.VERTEX_SHADER)
@@ -108,7 +117,14 @@ func main() {
 		for {
 			select {
 			case url := <-chNewURL:
-				nPoints = loadPCD(gl, program, url)
+				logPrint("loading pcd file")
+				n, err := loadPCD(gl, program, url)
+				if err != nil {
+					logPrint(err)
+					continue
+				}
+				logPrint("pcd file loaded")
+				nPoints = n
 				continue
 			case d := <-chUpdateView:
 				updateView(d)
@@ -122,15 +138,15 @@ func main() {
 	}
 }
 
-func loadPCD(gl *webgl.WebGL, program webgl.Program, url string) int {
+func loadPCD(gl *webgl.WebGL, program webgl.Program, url string) (int, error) {
 	resp, err := http.Get(url)
 	if err != nil {
-		panic(err)
+		return 0, err
 	}
 	pc, err := pcd.Parse(resp.Body)
 	resp.Body.Close()
 	if err != nil {
-		panic(err)
+		return 0, err
 	}
 
 	vertexPosition := gl.GetAttribLocation(program, "aVertexPosition")
@@ -143,7 +159,7 @@ func loadPCD(gl *webgl.WebGL, program webgl.Program, url string) int {
 	gl.BindBuffer(gl.ARRAY_BUFFER, posBuf)
 	gl.BufferData(gl.ARRAY_BUFFER, webgl.ByteArrayBuffer(pc.Data), gl.STATIC_DRAW)
 
-	return pc.Points - 1
+	return pc.Points - 1, nil
 }
 
 const vsSource = `
