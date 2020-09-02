@@ -1,4 +1,4 @@
-module github.com/at-wat/pcdviewer
+module github.com/seqsense/pcdviewer
 
 go 1.14
 

@@ -6,9 +6,9 @@ import (
 	"syscall/js"
 	"time"
 
-	webgl "github.com/at-wat/pcdviewer/gl"
-	"github.com/at-wat/pcdviewer/mat"
-	"github.com/at-wat/pcdviewer/pcd"
+	webgl "github.com/seqsense/pcdviewer/gl"
+	"github.com/seqsense/pcdviewer/mat"
+	"github.com/seqsense/pcdviewer/pcd"
 )
 
 func main() {
