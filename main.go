@@ -144,20 +144,23 @@ func loadPCD(gl *webgl.WebGL, program webgl.Program, path string) (int, error) {
 	chErr := make(chan error)
 	js.Global().Call("fetch", path).Call("then",
 		js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			if args[0].Get("ok").Bool() {
-				args[0].Call("arrayBuffer").Call("then",
-					js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-						array := js.Global().Get("Uint8Array").New(args[0])
-						n := array.Get("byteLength").Int()
-						b = make([]byte, n)
-						js.CopyBytesToGo(b, array)
-						chErr <- nil
-						return nil
-					}),
-				)
-				return nil
-			}
+			return args[0].Call("arrayBuffer")
+		}),
+		js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			chErr <- errors.New("failed to fetch file")
+			return nil
+		}),
+	).Call("then",
+		js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			array := js.Global().Get("Uint8Array").New(args[0])
+			n := array.Get("byteLength").Int()
+			b = make([]byte, n)
+			js.CopyBytesToGo(b, array)
+			chErr <- nil
+			return nil
+		}),
+		js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			chErr <- errors.New("failed to handle received data")
 			return nil
 		}),
 	)
@@ -177,8 +180,6 @@ func loadPCD(gl *webgl.WebGL, program webgl.Program, path string) (int, error) {
 	gl.BindBuffer(gl.ARRAY_BUFFER, posBuf)
 	gl.VertexAttribPointer(vertexPosition, 3, gl.FLOAT, false, 0, pc.Stride())
 	gl.EnableVertexAttribArray(vertexPosition)
-
-	gl.BindBuffer(gl.ARRAY_BUFFER, posBuf)
 	gl.BufferData(gl.ARRAY_BUFFER, webgl.ByteArrayBuffer(pc.Data), gl.STATIC_DRAW)
 
 	return pc.Points - 1, nil
@@ -197,13 +198,7 @@ const vsSource = `
 		gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
 		gl_PointSize = 2.0;
 
-		if (aVertexPosition[2] < zMin) {
-			c = 0.0;
-		} else if (aVertexPosition[2] > zMax) {
-			c = 1.0;
-		} else {
-			c = (aVertexPosition[2] - zMin) / zRange;
-		}
+		c = (aVertexPosition[2] - zMin) / zRange;
 		vColor = vec4(c, 0.0, 1.0 - c, 1.0);
 	}
 `
