@@ -1,7 +1,6 @@
 package main
 
 import (
-	//"math"
 	"net/http"
 	"syscall/js"
 	"time"
