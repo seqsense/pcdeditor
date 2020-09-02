@@ -29,6 +29,8 @@ type Buffer js.Value
 type WebGL struct {
 	gl js.Value
 
+	Canvas Canvas
+
 	VERTEX_SHADER, FRAGMENT_SHADER                                                ShaderType
 	ARRAY_BUFFER                                                                  BufferType
 	STATIC_DRAW                                                                   BufferUsage
@@ -46,6 +48,8 @@ func New(canvas js.Value) (*WebGL, error) {
 	}
 	return &WebGL{
 		gl: gl,
+
+		Canvas: Canvas(gl.Get("canvas")),
 
 		VERTEX_SHADER:   ShaderType(gl.Get("VERTEX_SHADER").Int()),
 		FRAGMENT_SHADER: ShaderType(gl.Get("FRAGMENT_SHADER").Int()),
@@ -165,4 +169,8 @@ func (gl *WebGL) Clear(mask BufferMask) {
 
 func (gl *WebGL) DrawArrays(mode DrawMode, i, n int) {
 	gl.gl.Call("drawArrays", int(mode), i, n)
+}
+
+func (gl *WebGL) Viewport(x1, y1, x2, y2 int) {
+	gl.gl.Call("viewport", x1, y1, x2, y2)
 }
