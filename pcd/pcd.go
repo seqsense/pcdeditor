@@ -205,3 +205,15 @@ func (pc *PointCloud) Float32Iterator(name string) (*Float32Iterator, error) {
 	}
 	return nil, errors.New("invalid field name")
 }
+
+func (pc *PointCloud) Float32Iterators(names ...string) ([]*Float32Iterator, error) {
+	var its []*Float32Iterator
+	for _, name := range names {
+		it, err := pc.Float32Iterator(name)
+		if err != nil {
+			return nil, err
+		}
+		its = append(its, it)
+	}
+	return its, nil
+}

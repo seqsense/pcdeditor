@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"math"
 	"syscall/js"
 	"time"
 
@@ -58,12 +59,13 @@ func main() {
 
 	posBuf := gl.CreateBuffer()
 
+	const fov = 3.14 / 4
 	var projectionMatrix mat.Mat4
 	updateProjectionMatrix := func(width, height int) {
 		gl.Canvas.SetWidth(width)
 		gl.Canvas.SetHeight(height)
 		projectionMatrix = mat.Perspective(
-			45*3.14/180,
+			fov,
 			float32(width)/float32(height),
 			1.0, 1000.0,
 		)
@@ -184,43 +186,44 @@ func main() {
 					1-float32(e.ClientY)*2/float32(height), -1)
 
 				a := projectionMatrix.Mul(modelViewMatrix).InvAffine()
-				origin := a.Transform(mat.NewVec3(0, 0, 0))
+				origin := a.Transform(mat.NewVec3(0, 0, -1-1.0/float32(math.Tan(fov))))
 				target := a.Transform(pos)
-				updateCursor(origin, target)
+
+				dir := target.Sub(origin).Normalized()
 
 				if pc == nil {
 					continue
 				}
-				xi, err := pc.Float32Iterator("x")
+				it, err := pc.Float32Iterators("x", "y", "z")
 				if err != nil {
 					continue
 				}
-				yi, err := pc.Float32Iterator("y")
-				if err != nil {
-					continue
-				}
-				zi, err := pc.Float32Iterator("z")
-				if err != nil {
-					continue
-				}
+				xi, yi, zi := it[0], it[1], it[2]
 				i := 0
+				var selected *mat.Vec3
+				dSqMin := float32(1.0)
 				for xi.IsValid() {
-					_ = xi.Float32()
-					_ = yi.Float32()
-					_ = zi.Float32()
+					p := mat.NewVec3(xi.Float32(), yi.Float32(), zi.Float32())
+					dSq := origin.Sub(p).CrossNormSq(dir)
+					if dSq < dSqMin {
+						dSqMin = dSq
+						selected = &p
+					}
 					i++
 					xi.Incr()
 					yi.Incr()
 					zi.Incr()
 				}
-				println("test", i)
+				if selected != nil {
+					updateCursor(*selected, mat.NewVec3(0, 0, 1).Add(*selected))
+				}
 				continue
 			case <-tick.C:
 			}
 			break
 		}
 
-		//ang += 0.01
+		ang += 0.005
 	}
 }
 
