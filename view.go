@@ -29,8 +29,8 @@ func (v *view) mouseDrag(e *webgl.MouseEvent) {
 	if v.dragStart == nil {
 		return
 	}
-	xDiff := float64(e.ClientX - v.dragStart.ClientX)
-	yDiff := float64(e.ClientY - v.dragStart.ClientY)
+	xDiff := float64(e.OffsetX - v.dragStart.OffsetX)
+	yDiff := float64(e.OffsetY - v.dragStart.OffsetY)
 	switch v.dragStart.Button {
 	case 0:
 		v.ang = v.angStart - 0.02*xDiff

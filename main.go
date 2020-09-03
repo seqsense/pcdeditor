@@ -209,7 +209,7 @@ func main() {
 			case e := <-chClick:
 				if e.Button == 0 && pc != nil {
 					selected, ok := selectPoint(
-						pc, modelViewMatrix, projectionMatrix, fov, e.ClientX, e.ClientY, width, height,
+						pc, modelViewMatrix, projectionMatrix, fov, e.OffsetX, e.OffsetY, width, height,
 					)
 					if ok {
 						updateCursor(*selected, mat.NewVec3(0, 0, 1).Add(*selected))

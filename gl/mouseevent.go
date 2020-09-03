@@ -8,6 +8,6 @@ const (
 
 type MouseEvent struct {
 	UIEvent
-	ClientX, ClientY int
+	OffsetX, OffsetY int
 	Button           MouseButton
 }
