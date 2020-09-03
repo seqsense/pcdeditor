@@ -76,7 +76,7 @@ func main() {
 	height := gl.Canvas.ClientHeight()
 	updateProjectionMatrix(width, height)
 
-	tick := time.NewTicker(time.Second / 30)
+	tick := time.NewTicker(time.Second / 5)
 	defer tick.Stop()
 
 	chNewPath := make(chan string)
@@ -174,44 +174,35 @@ func main() {
 		gl.UniformMatrix4fv(modelViewMatrixLocationSel, false, modelViewMatrix)
 		gl.DrawArrays(gl.LINES, 0, 2)
 
-		for {
-			select {
-			case path := <-chNewPath:
-				logPrint("loading pcd file")
-				p, n, err := loadPCD(gl, program, posBuf, path)
-				if err != nil {
-					logPrint(err)
-					continue
-				}
-				logPrint("pcd file loaded")
-				nPoints = n
-				pc = p
+		select {
+		case path := <-chNewPath:
+			logPrint("loading pcd file")
+			p, n, err := loadPCD(gl, program, posBuf, path)
+			if err != nil {
+				logPrint(err)
 				continue
-			case e := <-chWheel:
-				vi.wheel(&e)
-				continue
-			case e := <-chMouseDown:
-				vi.mouseDragStart(&e)
-				continue
-			case e := <-chMouseUp:
-				vi.mouseDragEnd(&e)
-				continue
-			case e := <-chMouseMove:
-				vi.mouseDrag(&e)
-				continue
-			case e := <-chClick:
-				if e.Button == 0 && pc != nil {
-					selected, ok := selectPoint(
-						pc, modelViewMatrix, projectionMatrix, fov, e.OffsetX, e.OffsetY, width, height,
-					)
-					if ok {
-						updateCursor(*selected, mat.NewVec3(0, 0, 1).Add(*selected))
-					}
-				}
-				continue
-			case <-tick.C:
 			}
-			break
+			logPrint("pcd file loaded")
+			nPoints = n
+			pc = p
+		case e := <-chWheel:
+			vi.wheel(&e)
+		case e := <-chMouseDown:
+			vi.mouseDragStart(&e)
+		case e := <-chMouseUp:
+			vi.mouseDragEnd(&e)
+		case e := <-chMouseMove:
+			vi.mouseDrag(&e)
+		case e := <-chClick:
+			if e.Button == 0 && pc != nil {
+				selected, ok := selectPoint(
+					pc, modelViewMatrix, projectionMatrix, fov, e.OffsetX, e.OffsetY, width, height,
+				)
+				if ok {
+					updateCursor(*selected, mat.NewVec3(0, 0, 1).Add(*selected))
+				}
+			}
+		case <-tick.C:
 		}
 	}
 }
