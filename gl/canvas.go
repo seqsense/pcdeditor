@@ -35,15 +35,11 @@ func (c Canvas) OnWheel(cb func(WheelEvent)) {
 		js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			event := args[0]
 			cb(WheelEvent{
-				UIEvent: UIEvent{
-					Event: Event{
-						event: event,
-					},
-				},
-				DeltaX:    event.Get("deltaX").Float(),
-				DeltaY:    event.Get("deltaY").Float(),
-				DeltaZ:    event.Get("deltaZ").Float(),
-				DeltaMode: DeltaMode(event.Get("deltaMode").Int()),
+				MouseEvent: parseMouseEvent(event),
+				DeltaX:     event.Get("deltaX").Float(),
+				DeltaY:     event.Get("deltaY").Float(),
+				DeltaZ:     event.Get("deltaZ").Float(),
+				DeltaMode:  DeltaMode(event.Get("deltaMode").Int()),
 			})
 			return nil
 		}),
@@ -54,6 +50,14 @@ func (c Canvas) OnMouseMove(cb func(MouseEvent)) {
 	c.onMouse("mousemove", cb)
 }
 
+func (c Canvas) OnMouseDown(cb func(MouseEvent)) {
+	c.onMouse("mousedown", cb)
+}
+
+func (c Canvas) OnMouseUp(cb func(MouseEvent)) {
+	c.onMouse("mouseup", cb)
+}
+
 func (c Canvas) OnClick(cb func(MouseEvent)) {
 	c.onMouse("click", cb)
 }
@@ -61,17 +65,26 @@ func (c Canvas) OnClick(cb func(MouseEvent)) {
 func (c Canvas) onMouse(name string, cb func(MouseEvent)) {
 	js.Value(c).Call("addEventListener", name,
 		js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			event := args[0]
-			cb(MouseEvent{
-				UIEvent: UIEvent{
-					Event: Event{
-						event: event,
-					},
-				},
-				ClientX: event.Get("clientX").Int(),
-				ClientY: event.Get("clientY").Int(),
-			})
+			cb(parseMouseEvent(args[0]))
 			return nil
 		}),
 	)
+}
+
+func parseMouseEvent(event js.Value) MouseEvent {
+	b := MouseButtonNull
+	button := event.Get("button")
+	if !button.IsNull() {
+		b = MouseButton(button.Int())
+	}
+	return MouseEvent{
+		UIEvent: UIEvent{
+			Event: Event{
+				event: event,
+			},
+		},
+		ClientX: event.Get("clientX").Int(),
+		ClientY: event.Get("clientY").Int(),
+		Button:  b,
+	}
 }

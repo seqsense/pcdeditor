@@ -9,7 +9,7 @@ const (
 )
 
 type WheelEvent struct {
-	UIEvent
+	MouseEvent
 	DeltaX, DeltaY, DeltaZ float64
 	DeltaMode              DeltaMode
 }

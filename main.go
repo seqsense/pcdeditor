@@ -106,10 +106,14 @@ func main() {
 		viewDistance += e.DeltaY
 		chUpdateView <- viewDistance
 	})
-	chMouseEvent := make(chan webgl.MouseEvent)
-	gl.Canvas.OnClick(func(e webgl.MouseEvent) {
-		chMouseEvent <- e
-	})
+	chClick := make(chan webgl.MouseEvent)
+	gl.Canvas.OnClick(func(e webgl.MouseEvent) { chClick <- e })
+	chMouseDown := make(chan webgl.MouseEvent)
+	gl.Canvas.OnMouseDown(func(e webgl.MouseEvent) { chMouseDown <- e })
+	chMouseMove := make(chan webgl.MouseEvent)
+	gl.Canvas.OnMouseMove(func(e webgl.MouseEvent) { chMouseMove <- e })
+	chMouseUp := make(chan webgl.MouseEvent)
+	gl.Canvas.OnMouseUp(func(e webgl.MouseEvent) { chMouseUp <- e })
 
 	toolBuf := gl.CreateBuffer()
 
@@ -137,6 +141,8 @@ func main() {
 	vertexPositionSel := gl.GetAttribLocation(programSel, "aVertexPosition")
 	gl.EnableVertexAttribArray(vertexPositionSel)
 
+	var drugStart *webgl.MouseEvent
+	angDragStart := ang
 	for {
 		newWidth := gl.Canvas.ClientWidth()
 		newHeight := gl.Canvas.ClientHeight()
@@ -180,50 +186,74 @@ func main() {
 			case d := <-chUpdateView:
 				updateView(d)
 				continue
-			case e := <-chMouseEvent:
-				pos := mat.NewVec3(
-					float32(e.ClientX)*2/float32(width)-1,
-					1-float32(e.ClientY)*2/float32(height), -1)
-
-				a := projectionMatrix.Mul(modelViewMatrix).InvAffine()
-				origin := a.Transform(mat.NewVec3(0, 0, -1-1.0/float32(math.Tan(fov))))
-				target := a.Transform(pos)
-
-				dir := target.Sub(origin).Normalized()
-
-				if pc == nil {
-					continue
+			case e := <-chMouseDown:
+				if e.Button == 0 {
+					drugStart = &e
+					angDragStart = ang
 				}
-				it, err := pc.Float32Iterators("x", "y", "z")
-				if err != nil {
-					continue
+				continue
+			case e := <-chMouseUp:
+				if drugStart != nil && e.Button == 0 {
+					xDiff := e.ClientX - drugStart.ClientX
+					ang = angDragStart - 0.02*float32(xDiff)
+					drugStart = nil
 				}
-				xi, yi, zi := it[0], it[1], it[2]
-				i := 0
-				var selected *mat.Vec3
-				dSqMin := float32(1.0)
-				for xi.IsValid() {
-					p := mat.NewVec3(xi.Float32(), yi.Float32(), zi.Float32())
-					dSq := origin.Sub(p).CrossNormSq(dir)
-					if dSq < dSqMin {
-						dSqMin = dSq
-						selected = &p
+				continue
+			case e := <-chMouseMove:
+				if drugStart != nil {
+					xDiff := e.ClientX - drugStart.ClientX
+					ang = angDragStart - 0.02*float32(xDiff)
+				}
+				continue
+			case e := <-chClick:
+				if e.Button == 0 {
+					pos := mat.NewVec3(
+						float32(e.ClientX)*2/float32(width)-1,
+						1-float32(e.ClientY)*2/float32(height), -1)
+
+					a := projectionMatrix.Mul(modelViewMatrix).InvAffine()
+					origin := a.Transform(mat.NewVec3(0, 0, -1-1.0/float32(math.Tan(fov))))
+					target := a.Transform(pos)
+
+					dir := target.Sub(origin).Normalized()
+
+					if pc == nil {
+						continue
 					}
-					i++
-					xi.Incr()
-					yi.Incr()
-					zi.Incr()
-				}
-				if selected != nil {
-					updateCursor(*selected, mat.NewVec3(0, 0, 1).Add(*selected))
+					it, err := pc.Float32Iterators("x", "y", "z")
+					if err != nil {
+						continue
+					}
+					xi, yi, zi := it[0], it[1], it[2]
+					var selected *mat.Vec3
+					dSqMin := float32(0.1 * 0.1)
+					vMin := float32(1000 * 1000)
+					for xi.IsValid() {
+						p := mat.NewVec3(xi.Float32(), yi.Float32(), zi.Float32())
+						pRel := origin.Sub(p)
+						dot := pRel.Dot(dir)
+						if dot < 0 {
+							distSq := pRel.NormSq()
+							dSq := distSq - dot*dot
+							v := distSq/10000 + dSq
+							if dSq < dSqMin && v < vMin {
+								vMin = v
+								selected = &p
+							}
+						}
+						xi.Incr()
+						yi.Incr()
+						zi.Incr()
+					}
+					if selected != nil {
+						updateCursor(*selected, mat.NewVec3(0, 0, 1).Add(*selected))
+					}
 				}
 				continue
 			case <-tick.C:
 			}
 			break
 		}
-
-		ang += 0.005
 	}
 }
 
