@@ -5,38 +5,66 @@ import (
 	"math"
 )
 
-type view struct {
-	fov       float64
-	x, y, ang float64
+const (
+	defaultDistance = 100.0
+	defaultPitch    = 3.14 / 4
+	yDeadband       = 20
+)
 
-	xStart, yStart, angStart float64
-	dragStart                *webgl.MouseEvent
+type view struct {
+	fov              float64
+	x, y, yaw, pitch float64
+	distance         float64
+
+	x0, y0, yaw0, pitch0 float64
+	drag0                *webgl.MouseEvent
+}
+
+func newView() *view {
+	return &view{
+		distance: defaultDistance,
+		pitch:    defaultPitch,
+		pitch0:   defaultPitch,
+	}
+}
+
+func (v *view) wheel(e *webgl.WheelEvent) {
+	v.distance += e.DeltaY
 }
 
 func (v *view) mouseDragStart(e *webgl.MouseEvent) {
-	v.dragStart = e
-	v.angStart = v.ang
-	v.xStart = v.x
-	v.yStart = v.y
+	v.drag0 = e
+	v.yaw0 = v.yaw
+	v.pitch0 = v.pitch
+	v.x0 = v.x
+	v.y0 = v.y
 }
 
 func (v *view) mouseDragEnd(e *webgl.MouseEvent) {
 	v.mouseDrag(e)
-	v.dragStart = nil
+	v.drag0 = nil
 }
 
 func (v *view) mouseDrag(e *webgl.MouseEvent) {
-	if v.dragStart == nil {
+	if v.drag0 == nil {
 		return
 	}
-	xDiff := float64(e.OffsetX - v.dragStart.OffsetX)
-	yDiff := float64(e.OffsetY - v.dragStart.OffsetY)
-	switch v.dragStart.Button {
+	xDiff := float64(e.OffsetX - v.drag0.OffsetX)
+	yDiff := float64(e.OffsetY - v.drag0.OffsetY)
+	switch v.drag0.Button {
 	case 0:
-		v.ang = v.angStart - 0.02*xDiff
+		v.yaw = v.yaw0 - 0.02*xDiff
+		if yDiff < -yDeadband {
+			yDiff += yDeadband
+		} else if yDiff > yDeadband {
+			yDiff -= yDeadband
+		} else {
+			yDiff = 0
+		}
+		v.pitch = v.pitch0 - 0.02*yDiff
 	case 1:
-		s, c := math.Sincos(v.ang)
-		v.x = v.xStart + 0.1*(xDiff*c+yDiff*s)
-		v.y = v.yStart + 0.1*(xDiff*s-yDiff*c)
+		s, c := math.Sincos(v.yaw)
+		v.x = v.x0 + 0.1*(xDiff*c+yDiff*s)
+		v.y = v.y0 + 0.1*(xDiff*s-yDiff*c)
 	}
 }

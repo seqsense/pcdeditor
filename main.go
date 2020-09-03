@@ -87,20 +87,10 @@ func main() {
 		}),
 	)
 
-	chUpdateView := make(chan float64)
-	viewDistance := 100.0
-	var modelViewMatrixBase mat.Mat4
-	updateView := func(distance float64) {
-		modelViewMatrixBase =
-			mat.Translate(0, 0, -float32(distance)).
-				Mul(mat.Rotate(1, 0, 0, 3.14/4))
-	}
-	updateView(viewDistance)
-
+	chWheel := make(chan webgl.WheelEvent)
 	gl.Canvas.OnWheel(func(e webgl.WheelEvent) {
 		e.PreventDefault()
-		viewDistance += e.DeltaY
-		chUpdateView <- viewDistance
+		chWheel <- e
 	})
 	chClick := make(chan webgl.MouseEvent)
 	gl.Canvas.OnClick(func(e webgl.MouseEvent) {
@@ -149,7 +139,7 @@ func main() {
 	vertexPositionSel := gl.GetAttribLocation(programSel, "aVertexPosition")
 	gl.EnableVertexAttribArray(vertexPositionSel)
 
-	vi := &view{}
+	vi := newView()
 
 	for {
 		newWidth := gl.Canvas.ClientWidth()
@@ -159,9 +149,12 @@ func main() {
 			updateProjectionMatrix(width, height)
 		}
 
+		modelViewMatrixBase :=
+			mat.Translate(0, 0, -float32(vi.distance)).
+				Mul(mat.Rotate(1, 0, 0, float32(vi.pitch)))
 		modelViewMatrix :=
 			modelViewMatrixBase.
-				Mul(mat.Rotate(0, 0, 1, float32(vi.ang))).
+				Mul(mat.Rotate(0, 0, 1, float32(vi.yaw))).
 				Mul(mat.Translate(float32(vi.x), float32(vi.y), 0))
 
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
@@ -194,8 +187,8 @@ func main() {
 				nPoints = n
 				pc = p
 				continue
-			case d := <-chUpdateView:
-				updateView(d)
+			case e := <-chWheel:
+				vi.wheel(&e)
 				continue
 			case e := <-chMouseDown:
 				vi.mouseDragStart(&e)
