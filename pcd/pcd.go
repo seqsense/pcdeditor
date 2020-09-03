@@ -188,3 +188,20 @@ func (pc *PointCloud) Stride() int {
 	}
 	return stride
 }
+
+func (pc *PointCloud) Float32Iterator(name string) (*Float32Iterator, error) {
+	offset := 0
+	for i, fn := range pc.Fields {
+		if fn == name {
+			return &Float32Iterator{
+				Iterator: Iterator{
+					data:   pc.Data,
+					pos:    offset,
+					stride: pc.Stride(),
+				},
+			}, nil
+		}
+		offset += pc.Size[i] * pc.Count[i]
+	}
+	return nil, errors.New("invalid field name")
+}
