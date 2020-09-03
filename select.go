@@ -34,7 +34,7 @@ func selectPoint(pc *pcd.PointCloud, modelViewMatrix, projectionMatrix mat.Mat4,
 			distSq := pRel.NormSq()
 			dSq := distSq - dot*dot
 			v := distSq/10000 + dSq
-			if dSq < dSqMin && v < vMin {
+			if dSq < dSqMin && v < vMin && distSq > 1 {
 				vMin = v
 				selected = &p
 			}
