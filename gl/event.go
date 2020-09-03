@@ -15,3 +15,7 @@ type Event struct {
 func (e Event) PreventDefault() {
 	e.event.Call("preventDefault")
 }
+
+func (e Event) StopPropagation() {
+	e.event.Call("stopPropagation")
+}

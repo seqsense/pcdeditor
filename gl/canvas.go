@@ -62,6 +62,10 @@ func (c Canvas) OnClick(cb func(MouseEvent)) {
 	c.onMouse("click", cb)
 }
 
+func (c Canvas) OnContextMenu(cb func(MouseEvent)) {
+	c.onMouse("contextmenu", cb)
+}
+
 func (c Canvas) onMouse(name string, cb func(MouseEvent)) {
 	js.Value(c).Call("addEventListener", name,
 		js.FuncOf(func(this js.Value, args []js.Value) interface{} {

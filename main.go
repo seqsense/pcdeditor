@@ -90,27 +90,36 @@ func main() {
 	chWheel := make(chan webgl.WheelEvent)
 	gl.Canvas.OnWheel(func(e webgl.WheelEvent) {
 		e.PreventDefault()
+		e.StopPropagation()
 		chWheel <- e
 	})
 	chClick := make(chan webgl.MouseEvent)
 	gl.Canvas.OnClick(func(e webgl.MouseEvent) {
 		e.PreventDefault()
+		e.StopPropagation()
 		chClick <- e
 	})
 	chMouseDown := make(chan webgl.MouseEvent)
 	gl.Canvas.OnMouseDown(func(e webgl.MouseEvent) {
 		e.PreventDefault()
+		e.StopPropagation()
 		chMouseDown <- e
 	})
 	chMouseMove := make(chan webgl.MouseEvent)
 	gl.Canvas.OnMouseMove(func(e webgl.MouseEvent) {
 		e.PreventDefault()
+		e.StopPropagation()
 		chMouseMove <- e
 	})
 	chMouseUp := make(chan webgl.MouseEvent)
 	gl.Canvas.OnMouseUp(func(e webgl.MouseEvent) {
 		e.PreventDefault()
+		e.StopPropagation()
 		chMouseUp <- e
+	})
+	gl.Canvas.OnContextMenu(func(e webgl.MouseEvent) {
+		e.PreventDefault()
+		e.StopPropagation()
 	})
 
 	toolBuf := gl.CreateBuffer()
