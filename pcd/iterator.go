@@ -24,6 +24,7 @@ type Float32Iterator struct {
 }
 
 func (i *Float32Iterator) Float32() float32 {
-	u := binary.LittleEndian.Uint32(i.Iterator.data[i.Iterator.pos : i.Iterator.pos+4])
-	return math.Float32frombits(u)
+	return math.Float32frombits(
+		binary.LittleEndian.Uint32(i.Iterator.data[i.Iterator.pos : i.Iterator.pos+4]),
+	)
 }

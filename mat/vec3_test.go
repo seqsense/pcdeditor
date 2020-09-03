@@ -6,11 +6,11 @@ import (
 
 func transformNaive(m Mat4, a Vec3) Vec3 {
 	var out Vec3
-	a[3] = 1
-	for i := 0; i < 4; i++ {
+	in := [4]float32{a[0], a[1], a[2], 1}
+	for i := 0; i < 3; i++ {
 		var sum float32
 		for k := 0; k < 4; k++ {
-			sum += m[4*k+i] * a[k]
+			sum += m[4*k+i] * in[k]
 		}
 		out[i] = sum
 	}
@@ -30,7 +30,7 @@ func TestTransform(t *testing.T) {
 	v := m.Transform(in)
 	vNaive := transformNaive(m, in)
 
-	for i := 0; i < 4; i++ {
+	for i := 0; i < 3; i++ {
 		diff := v[i] - vNaive[i]
 		if diff < -0.01 || 0.01 < diff {
 			t.Errorf("v(%d) expected to be %0.3f, got %0.3f",
