@@ -1,10 +1,7 @@
 package main
 
 import (
-	"bytes"
-	"errors"
 	"fmt"
-	"math"
 	"syscall/js"
 	"time"
 
@@ -79,7 +76,6 @@ func main() {
 	height := gl.Canvas.ClientHeight()
 	updateProjectionMatrix(width, height)
 
-	ang := float32(0.0)
 	tick := time.NewTicker(time.Second / 30)
 	defer tick.Stop()
 
@@ -107,13 +103,25 @@ func main() {
 		chUpdateView <- viewDistance
 	})
 	chClick := make(chan webgl.MouseEvent)
-	gl.Canvas.OnClick(func(e webgl.MouseEvent) { chClick <- e })
+	gl.Canvas.OnClick(func(e webgl.MouseEvent) {
+		e.PreventDefault()
+		chClick <- e
+	})
 	chMouseDown := make(chan webgl.MouseEvent)
-	gl.Canvas.OnMouseDown(func(e webgl.MouseEvent) { chMouseDown <- e })
+	gl.Canvas.OnMouseDown(func(e webgl.MouseEvent) {
+		e.PreventDefault()
+		chMouseDown <- e
+	})
 	chMouseMove := make(chan webgl.MouseEvent)
-	gl.Canvas.OnMouseMove(func(e webgl.MouseEvent) { chMouseMove <- e })
+	gl.Canvas.OnMouseMove(func(e webgl.MouseEvent) {
+		e.PreventDefault()
+		chMouseMove <- e
+	})
 	chMouseUp := make(chan webgl.MouseEvent)
-	gl.Canvas.OnMouseUp(func(e webgl.MouseEvent) { chMouseUp <- e })
+	gl.Canvas.OnMouseUp(func(e webgl.MouseEvent) {
+		e.PreventDefault()
+		chMouseUp <- e
+	})
 
 	toolBuf := gl.CreateBuffer()
 
@@ -141,8 +149,8 @@ func main() {
 	vertexPositionSel := gl.GetAttribLocation(programSel, "aVertexPosition")
 	gl.EnableVertexAttribArray(vertexPositionSel)
 
-	var drugStart *webgl.MouseEvent
-	angDragStart := ang
+	vi := &view{}
+
 	for {
 		newWidth := gl.Canvas.ClientWidth()
 		newHeight := gl.Canvas.ClientHeight()
@@ -151,7 +159,10 @@ func main() {
 			updateProjectionMatrix(width, height)
 		}
 
-		modelViewMatrix := modelViewMatrixBase.Mul(mat.Rotate(0, 0, 1, ang))
+		modelViewMatrix :=
+			modelViewMatrixBase.
+				Mul(mat.Rotate(0, 0, 1, float32(vi.ang))).
+				Mul(mat.Translate(float32(vi.x), float32(vi.y), 0))
 
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 		if nPoints > 0 {
@@ -187,65 +198,20 @@ func main() {
 				updateView(d)
 				continue
 			case e := <-chMouseDown:
-				if e.Button == 0 {
-					drugStart = &e
-					angDragStart = ang
-				}
+				vi.mouseDragStart(&e)
 				continue
 			case e := <-chMouseUp:
-				if drugStart != nil && e.Button == 0 {
-					xDiff := e.ClientX - drugStart.ClientX
-					ang = angDragStart - 0.02*float32(xDiff)
-					drugStart = nil
-				}
+				vi.mouseDragEnd(&e)
 				continue
 			case e := <-chMouseMove:
-				if drugStart != nil {
-					xDiff := e.ClientX - drugStart.ClientX
-					ang = angDragStart - 0.02*float32(xDiff)
-				}
+				vi.mouseDrag(&e)
 				continue
 			case e := <-chClick:
-				if e.Button == 0 {
-					pos := mat.NewVec3(
-						float32(e.ClientX)*2/float32(width)-1,
-						1-float32(e.ClientY)*2/float32(height), -1)
-
-					a := projectionMatrix.Mul(modelViewMatrix).InvAffine()
-					origin := a.Transform(mat.NewVec3(0, 0, -1-1.0/float32(math.Tan(fov))))
-					target := a.Transform(pos)
-
-					dir := target.Sub(origin).Normalized()
-
-					if pc == nil {
-						continue
-					}
-					it, err := pc.Float32Iterators("x", "y", "z")
-					if err != nil {
-						continue
-					}
-					xi, yi, zi := it[0], it[1], it[2]
-					var selected *mat.Vec3
-					dSqMin := float32(0.1 * 0.1)
-					vMin := float32(1000 * 1000)
-					for xi.IsValid() {
-						p := mat.NewVec3(xi.Float32(), yi.Float32(), zi.Float32())
-						pRel := origin.Sub(p)
-						dot := pRel.Dot(dir)
-						if dot < 0 {
-							distSq := pRel.NormSq()
-							dSq := distSq - dot*dot
-							v := distSq/10000 + dSq
-							if dSq < dSqMin && v < vMin {
-								vMin = v
-								selected = &p
-							}
-						}
-						xi.Incr()
-						yi.Incr()
-						zi.Incr()
-					}
-					if selected != nil {
+				if e.Button == 0 && pc != nil {
+					selected, ok := selectPoint(
+						pc, modelViewMatrix, projectionMatrix, fov, e.ClientX, e.ClientY, width, height,
+					)
+					if ok {
 						updateCursor(*selected, mat.NewVec3(0, 0, 1).Add(*selected))
 					}
 				}
@@ -256,82 +222,3 @@ func main() {
 		}
 	}
 }
-
-func loadPCD(gl *webgl.WebGL, program webgl.Program, buf webgl.Buffer, path string) (*pcd.PointCloud, int, error) {
-	var b []byte
-	chErr := make(chan error)
-	js.Global().Call("fetch", path).Call("then",
-		js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			return args[0].Call("arrayBuffer")
-		}),
-		js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			chErr <- errors.New("failed to fetch file")
-			return nil
-		}),
-	).Call("then",
-		js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			array := js.Global().Get("Uint8Array").New(args[0])
-			n := array.Get("byteLength").Int()
-			b = make([]byte, n)
-			js.CopyBytesToGo(b, array)
-			chErr <- nil
-			return nil
-		}),
-		js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			chErr <- errors.New("failed to handle received data")
-			return nil
-		}),
-	)
-
-	if err := <-chErr; err != nil {
-		return nil, 0, err
-	}
-
-	pc, err := pcd.Parse(bytes.NewReader(b))
-	if err != nil {
-		return nil, 0, err
-	}
-
-	gl.BindBuffer(gl.ARRAY_BUFFER, buf)
-	gl.BufferData(gl.ARRAY_BUFFER, webgl.ByteArrayBuffer(pc.Data), gl.STATIC_DRAW)
-
-	return pc, pc.Points, nil
-}
-
-const vsSource = `
-	attribute vec4 aVertexPosition;
-	uniform mat4 uModelViewMatrix;
-	uniform mat4 uProjectionMatrix;
-	varying lowp vec4 vColor;
-	const float zMax = 5.0;
-	const float zMin = -5.0;
-	const float zRange = zMax - zMin;
-	varying lowp float c;
-	void main(void) {
-		gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
-		gl_PointSize = 2.0;
-
-		c = (aVertexPosition[2] - zMin) / zRange;
-		vColor = vec4(c, 0.0, 1.0 - c, 1.0);
-	}
-`
-
-const vsSelectSource = `
-	attribute vec4 aVertexPosition;
-	uniform mat4 uModelViewMatrix;
-	uniform mat4 uProjectionMatrix;
-	varying lowp vec4 vColor;
-	void main(void) {
-		gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
-		gl_PointSize = 3.0;
-
-		vColor = vec4(1.0, 1.0, 1.0, 0.8);
-	}
-`
-
-const fsSource = `
-	varying lowp vec4 vColor;
-	void main(void) {
-		gl_FragColor = vColor;
-	}
-`
