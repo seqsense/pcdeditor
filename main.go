@@ -31,6 +31,9 @@ func main() {
 	vs := gl.CreateShader(gl.VERTEX_SHADER)
 	gl.ShaderSource(vs, vsSource)
 	gl.CompileShader(vs)
+	vsSel := gl.CreateShader(gl.VERTEX_SHADER)
+	gl.ShaderSource(vsSel, vsSelectSource)
+	gl.CompileShader(vsSel)
 	fs := gl.CreateShader(gl.FRAGMENT_SHADER)
 	gl.ShaderSource(fs, fsSource)
 	gl.CompileShader(fs)
@@ -40,23 +43,34 @@ func main() {
 	gl.AttachShader(program, fs)
 	gl.LinkProgram(program)
 
+	programSel := gl.CreateProgram()
+	gl.AttachShader(programSel, vsSel)
+	gl.AttachShader(programSel, fs)
+	gl.LinkProgram(programSel)
+
 	projectionMatrixLocation := gl.GetUniformLocation(program, "uProjectionMatrix")
+	projectionMatrixLocationSel := gl.GetUniformLocation(programSel, "uProjectionMatrix")
 	modelViewMatrixLocation := gl.GetUniformLocation(program, "uModelViewMatrix")
+	modelViewMatrixLocationSel := gl.GetUniformLocation(programSel, "uModelViewMatrix")
 
 	gl.Enable(gl.DEPTH_TEST)
 	gl.DepthFunc(gl.LEQUAL)
 
-	gl.UseProgram(program)
+	posBuf := gl.CreateBuffer()
 
+	var projectionMatrix mat.Mat4
 	updateProjectionMatrix := func(width, height int) {
 		gl.Canvas.SetWidth(width)
 		gl.Canvas.SetHeight(height)
-		projectionMatrix := mat.Perspective(
+		projectionMatrix = mat.Perspective(
 			45*3.14/180,
 			float32(width)/float32(height),
 			1.0, 1000.0,
 		)
+		gl.UseProgram(program)
 		gl.UniformMatrix4fv(projectionMatrixLocation, false, projectionMatrix)
+		gl.UseProgram(programSel)
+		gl.UniformMatrix4fv(projectionMatrixLocationSel, false, projectionMatrix)
 		gl.Viewport(0, 0, width, height)
 	}
 	width := gl.Canvas.ClientWidth()
@@ -75,30 +89,52 @@ func main() {
 		}),
 	)
 
-	chUpdateView := make(chan float32)
-	viewDistance := float32(100.0)
+	chUpdateView := make(chan float64)
+	viewDistance := 100.0
 	var modelViewMatrixBase mat.Mat4
-	updateView := func(distance float32) {
+	updateView := func(distance float64) {
 		modelViewMatrixBase =
-			mat.Translate(0, 0, -distance).
+			mat.Translate(0, 0, -float32(distance)).
 				Mul(mat.Rotate(1, 0, 0, 3.14/4))
 	}
 	updateView(viewDistance)
 
-	canvas.Call("addEventListener", "wheel",
-		js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			event := args[0]
-			event.Call("preventDefault")
-			viewDistance += float32(event.Get("deltaY").Int())
-			chUpdateView <- viewDistance
-			return false
-		}),
-	)
+	gl.Canvas.OnWheel(func(e webgl.WheelEvent) {
+		e.PreventDefault()
+		viewDistance += e.DeltaY
+		chUpdateView <- viewDistance
+	})
+	chMouseEvent := make(chan webgl.MouseEvent)
+	gl.Canvas.OnClick(func(e webgl.MouseEvent) {
+		chMouseEvent <- e
+	})
+
+	toolBuf := gl.CreateBuffer()
+
+	updateCursor := func(v0, v1 mat.Vec3) {
+		gl.BindBuffer(gl.ARRAY_BUFFER, toolBuf)
+		gl.BufferData(gl.ARRAY_BUFFER, webgl.Float32ArrayBuffer([]float32{
+			v0[0], v0[1], v0[2],
+			v1[0], v1[1], v1[2],
+			0, 0, 0,
+		}), gl.STATIC_DRAW)
+	}
+	updateCursor(mat.NewVec3(0, 0, 0), mat.NewVec3(0, 0, 20))
 
 	gl.ClearColor(0.0, 0.0, 0.0, 1.0)
 	gl.ClearDepth(1.0)
 
 	var nPoints int
+	var pc *pcd.PointCloud
+
+	gl.UseProgram(program)
+	vertexPosition := gl.GetAttribLocation(program, "aVertexPosition")
+	gl.EnableVertexAttribArray(vertexPosition)
+
+	gl.UseProgram(programSel)
+	vertexPositionSel := gl.GetAttribLocation(programSel, "aVertexPosition")
+	gl.EnableVertexAttribArray(vertexPositionSel)
+
 	for {
 		newWidth := gl.Canvas.ClientWidth()
 		newHeight := gl.Canvas.ClientHeight()
@@ -108,38 +144,87 @@ func main() {
 		}
 
 		modelViewMatrix := modelViewMatrixBase.Mul(mat.Rotate(0, 0, 1, ang))
-		gl.UniformMatrix4fv(modelViewMatrixLocation, false, modelViewMatrix)
 
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 		if nPoints > 0 {
+			gl.UseProgram(program)
+			gl.BindBuffer(gl.ARRAY_BUFFER, posBuf)
+			gl.VertexAttribPointer(vertexPosition, 3, gl.FLOAT, false, pc.Stride(), 0)
+
+			gl.UniformMatrix4fv(modelViewMatrixLocation, false, modelViewMatrix)
 			gl.DrawArrays(gl.POINTS, 0, nPoints)
 		}
+
+		gl.UseProgram(programSel)
+		gl.BindBuffer(gl.ARRAY_BUFFER, toolBuf)
+		gl.VertexAttribPointer(vertexPositionSel, 3, gl.FLOAT, false, 0, 0)
+
+		gl.UniformMatrix4fv(modelViewMatrixLocationSel, false, modelViewMatrix)
+		gl.DrawArrays(gl.LINES, 0, 2)
 
 		for {
 			select {
 			case path := <-chNewPath:
 				logPrint("loading pcd file")
-				n, err := loadPCD(gl, program, path)
+				p, n, err := loadPCD(gl, program, posBuf, path)
 				if err != nil {
 					logPrint(err)
 					continue
 				}
 				logPrint("pcd file loaded")
 				nPoints = n
+				pc = p
 				continue
 			case d := <-chUpdateView:
 				updateView(d)
+				continue
+			case e := <-chMouseEvent:
+				pos := mat.NewVec3(
+					float32(e.ClientX)*2/float32(width)-1,
+					1-float32(e.ClientY)*2/float32(height), -1)
+
+				a := projectionMatrix.Mul(modelViewMatrix).InvAffine()
+				origin := a.Transform(mat.NewVec3(0, 0, 0))
+				target := a.Transform(pos)
+				updateCursor(origin, target)
+
+				if pc == nil {
+					continue
+				}
+				xi, err := pc.Float32Iterator("x")
+				if err != nil {
+					continue
+				}
+				yi, err := pc.Float32Iterator("y")
+				if err != nil {
+					continue
+				}
+				zi, err := pc.Float32Iterator("z")
+				if err != nil {
+					continue
+				}
+				i := 0
+				for xi.IsValid() {
+					_ = xi.Float32()
+					_ = yi.Float32()
+					_ = zi.Float32()
+					i++
+					xi.Incr()
+					yi.Incr()
+					zi.Incr()
+				}
+				println("test", i)
 				continue
 			case <-tick.C:
 			}
 			break
 		}
 
-		ang += 0.01
+		//ang += 0.01
 	}
 }
 
-func loadPCD(gl *webgl.WebGL, program webgl.Program, path string) (int, error) {
+func loadPCD(gl *webgl.WebGL, program webgl.Program, buf webgl.Buffer, path string) (*pcd.PointCloud, int, error) {
 	var b []byte
 	chErr := make(chan error)
 	js.Global().Call("fetch", path).Call("then",
@@ -166,23 +251,18 @@ func loadPCD(gl *webgl.WebGL, program webgl.Program, path string) (int, error) {
 	)
 
 	if err := <-chErr; err != nil {
-		return 0, err
+		return nil, 0, err
 	}
 
 	pc, err := pcd.Parse(bytes.NewReader(b))
 	if err != nil {
-		return 0, err
+		return nil, 0, err
 	}
 
-	vertexPosition := gl.GetAttribLocation(program, "aVertexPosition")
-	posBuf := gl.CreateBuffer()
-
-	gl.BindBuffer(gl.ARRAY_BUFFER, posBuf)
-	gl.VertexAttribPointer(vertexPosition, 3, gl.FLOAT, false, 0, pc.Stride())
-	gl.EnableVertexAttribArray(vertexPosition)
+	gl.BindBuffer(gl.ARRAY_BUFFER, buf)
 	gl.BufferData(gl.ARRAY_BUFFER, webgl.ByteArrayBuffer(pc.Data), gl.STATIC_DRAW)
 
-	return pc.Points - 1, nil
+	return pc, pc.Points, nil
 }
 
 const vsSource = `
@@ -202,6 +282,20 @@ const vsSource = `
 		vColor = vec4(c, 0.0, 1.0 - c, 1.0);
 	}
 `
+
+const vsSelectSource = `
+	attribute vec4 aVertexPosition;
+	uniform mat4 uModelViewMatrix;
+	uniform mat4 uProjectionMatrix;
+	varying lowp vec4 vColor;
+	void main(void) {
+		gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
+		gl_PointSize = 3.0;
+
+		vColor = vec4(1.0, 1.0, 1.0, 0.8);
+	}
+`
+
 const fsSource = `
 	varying lowp vec4 vColor;
 	void main(void) {
