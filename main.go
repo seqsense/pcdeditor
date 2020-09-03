@@ -132,13 +132,14 @@ func main() {
 			0, 0, 0,
 		}), gl.STATIC_DRAW)
 	}
-	updateCursor(mat.NewVec3(0, 0, 0), mat.NewVec3(0, 0, 20))
+	updateCursor(mat.NewVec3(0, 0, 0), mat.NewVec3(0, 0, 10))
 
 	gl.ClearColor(0.0, 0.0, 0.0, 1.0)
 	gl.ClearDepth(1.0)
 
 	var nPoints int
 	var pc *pcd.PointCloud
+	var selected0 *mat.Vec3
 
 	gl.UseProgram(program)
 	vertexPosition := gl.GetAttribLocation(program, "aVertexPosition")
@@ -182,6 +183,7 @@ func main() {
 
 		gl.UniformMatrix4fv(modelViewMatrixLocationSel, false, modelViewMatrix)
 		gl.DrawArrays(gl.LINES, 0, 2)
+		gl.DrawArrays(gl.POINTS, 0, 2)
 
 		select {
 		case path := <-chNewPath:
@@ -208,7 +210,14 @@ func main() {
 					pc, modelViewMatrix, projectionMatrix, fov, e.OffsetX, e.OffsetY, width, height,
 				)
 				if ok {
-					updateCursor(*selected, mat.NewVec3(0, 0, 1).Add(*selected))
+					if !e.ShiftKey {
+						selected0 = selected
+						updateCursor(*selected0, *selected)
+					} else {
+						if selected0 != nil {
+							updateCursor(*selected0, *selected)
+						}
+					}
 				}
 			}
 		case <-tick.C:

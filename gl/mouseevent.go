@@ -10,4 +10,6 @@ type MouseEvent struct {
 	UIEvent
 	OffsetX, OffsetY int
 	Button           MouseButton
+	CtrlKey          bool
+	ShiftKey         bool
 }

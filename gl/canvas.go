@@ -87,8 +87,10 @@ func parseMouseEvent(event js.Value) MouseEvent {
 				event: event,
 			},
 		},
-		OffsetX: event.Get("offsetX").Int(),
-		OffsetY: event.Get("offsetY").Int(),
-		Button:  b,
+		OffsetX:  event.Get("offsetX").Int(),
+		OffsetY:  event.Get("offsetY").Int(),
+		Button:   b,
+		CtrlKey:  event.Get("ctrlKey").Bool(),
+		ShiftKey: event.Get("shiftKey").Bool(),
 	}
 }
