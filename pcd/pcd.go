@@ -24,6 +24,7 @@ type PointCloud struct {
 	Points    int
 	Format    Format
 	Data      []byte
+	dataFloat []float32
 }
 
 type Format int
@@ -178,6 +179,7 @@ L_HEADER:
 		}
 	}
 
+	pc.dataFloat = byteSliceAsFloat32Slice(pc.Data)
 	return pc, nil
 }
 
@@ -189,12 +191,20 @@ func (pc *PointCloud) Stride() int {
 	return stride
 }
 
-func (pc *PointCloud) Float32Iterator(name string) (*Float32Iterator, error) {
+func (pc *PointCloud) Float32Iterator(name string) (Float32Iterator, error) {
 	offset := 0
 	for i, fn := range pc.Fields {
 		if fn == name {
-			return &Float32Iterator{
-				Iterator: Iterator{
+			if pc.Stride()&3 == 0 && offset&3 == 0 {
+				// Aligned
+				return &float32Iterator{
+					data:   pc.dataFloat,
+					pos:    offset / 4,
+					stride: pc.Stride() / 4,
+				}, nil
+			}
+			return &binaryFloat32Iterator{
+				binaryIterator: binaryIterator{
 					data:   pc.Data,
 					pos:    offset,
 					stride: pc.Stride(),
@@ -206,8 +216,8 @@ func (pc *PointCloud) Float32Iterator(name string) (*Float32Iterator, error) {
 	return nil, errors.New("invalid field name")
 }
 
-func (pc *PointCloud) Float32Iterators(names ...string) ([]*Float32Iterator, error) {
-	var its []*Float32Iterator
+func (pc *PointCloud) Float32Iterators(names ...string) ([]Float32Iterator, error) {
+	var its []Float32Iterator
 	for _, name := range names {
 		it, err := pc.Float32Iterator(name)
 		if err != nil {
