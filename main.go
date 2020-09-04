@@ -130,22 +130,25 @@ func main() {
 
 	toolBuf := gl.CreateBuffer()
 
-	updateCursor := func(v0, v1 mat.Vec3) {
-		gl.BindBuffer(gl.ARRAY_BUFFER, toolBuf)
-		gl.BufferData(gl.ARRAY_BUFFER, webgl.Float32ArrayBuffer([]float32{
-			v0[0], v0[1], v0[2],
-			v1[0], v1[1], v1[2],
-			0, 0, 0,
-		}), gl.STATIC_DRAW)
+	var nCursorPoints int
+	updateCursor := func(pp ...mat.Vec3) {
+		nCursorPoints = len(pp)
+		buf := make([]float32, 0, len(pp)*3)
+		for _, p := range pp {
+			buf = append(buf, p[0], p[1], p[2])
+		}
+		if nCursorPoints > 0 {
+			gl.BindBuffer(gl.ARRAY_BUFFER, toolBuf)
+			gl.BufferData(gl.ARRAY_BUFFER, webgl.Float32ArrayBuffer(buf), gl.STATIC_DRAW)
+		}
 	}
-	updateCursor(mat.NewVec3(0, 0, 0), mat.NewVec3(0, 0, 10))
 
 	gl.ClearColor(0.0, 0.0, 0.0, 1.0)
 	gl.ClearDepth(1.0)
 
 	var nPoints int
 	var pc *pcd.PointCloud
-	var selected0 *mat.Vec3
+	var selected []mat.Vec3
 
 	gl.UseProgram(program)
 	vertexPosition := gl.GetAttribLocation(program, "aVertexPosition")
@@ -184,13 +187,15 @@ func main() {
 			gl.DrawArrays(gl.POINTS, 0, nPoints)
 		}
 
-		gl.UseProgram(programSel)
-		gl.BindBuffer(gl.ARRAY_BUFFER, toolBuf)
-		gl.VertexAttribPointer(vertexPositionSel, 3, gl.FLOAT, false, 0, 0)
+		if nCursorPoints > 0 {
+			gl.UseProgram(programSel)
+			gl.BindBuffer(gl.ARRAY_BUFFER, toolBuf)
+			gl.VertexAttribPointer(vertexPositionSel, 3, gl.FLOAT, false, 0, 0)
 
-		gl.UniformMatrix4fv(modelViewMatrixLocationSel, false, modelViewMatrix)
-		gl.DrawArrays(gl.LINES, 0, 2)
-		gl.DrawArrays(gl.POINTS, 0, 2)
+			gl.UniformMatrix4fv(modelViewMatrixLocationSel, false, modelViewMatrix)
+			gl.DrawArrays(gl.LINE_LOOP, 0, nCursorPoints)
+			gl.DrawArrays(gl.POINTS, 0, nCursorPoints)
+		}
 
 		select {
 		case path := <-chNewPath:
@@ -220,23 +225,41 @@ func main() {
 			cg.Move()
 		case e := <-chClick:
 			if e.Button == 0 && pc != nil && cg.Click() {
-				selected, ok := selectPoint(
+				p, ok := selectPoint(
 					pc, modelViewMatrix, projectionMatrix, fov, e.OffsetX, e.OffsetY, width, height,
 				)
 				if ok {
-					if !e.ShiftKey {
-						selected0 = selected
-						updateCursor(*selected0, *selected)
-					} else {
-						if selected0 != nil {
-							updateCursor(*selected0, *selected)
+					switch {
+					case e.ShiftKey:
+						if len(selected) > 0 {
+							if len(selected) > 1 {
+								selected[1] = *p
+							} else {
+								selected = append(selected, *p)
+							}
+							updateCursor(selected...)
 						}
+					default:
+						if len(selected) < 2 {
+							selected = []mat.Vec3{*p}
+						} else {
+							if len(selected) > 2 {
+								selected[2] = *p
+							} else {
+								selected = append(selected, *p)
+							}
+						}
+						updateCursor(selected...)
 					}
 				}
 			}
 			gl.Canvas.Focus()
 		case e := <-chKey:
-			logPrint(e.Code)
+			switch e.Code {
+			case "Escape":
+				selected = nil
+				updateCursor()
+			}
 		case <-tick.C:
 		}
 	}
