@@ -6,6 +6,10 @@ import (
 
 type Canvas js.Value
 
+func (c Canvas) Focus() {
+	js.Value(c).Call("focus")
+}
+
 func (c Canvas) ClientWidth() int {
 	return js.Value(c).Get("clientWidth").Int()
 }
@@ -75,22 +79,23 @@ func (c Canvas) onMouse(name string, cb func(MouseEvent)) {
 	)
 }
 
-func parseMouseEvent(event js.Value) MouseEvent {
-	b := MouseButtonNull
-	button := event.Get("button")
-	if !button.IsNull() {
-		b = MouseButton(button.Int())
-	}
-	return MouseEvent{
-		UIEvent: UIEvent{
-			Event: Event{
-				event: event,
-			},
-		},
-		OffsetX:  event.Get("offsetX").Int(),
-		OffsetY:  event.Get("offsetY").Int(),
-		Button:   b,
-		CtrlKey:  event.Get("ctrlKey").Bool(),
-		ShiftKey: event.Get("shiftKey").Bool(),
-	}
+func (c Canvas) OnKeyDown(cb func(KeyboardEvent)) {
+	c.onKey("keydown", cb)
+}
+
+func (c Canvas) OnKeyPress(cb func(KeyboardEvent)) {
+	c.onKey("keypress", cb)
+}
+
+func (c Canvas) OnKeyUp(cb func(KeyboardEvent)) {
+	c.onKey("keyup", cb)
+}
+
+func (c Canvas) onKey(name string, cb func(KeyboardEvent)) {
+	js.Value(c).Call("addEventListener", name,
+		js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			cb(parseKeyboardEvent(args[0]))
+			return nil
+		}),
+	)
 }

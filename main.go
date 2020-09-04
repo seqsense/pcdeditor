@@ -121,6 +121,12 @@ func main() {
 		e.PreventDefault()
 		e.StopPropagation()
 	})
+	chKey := make(chan webgl.KeyboardEvent)
+	gl.Canvas.OnKeyDown(func(e webgl.KeyboardEvent) {
+		e.PreventDefault()
+		e.StopPropagation()
+		chKey <- e
+	})
 
 	toolBuf := gl.CreateBuffer()
 
@@ -228,6 +234,9 @@ func main() {
 					}
 				}
 			}
+			gl.Canvas.Focus()
+		case e := <-chKey:
+			logPrint(e.Code)
 		case <-tick.C:
 		}
 	}
