@@ -179,7 +179,6 @@ L_HEADER:
 		}
 	}
 
-	pc.dataFloat = byteSliceAsFloat32Slice(pc.Data)
 	return pc, nil
 }
 
@@ -197,6 +196,9 @@ func (pc *PointCloud) Float32Iterator(name string) (Float32Iterator, error) {
 		if fn == name {
 			if pc.Stride()&3 == 0 && offset&3 == 0 {
 				// Aligned
+				if pc.dataFloat == nil {
+					pc.dataFloat = byteSliceAsFloat32Slice(pc.Data)
+				}
 				return &float32Iterator{
 					data:   pc.dataFloat,
 					pos:    offset / 4,
@@ -226,4 +228,37 @@ func (pc *PointCloud) Float32Iterators(names ...string) ([]Float32Iterator, erro
 		its = append(its, it)
 	}
 	return its, nil
+}
+
+func (pc *PointCloud) Vec3Iterator() (Vec3Iterator, error) {
+	var xyz int
+	for _, name := range pc.Fields {
+		if name == "x" && xyz == 0 {
+			xyz = 1
+		} else if name == "y" && xyz == 1 {
+			xyz = 2
+		} else if name == "z" && xyz == 2 {
+			xyz = 3
+		}
+	}
+	if xyz != 3 {
+		return pc.naiveVec3Iterator()
+	}
+	it, err := pc.Float32Iterator("x")
+	if err != nil {
+		return nil, err
+	}
+	vit, ok := it.(*float32Iterator)
+	if !ok {
+		return pc.naiveVec3Iterator()
+	}
+	return vit, nil
+}
+
+func (pc *PointCloud) naiveVec3Iterator() (Vec3Iterator, error) {
+	its, err := pc.Float32Iterators("x", "y", "z")
+	if err != nil {
+		return nil, err
+	}
+	return naiveVec3Iterator{its[0], its[1], its[2]}, nil
 }

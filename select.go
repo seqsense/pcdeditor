@@ -18,16 +18,15 @@ func selectPoint(pc *pcd.PointCloud, modelViewMatrix, projectionMatrix mat.Mat4,
 
 	dir := target.Sub(origin).Normalized()
 
-	it, err := pc.Float32Iterators("x", "y", "z")
+	it, err := pc.Vec3Iterator()
 	if err != nil {
 		return nil, false
 	}
-	xi, yi, zi := it[0], it[1], it[2]
 	var selected *mat.Vec3
 	dSqMin := float32(0.1 * 0.1)
 	vMin := float32(1000 * 1000)
-	for xi.IsValid() {
-		p := mat.NewVec3(xi.Float32(), yi.Float32(), zi.Float32())
+	for it.IsValid() {
+		p := it.Vec3()
 		pRel := origin.Sub(p)
 		dot := pRel.Dot(dir)
 		if dot < 0 {
@@ -39,9 +38,7 @@ func selectPoint(pc *pcd.PointCloud, modelViewMatrix, projectionMatrix mat.Mat4,
 				selected = &p
 			}
 		}
-		xi.Incr()
-		yi.Incr()
-		zi.Incr()
+		it.Incr()
 	}
 	if selected != nil {
 		return selected, true
