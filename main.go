@@ -150,6 +150,7 @@ func main() {
 	gl.EnableVertexAttribArray(vertexPositionSel)
 
 	vi := newView()
+	cg := &clickGuard{}
 
 	for {
 		newWidth := gl.Canvas.ClientWidth()
@@ -200,12 +201,19 @@ func main() {
 			vi.wheel(&e)
 		case e := <-chMouseDown:
 			vi.mouseDragStart(&e)
+			if e.Button == 0 {
+				cg.DragStart()
+			}
 		case e := <-chMouseUp:
 			vi.mouseDragEnd(&e)
+			if e.Button == 0 {
+				cg.DragEnd()
+			}
 		case e := <-chMouseMove:
 			vi.mouseDrag(&e)
+			cg.Move()
 		case e := <-chClick:
-			if e.Button == 0 && pc != nil {
+			if e.Button == 0 && pc != nil && cg.Click() {
 				selected, ok := selectPoint(
 					pc, modelViewMatrix, projectionMatrix, fov, e.OffsetX, e.OffsetY, width, height,
 				)
