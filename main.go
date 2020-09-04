@@ -237,7 +237,6 @@ func main() {
 							} else {
 								selected = append(selected, *p)
 							}
-							updateCursor(selected...)
 						}
 					default:
 						if len(selected) < 2 {
@@ -249,6 +248,17 @@ func main() {
 								selected = append(selected, *p)
 							}
 						}
+					}
+					switch len(selected) {
+					case 3:
+						base := selected[1].Sub(selected[0])
+						proj := selected[0].Add(
+							base.Mul(base.Dot(selected[2].Sub(selected[0])) / base.NormSq()))
+						perp := selected[2].Sub(proj)
+						p2 := selected[1].Add(perp)
+						p3 := selected[0].Add(perp)
+						updateCursor(selected[0], selected[1], p2, p3)
+					default:
 						updateCursor(selected...)
 					}
 				}
