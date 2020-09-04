@@ -146,7 +146,6 @@ func main() {
 	gl.ClearColor(0.0, 0.0, 0.0, 1.0)
 	gl.ClearDepth(1.0)
 
-	var nPoints int
 	var pc *pcd.PointCloud
 	var selected []mat.Vec3
 
@@ -178,13 +177,13 @@ func main() {
 				Mul(mat.Translate(float32(vi.x), float32(vi.y), 0))
 
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
-		if nPoints > 0 {
+		if pc != nil && pc.Points > 0 {
 			gl.UseProgram(program)
 			gl.BindBuffer(gl.ARRAY_BUFFER, posBuf)
 			gl.VertexAttribPointer(vertexPosition, 3, gl.FLOAT, false, pc.Stride(), 0)
 
 			gl.UniformMatrix4fv(modelViewMatrixLocation, false, modelViewMatrix)
-			gl.DrawArrays(gl.POINTS, 0, nPoints)
+			gl.DrawArrays(gl.POINTS, 0, pc.Points)
 		}
 
 		if nCursorPoints > 0 {
@@ -200,13 +199,12 @@ func main() {
 		select {
 		case path := <-chNewPath:
 			logPrint("loading pcd file")
-			p, n, err := loadPCD(gl, program, posBuf, path)
+			p, _, err := loadPCD(gl, program, posBuf, path)
 			if err != nil {
 				logPrint(err)
 				continue
 			}
 			logPrint("pcd file loaded")
-			nPoints = n
 			pc = p
 		case e := <-chWheel:
 			vi.wheel(&e)
