@@ -401,6 +401,47 @@ func main() {
 				}
 				edit.Merge(pcNew)
 				loadPoints(gl, posBuf, edit.pc)
+			case "KeyV", "KeyH":
+				if len(selected) != 3 {
+					break
+				}
+				switch e.Code {
+				case "KeyV":
+					selected[2][0] = selected[0][0]
+					selected[2][1] = selected[0][1]
+				case "KeyH":
+					selected[1][2] = selected[0][2]
+					selected[2][2] = selected[0][2]
+				}
+				p2, p3 := rectFrom3(selected[0], selected[1], selected[2])
+				updateCursor(selected[0], selected[1], p2, p3)
+			case "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "PageUp", "PageDown":
+				var dx, dy, dz float32
+				switch e.Code {
+				case "ArrowUp":
+					dx = 0.05
+				case "ArrowDown":
+					dx = -0.05
+				case "ArrowLeft":
+					dy = 0.05
+				case "ArrowRight":
+					dy = -0.05
+				case "PageUp":
+					dz = 0.05
+				case "PageDown":
+					dz = -0.05
+				}
+				for i := range selected {
+					selected[i][0] += dx
+					selected[i][1] += dy
+					selected[i][2] += dz
+				}
+				if len(selected) < 3 {
+					updateCursor(selected...)
+				} else {
+					p2, p3 := rectFrom3(selected[0], selected[1], selected[2])
+					updateCursor(selected[0], selected[1], p2, p3)
+				}
 			}
 		case <-tick.C:
 		}
