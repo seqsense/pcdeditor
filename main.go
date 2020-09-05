@@ -10,6 +10,11 @@ import (
 	"github.com/seqsense/pcdviewer/pcd"
 )
 
+const (
+	resolution = 0.05
+	delRange   = 0.1
+)
+
 func main() {
 	doc := js.Global().Get("document")
 	canvas := doc.Call("getElementById", "mapCanvas")
@@ -289,7 +294,7 @@ func main() {
 				l1 := v1.Norm()
 
 				edit.Filter(func(p mat.Vec3) bool {
-					if z := m.TransformZ(p); z < -0.1 || 0.1 < z {
+					if z := m.TransformZ(p); z < -delRange || delRange < z {
 						return true
 					}
 					if x := m.TransformX(p); x < 0 || l0 < x {
@@ -300,6 +305,47 @@ func main() {
 					}
 					return false
 				})
+				loadPoints(gl, posBuf, edit.pc)
+				selected = nil
+				updateCursor()
+			case "KeyF":
+				if len(selected) != 3 {
+					break
+				}
+				p0, p1 := selected[0], selected[1]
+				_, p2 := rectFrom3(p0, p1, selected[2])
+				v0, v1 := p1.Sub(p0), p2.Sub(p0)
+				v0n, v1n := v0.Normalized(), v1.Normalized()
+				v2n := v0n.Cross(v1n)
+				m := mat.Translate(p0[0], p0[1], p0[2]).MulAffine(mat.Mat4{
+					v0n[0], v0n[1], v0n[2], 0,
+					v1n[0], v1n[1], v1n[2], 0,
+					v2n[0], v2n[1], v2n[2], 0,
+					0, 0, 0, 1,
+				})
+				l0 := v0.Norm()
+				l1 := v1.Norm()
+
+				w := int(l0 / resolution)
+				h := int(l1 / resolution)
+				pcNew := &pcd.PointCloud{
+					PointCloudHeader: edit.pc.PointCloudHeader.Clone(),
+					Points:           w * h,
+					Data:             make([]byte, w*h*edit.pc.Stride()),
+				}
+				it, err := pcNew.Vec3Iterator()
+				if err != nil {
+					break
+				}
+				for x := 0; x < w; x++ {
+					for y := 0; y < h; y++ {
+						it.SetVec3(
+							m.Transform(mat.Vec3{float32(x) * resolution, float32(y) * resolution, 0}),
+						)
+						it.Incr()
+					}
+				}
+				edit.Merge(pcNew)
 				loadPoints(gl, posBuf, edit.pc)
 				selected = nil
 				updateCursor()

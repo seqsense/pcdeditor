@@ -53,4 +53,8 @@ func (e *editor) Filter(fn func(mat.Vec3) bool) error {
 }
 
 func (e *editor) Merge(pc *pcd.PointCloud) {
+	e.pc.Points += pc.Points
+	e.pc.Width = e.pc.Points
+	e.pc.Height = 1
+	e.pc.Data = append(e.pc.Data, pc.Data...)
 }

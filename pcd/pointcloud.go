@@ -50,7 +50,7 @@ func (pc *PointCloud) Float32Iterator(name string) (Float32Iterator, error) {
 		if fn == name {
 			if pc.Stride()&3 == 0 && offset&3 == 0 {
 				// Aligned
-				if pc.dataFloat == nil {
+				if pc.dataFloat == nil || isShadowing(pc.Data, pc.dataFloat) {
 					pc.dataFloat = byteSliceAsFloat32Slice(pc.Data)
 				}
 				return &float32Iterator{
