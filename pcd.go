@@ -5,11 +5,10 @@ import (
 	"errors"
 	"syscall/js"
 
-	webgl "github.com/seqsense/pcdviewer/gl"
 	"github.com/seqsense/pcdviewer/pcd"
 )
 
-func loadPCD(gl *webgl.WebGL, program webgl.Program, buf webgl.Buffer, path string) (*pcd.PointCloud, int, error) {
+func readPCD(path string) (*pcd.PointCloud, error) {
 	var b []byte
 	chErr := make(chan error)
 	js.Global().Call("fetch", path).Call("then",
@@ -36,16 +35,13 @@ func loadPCD(gl *webgl.WebGL, program webgl.Program, buf webgl.Buffer, path stri
 	)
 
 	if err := <-chErr; err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
 	pc, err := pcd.Parse(bytes.NewReader(b))
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
-	gl.BindBuffer(gl.ARRAY_BUFFER, buf)
-	gl.BufferData(gl.ARRAY_BUFFER, webgl.ByteArrayBuffer(pc.Data), gl.STATIC_DRAW)
-
-	return pc, pc.Points, nil
+	return pc, nil
 }

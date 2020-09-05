@@ -143,10 +143,17 @@ func main() {
 		}
 	}
 
+	loadPoints := func(gl *webgl.WebGL, buf webgl.Buffer, pc *pcd.PointCloud) {
+		if pc.Points > 0 {
+			gl.BindBuffer(gl.ARRAY_BUFFER, buf)
+			gl.BufferData(gl.ARRAY_BUFFER, webgl.ByteArrayBuffer(pc.Data), gl.STATIC_DRAW)
+		}
+	}
+
 	gl.ClearColor(0.0, 0.0, 0.0, 1.0)
 	gl.ClearDepth(1.0)
 
-	var pc *pcd.PointCloud
+	edit := &editor{}
 	var selected []mat.Vec3
 
 	gl.UseProgram(program)
@@ -170,20 +177,20 @@ func main() {
 
 		modelViewMatrixBase :=
 			mat.Translate(0, 0, -float32(vi.distance)).
-				Mul(mat.Rotate(1, 0, 0, float32(vi.pitch)))
+				MulAffine(mat.Rotate(1, 0, 0, float32(vi.pitch)))
 		modelViewMatrix :=
 			modelViewMatrixBase.
 				Mul(mat.Rotate(0, 0, 1, float32(vi.yaw))).
 				Mul(mat.Translate(float32(vi.x), float32(vi.y), 0))
 
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
-		if pc != nil && pc.Points > 0 {
+		if edit.pc != nil && edit.pc.Points > 0 {
 			gl.UseProgram(program)
 			gl.BindBuffer(gl.ARRAY_BUFFER, posBuf)
-			gl.VertexAttribPointer(vertexPosition, 3, gl.FLOAT, false, pc.Stride(), 0)
+			gl.VertexAttribPointer(vertexPosition, 3, gl.FLOAT, false, edit.pc.Stride(), 0)
 
 			gl.UniformMatrix4fv(modelViewMatrixLocation, false, modelViewMatrix)
-			gl.DrawArrays(gl.POINTS, 0, pc.Points)
+			gl.DrawArrays(gl.POINTS, 0, edit.pc.Points)
 		}
 
 		if nCursorPoints > 0 {
@@ -199,13 +206,14 @@ func main() {
 		select {
 		case path := <-chNewPath:
 			logPrint("loading pcd file")
-			p, _, err := loadPCD(gl, program, posBuf, path)
+			p, err := readPCD(path)
 			if err != nil {
 				logPrint(err)
 				continue
 			}
 			logPrint("pcd file loaded")
-			pc = p
+			edit.pc = p
+			loadPoints(gl, posBuf, edit.pc)
 		case e := <-chWheel:
 			vi.wheel(&e)
 		case e := <-chMouseDown:
@@ -222,9 +230,9 @@ func main() {
 			vi.mouseDrag(&e)
 			cg.Move()
 		case e := <-chClick:
-			if e.Button == 0 && pc != nil && cg.Click() {
+			if e.Button == 0 && edit.pc != nil && cg.Click() {
 				p, ok := selectPoint(
-					pc, modelViewMatrix, projectionMatrix, fov, e.OffsetX, e.OffsetY, width, height,
+					edit.pc, modelViewMatrix, projectionMatrix, fov, e.OffsetX, e.OffsetY, width, height,
 				)
 				if ok {
 					switch {
@@ -249,12 +257,7 @@ func main() {
 					}
 					switch len(selected) {
 					case 3:
-						base := selected[1].Sub(selected[0])
-						proj := selected[0].Add(
-							base.Mul(base.Dot(selected[2].Sub(selected[0])) / base.NormSq()))
-						perp := selected[2].Sub(proj)
-						p2 := selected[1].Add(perp)
-						p3 := selected[0].Add(perp)
+						p2, p3 := rectFrom3(selected[0], selected[1], selected[2])
 						updateCursor(selected[0], selected[1], p2, p3)
 					default:
 						updateCursor(selected...)
@@ -265,6 +268,39 @@ func main() {
 		case e := <-chKey:
 			switch e.Code {
 			case "Escape":
+				selected = nil
+				updateCursor()
+			case "Delete":
+				if len(selected) != 3 {
+					break
+				}
+				p0, p1 := selected[0], selected[1]
+				_, p2 := rectFrom3(p0, p1, selected[2])
+				v0, v1 := p1.Sub(p0), p2.Sub(p0)
+				v0n, v1n := v0.Normalized(), v1.Normalized()
+				v2n := v0n.Cross(v1n)
+				m := (mat.Mat4{
+					v0n[0], v0n[1], v0n[2], 0,
+					v1n[0], v1n[1], v1n[2], 0,
+					v2n[0], v2n[1], v2n[2], 0,
+					0, 0, 0, 1,
+				}).InvAffine().MulAffine(mat.Translate(-p0[0], -p0[1], -p0[2]))
+				l0 := v0.Norm()
+				l1 := v1.Norm()
+
+				edit.Filter(func(p mat.Vec3) bool {
+					if z := m.TransformZ(p); z < -0.1 || 0.1 < z {
+						return true
+					}
+					if x := m.TransformX(p); x < 0 || l0 < x {
+						return true
+					}
+					if y := m.TransformY(p); y < 0 || l1 < y {
+						return true
+					}
+					return false
+				})
+				loadPoints(gl, posBuf, edit.pc)
 				selected = nil
 				updateCursor()
 			}

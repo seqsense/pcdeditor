@@ -25,7 +25,7 @@ func selectPoint(pc *pcd.PointCloud, modelViewMatrix, projectionMatrix mat.Mat4,
 	var selected *mat.Vec3
 	dSqMin := float32(0.1 * 0.1)
 	vMin := float32(1000 * 1000)
-	for it.IsValid() {
+	for ; it.IsValid(); it.Incr() {
 		p := it.Vec3()
 		pRel := origin.Sub(p)
 		dot := pRel.Dot(dir)
@@ -38,10 +38,17 @@ func selectPoint(pc *pcd.PointCloud, modelViewMatrix, projectionMatrix mat.Mat4,
 				selected = &p
 			}
 		}
-		it.Incr()
 	}
 	if selected != nil {
 		return selected, true
 	}
 	return nil, false
+}
+
+func rectFrom3(p0, p1, p2 mat.Vec3) (mat.Vec3, mat.Vec3) {
+	base := p1.Sub(p0)
+	proj := p0.Add(
+		base.Mul(base.Dot(p2.Sub(p0)) / base.NormSq()))
+	perp := p2.Sub(proj)
+	return p1.Add(perp), p0.Add(perp)
 }
