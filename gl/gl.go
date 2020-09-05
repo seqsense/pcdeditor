@@ -20,6 +20,8 @@ type DepthFunc int
 type Type int
 type BufferMask int
 type DrawMode int
+type ProgramParameter int
+type ShaderParameter int
 
 type Shader js.Value
 type Program js.Value
@@ -36,13 +38,15 @@ type WebGL struct {
 	STATIC_DRAW                                                                   BufferUsage
 	DEPTH_TEST                                                                    Capacity
 	LEQUAL                                                                        DepthFunc
-	FLOAT                                                                         Type
+	FLOAT, UNSIGNED_SHORT, UNSIGNED_INT                                           Type
 	COLOR_BUFFER_BIT, DEPTH_BUFFER_BIT, STENCIL_BUFFER_BIT                        BufferMask
 	POINTS, LINE_STRIP, LINE_LOOP, LINES, TRIANGLE_STRIP, TRIANGLE_FAN, TRIANGLES DrawMode
+	COMPILE_STATUS                                                                ShaderParameter
+	LINK_STATUS, VALIDATE_STATUS                                                  ProgramParameter
 }
 
 func New(canvas js.Value) (*WebGL, error) {
-	gl := canvas.Call("getContext", "webgl")
+	gl := canvas.Call("getContext", "webgl2")
 	if gl.IsNull() {
 		return nil, errors.New("WebGL is not supported")
 	}
@@ -62,7 +66,9 @@ func New(canvas js.Value) (*WebGL, error) {
 
 		LEQUAL: DepthFunc(gl.Get("LEQUAL").Int()),
 
-		FLOAT: Type(gl.Get("FLOAT").Int()),
+		FLOAT:          Type(gl.Get("FLOAT").Int()),
+		UNSIGNED_SHORT: Type(gl.Get("UNSIGNED_SHORT").Int()),
+		UNSIGNED_INT:   Type(gl.Get("UNSIGNED_INT").Int()),
 
 		COLOR_BUFFER_BIT:   BufferMask(gl.Get("COLOR_BUFFER_BIT").Int()),
 		DEPTH_BUFFER_BIT:   BufferMask(gl.Get("DEPTH_BUFFER_BIT").Int()),
@@ -75,6 +81,11 @@ func New(canvas js.Value) (*WebGL, error) {
 		TRIANGLE_STRIP: DrawMode(gl.Get("TRIANGLE_STRIP").Int()),
 		TRIANGLE_FAN:   DrawMode(gl.Get("TRIANGLE_FAN").Int()),
 		TRIANGLES:      DrawMode(gl.Get("TRIANGLES").Int()),
+
+		COMPILE_STATUS: ShaderParameter(gl.Get("COMPILE_STATUS").Int()),
+
+		LINK_STATUS:     ProgramParameter(gl.Get("LINK_STATUS").Int()),
+		VALIDATE_STATUS: ProgramParameter(gl.Get("VALIDATE_STATUS").Int()),
 	}, nil
 }
 
@@ -90,6 +101,15 @@ func (gl *WebGL) CompileShader(s Shader) {
 	gl.gl.Call("compileShader", js.Value(s))
 }
 
+func (gl *WebGL) GetShaderParameter(s Shader, param ShaderParameter) interface{} {
+	v := gl.gl.Call("getShaderParameter", js.Value(s), int(param))
+	switch param {
+	case gl.COMPILE_STATUS:
+		return v.Bool()
+	}
+	return nil
+}
+
 func (gl *WebGL) CreateProgram() Program {
 	return Program(gl.gl.Call("createProgram"))
 }
@@ -100,6 +120,19 @@ func (gl *WebGL) AttachShader(p Program, s Shader) {
 
 func (gl *WebGL) LinkProgram(p Program) {
 	gl.gl.Call("linkProgram", js.Value(p))
+}
+
+func (gl *WebGL) GetProgramParameter(p Program, param ProgramParameter) interface{} {
+	v := gl.gl.Call("getProgramParameter", js.Value(p), int(param))
+	switch param {
+	case gl.LINK_STATUS, gl.VALIDATE_STATUS:
+		return v.Bool()
+	}
+	return nil
+}
+
+func (gl *WebGL) GetProgramInfoLog(p Program) string {
+	return gl.gl.Call("getProgramInfoLog", js.Value(p)).String()
 }
 
 func (gl *WebGL) UseProgram(p Program) {
@@ -147,6 +180,10 @@ func (gl *WebGL) DepthFunc(f DepthFunc) {
 
 func (gl *WebGL) VertexAttribPointer(i, size int, typ Type, normalized bool, stride, offset int) {
 	gl.gl.Call("vertexAttribPointer", i, size, int(typ), normalized, stride, offset)
+}
+
+func (gl *WebGL) VertexAttribIPointer(i, size int, typ Type, stride, offset int) {
+	gl.gl.Call("vertexAttribIPointer", i, size, int(typ), stride, offset)
 }
 
 func (gl *WebGL) EnableVertexAttribArray(i int) {

@@ -34,17 +34,33 @@ func main() {
 	vs := gl.CreateShader(gl.VERTEX_SHADER)
 	gl.ShaderSource(vs, vsSource)
 	gl.CompileShader(vs)
+	if !gl.GetShaderParameter(vs, gl.COMPILE_STATUS).(bool) {
+		logPrint("Compile failed (VERTEX_SHADER)")
+		return
+	}
 	vsSel := gl.CreateShader(gl.VERTEX_SHADER)
 	gl.ShaderSource(vsSel, vsSelectSource)
 	gl.CompileShader(vsSel)
+	if !gl.GetShaderParameter(vsSel, gl.COMPILE_STATUS).(bool) {
+		logPrint("Compile failed (VERTEX_SHADER)")
+		return
+	}
 	fs := gl.CreateShader(gl.FRAGMENT_SHADER)
 	gl.ShaderSource(fs, fsSource)
 	gl.CompileShader(fs)
+	if !gl.GetShaderParameter(fs, gl.COMPILE_STATUS).(bool) {
+		logPrint("Compile failed (FRAGMENT_SHADER)")
+		return
+	}
 
 	program := gl.CreateProgram()
 	gl.AttachShader(program, vs)
 	gl.AttachShader(program, fs)
 	gl.LinkProgram(program)
+	if !gl.GetProgramParameter(program, gl.LINK_STATUS).(bool) {
+		logPrint("Link failed: " + gl.GetProgramInfoLog(program))
+		return
+	}
 
 	programSel := gl.CreateProgram()
 	gl.AttachShader(programSel, vsSel)
@@ -162,12 +178,14 @@ func main() {
 	var selected []mat.Vec3
 
 	gl.UseProgram(program)
-	vertexPosition := gl.GetAttribLocation(program, "aVertexPosition")
-	gl.EnableVertexAttribArray(vertexPosition)
+	aVertexPosition := 0
+	aVertexLabel := 1
+	gl.EnableVertexAttribArray(aVertexPosition)
+	gl.EnableVertexAttribArray(aVertexLabel)
 
 	gl.UseProgram(programSel)
-	vertexPositionSel := gl.GetAttribLocation(programSel, "aVertexPosition")
-	gl.EnableVertexAttribArray(vertexPositionSel)
+	aVertexPositionSel := 0
+	gl.EnableVertexAttribArray(aVertexPositionSel)
 
 	vi := newView()
 	cg := &clickGuard{}
@@ -192,16 +210,17 @@ func main() {
 		if edit.pc != nil && edit.pc.Points > 0 {
 			gl.UseProgram(program)
 			gl.BindBuffer(gl.ARRAY_BUFFER, posBuf)
-			gl.VertexAttribPointer(vertexPosition, 3, gl.FLOAT, false, edit.pc.Stride(), 0)
+			gl.VertexAttribPointer(aVertexPosition, 3, gl.FLOAT, false, edit.pc.Stride(), 0)
+			gl.VertexAttribIPointer(aVertexLabel, 1, gl.UNSIGNED_INT, edit.pc.Stride(), 3*4)
 
 			gl.UniformMatrix4fv(modelViewMatrixLocation, false, modelViewMatrix)
-			gl.DrawArrays(gl.POINTS, 0, edit.pc.Points)
+			gl.DrawArrays(gl.POINTS, 0, edit.pc.Points-1)
 		}
 
 		if nCursorPoints > 0 {
 			gl.UseProgram(programSel)
 			gl.BindBuffer(gl.ARRAY_BUFFER, toolBuf)
-			gl.VertexAttribPointer(vertexPositionSel, 3, gl.FLOAT, false, 0, 0)
+			gl.VertexAttribPointer(aVertexPositionSel, 3, gl.FLOAT, false, 0, 0)
 
 			gl.UniformMatrix4fv(modelViewMatrixLocationSel, false, modelViewMatrix)
 			gl.DrawArrays(gl.LINE_LOOP, 0, nCursorPoints)
@@ -278,7 +297,7 @@ func main() {
 			case "Escape":
 				selected = nil
 				updateCursor()
-			case "Delete":
+			case "Delete", "Digit0", "Digit1":
 				if len(selected) != 3 {
 					break
 				}
@@ -296,7 +315,7 @@ func main() {
 				l0 := v0.Norm()
 				l1 := v1.Norm()
 
-				edit.Filter(func(p mat.Vec3) bool {
+				filter := func(p mat.Vec3) bool {
 					if z := m.TransformZ(p); z < -delRange || delRange < z {
 						return true
 					}
@@ -307,10 +326,25 @@ func main() {
 						return true
 					}
 					return false
-				})
+				}
+				switch e.Code {
+				case "Delete":
+					edit.Filter(filter)
+					selected = nil
+					updateCursor()
+				case "Digit0", "Digit1":
+					var l uint32
+					if e.Code == "Digit1" {
+						l = 1
+					}
+					edit.Label(func(p mat.Vec3) (uint32, bool) {
+						if filter(p) {
+							return 0, false
+						}
+						return l, true
+					})
+				}
 				loadPoints(gl, posBuf, edit.pc)
-				selected = nil
-				updateCursor()
 			case "KeyF":
 				if len(selected) != 3 {
 					break

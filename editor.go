@@ -56,6 +56,27 @@ func (e *editor) Set(pc *pcd.PointCloud) error {
 	return nil
 }
 
+func (e *editor) Label(fn func(mat.Vec3) (uint32, bool)) error {
+	it, err := e.pc.Vec3Iterator()
+	if err != nil {
+		return err
+	}
+	itL, err := e.pc.Uint32Iterator("label")
+	if err != nil {
+		return err
+	}
+
+	for it.IsValid() {
+		l, ok := fn(it.Vec3())
+		if ok {
+			itL.SetUint32(l)
+		}
+		it.Incr()
+		itL.Incr()
+	}
+	return nil
+}
+
 func (e *editor) Filter(fn func(mat.Vec3) bool) error {
 	it, err := e.pc.Vec3Iterator()
 	if err != nil {
