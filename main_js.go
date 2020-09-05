@@ -11,8 +11,8 @@ import (
 )
 
 const (
-	resolution = 0.05
-	delRange   = 0.1
+	resolution         = 0.05
+	defaultSelectRange = 0.05
 )
 
 func main() {
@@ -158,8 +158,22 @@ func main() {
 
 	toolBuf := gl.CreateBuffer()
 
+	edit := &editor{}
+	var selected []mat.Vec3
+	var selectRange float32 = defaultSelectRange
 	var nCursorPoints int
+
 	updateCursor := func(pp ...mat.Vec3) {
+		if len(pp) == 4 {
+			p0 := pp[1].Sub(pp[0])
+			p1 := pp[3].Sub(pp[0])
+			norm := p0.Cross(p1).Normalized().Mul(selectRange)
+			ppUpdated := []mat.Vec3{
+				pp[0].Add(norm), pp[1].Add(norm), pp[2].Add(norm), pp[3].Add(norm),
+				pp[0].Sub(norm), pp[1].Sub(norm), pp[2].Sub(norm), pp[3].Sub(norm),
+			}
+			pp = ppUpdated
+		}
 		nCursorPoints = len(pp)
 		buf := make([]float32, 0, len(pp)*3)
 		for _, p := range pp {
@@ -180,9 +194,6 @@ func main() {
 
 	gl.ClearColor(0.0, 0.0, 0.0, 1.0)
 	gl.ClearDepth(1.0)
-
-	edit := &editor{}
-	var selected []mat.Vec3
 
 	gl.UseProgram(program)
 	aVertexPosition := 0
@@ -226,12 +237,18 @@ func main() {
 
 		if nCursorPoints > 0 {
 			gl.UseProgram(programSel)
-			gl.BindBuffer(gl.ARRAY_BUFFER, toolBuf)
-			gl.VertexAttribPointer(aVertexPositionSel, 3, gl.FLOAT, false, 0, 0)
+			for i := 0; i < nCursorPoints; i += 4 {
+				gl.BindBuffer(gl.ARRAY_BUFFER, toolBuf)
+				gl.VertexAttribPointer(aVertexPositionSel, 3, gl.FLOAT, false, 3*4, 3*4*i)
+				n := 4
+				if n > nCursorPoints-i {
+					n = nCursorPoints - i
+				}
 
-			gl.UniformMatrix4fv(modelViewMatrixLocationSel, false, modelViewMatrix)
-			gl.DrawArrays(gl.LINE_LOOP, 0, nCursorPoints)
-			gl.DrawArrays(gl.POINTS, 0, nCursorPoints)
+				gl.UniformMatrix4fv(modelViewMatrixLocationSel, false, modelViewMatrix)
+				gl.DrawArrays(gl.LINE_LOOP, 0, n)
+				gl.DrawArrays(gl.POINTS, 0, n)
+			}
 		}
 
 		select {
@@ -259,7 +276,33 @@ func main() {
 				logPrint("pcd file saved")
 			}
 		case e := <-chWheel:
-			vi.wheel(&e)
+			switch {
+			case e.CtrlKey:
+				if len(selected) > 2 {
+					selectRange += float32(e.DeltaY) * 0.01
+					if selectRange < 0 {
+						selectRange = 0
+					}
+					p2, p3 := rectFrom3(selected[0], selected[1], selected[2])
+					updateCursor(selected[0], selected[1], p2, p3)
+				}
+			case e.ShiftKey:
+				if len(selected) > 2 {
+					p2, p3 := rectFrom3(selected[0], selected[1], selected[2])
+					updateCursor(selected[0], selected[1], p2, p3)
+
+					c := selected[0].Add(selected[1]).Add(p2).Add(p3).Mul(1.0 / 4.0)
+					d0, d1, d2 := selected[0].Sub(c), selected[1].Sub(c), selected[2].Sub(c)
+					r := 1.0 + float32(e.DeltaY)*0.01
+					selected[0] = c.Add(d0.Mul(r))
+					selected[1] = c.Add(d1.Mul(r))
+					selected[2] = c.Add(d2.Mul(r))
+					p2, p3 = rectFrom3(selected[0], selected[1], selected[2])
+					updateCursor(selected[0], selected[1], p2, p3)
+				}
+			default:
+				vi.wheel(&e)
+			}
 		case e := <-chMouseDown:
 			vi.mouseDragStart(&e)
 			if e.Button == 0 {
@@ -333,7 +376,7 @@ func main() {
 				l1 := v1.Norm()
 
 				filter := func(p mat.Vec3) bool {
-					if z := m.TransformZ(p); z < -delRange || delRange < z {
+					if z := m.TransformZ(p); z < -selectRange || selectRange < z {
 						return true
 					}
 					if x := m.TransformX(p); x < 0 || l0 < x {
@@ -347,8 +390,10 @@ func main() {
 				switch e.Code {
 				case "Delete":
 					edit.Filter(filter)
-					selected = nil
-					updateCursor()
+					if !e.ShiftKey && !e.CtrlKey {
+						selected = nil
+						updateCursor()
+					}
 				case "Digit0", "Digit1":
 					var l uint32
 					if e.Code == "Digit1" {
