@@ -401,8 +401,6 @@ func main() {
 				}
 				edit.Merge(pcNew)
 				loadPoints(gl, posBuf, edit.pc)
-				selected = nil
-				updateCursor()
 			}
 		case <-tick.C:
 		}
