@@ -56,7 +56,7 @@ func writePCD(path string, pc *pcd.PointCloud) error {
 
 	chErr := make(chan error)
 	js.Global().Call("fetch", path, map[string]interface{}{
-		"method":  "POST",
+		"method":  "PUT",
 		"headers": map[string]interface{}{"Content-Type": "application/octet-stream"},
 		"body":    array,
 	}).Call("then",
