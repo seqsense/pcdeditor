@@ -3,8 +3,8 @@ package main
 import (
 	"math"
 
-	"github.com/seqsense/pcdviewer/mat"
-	"github.com/seqsense/pcdviewer/pcd"
+	"github.com/seqsense/pcdeditor/mat"
+	"github.com/seqsense/pcdeditor/pcd"
 )
 
 func selectPoint(pc *pcd.PointCloud, modelViewMatrix, projectionMatrix mat.Mat4, fov float64, x, y, width, height int) (*mat.Vec3, bool) {

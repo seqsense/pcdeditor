@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"math"
 
-	"github.com/seqsense/pcdviewer/mat"
+	"github.com/seqsense/pcdeditor/mat"
 )
 
 type binaryIterator struct {

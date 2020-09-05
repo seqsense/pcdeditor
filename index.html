@@ -12,7 +12,7 @@
     <script src="wasm_exec.js"></script>
     <script>
       const go = new Go();
-      WebAssembly.instantiateStreaming(fetch("pcdviewer.wasm"), go.importObject).then((result) => {
+      WebAssembly.instantiateStreaming(fetch("pcdeditor.wasm"), go.importObject).then((result) => {
 				go.run(result.instance);
 			});
     </script>

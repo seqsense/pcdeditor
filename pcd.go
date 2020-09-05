@@ -5,7 +5,7 @@ import (
 	"errors"
 	"syscall/js"
 
-	"github.com/seqsense/pcdviewer/pcd"
+	"github.com/seqsense/pcdeditor/pcd"
 )
 
 func readPCD(path string) (*pcd.PointCloud, error) {

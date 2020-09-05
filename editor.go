@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/seqsense/pcdviewer/mat"
-	"github.com/seqsense/pcdviewer/pcd"
+	"github.com/seqsense/pcdeditor/mat"
+	"github.com/seqsense/pcdeditor/pcd"
 )
 
 type editor struct {

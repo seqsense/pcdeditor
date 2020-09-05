@@ -4,7 +4,7 @@ import (
 	"errors"
 	"syscall/js"
 
-	"github.com/seqsense/pcdviewer/mat"
+	"github.com/seqsense/pcdeditor/mat"
 )
 
 var (

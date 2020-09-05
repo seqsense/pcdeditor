@@ -5,9 +5,9 @@ import (
 	"syscall/js"
 	"time"
 
-	webgl "github.com/seqsense/pcdviewer/gl"
-	"github.com/seqsense/pcdviewer/mat"
-	"github.com/seqsense/pcdviewer/pcd"
+	webgl "github.com/seqsense/pcdeditor/gl"
+	"github.com/seqsense/pcdeditor/mat"
+	"github.com/seqsense/pcdeditor/pcd"
 )
 
 const (
