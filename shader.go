@@ -8,12 +8,14 @@ const vsSource = `#version 300 es
 	const float zMax = 5.0;
 	const float zMin = -5.0;
 	const float zRange = zMax - zMin;
-	lowp float c;
 	out lowp vec4 vColor;
+	vec4 viewPosition;
+	lowp float c;
 
 	void main(void) {
-		gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
-		gl_PointSize = 2.0;
+		viewPosition = uModelViewMatrix * aVertexPosition;
+		gl_Position = uProjectionMatrix * viewPosition;
+		gl_PointSize = clamp(20.0 / length(viewPosition), 1.0, 5.0);
 
 		c = (aVertexPosition[2] - zMin) / zRange;
 		if (aVertexLabel == 0u) {
@@ -32,7 +34,7 @@ const vsSelectSource = `#version 300 es
 
 	void main(void) {
 		gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
-		gl_PointSize = 3.0;
+		gl_PointSize = 5.5;
 
 		vColor = vec4(1.0, 1.0, 1.0, 0.8);
 	}
