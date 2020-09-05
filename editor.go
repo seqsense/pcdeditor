@@ -9,6 +9,53 @@ type editor struct {
 	pc *pcd.PointCloud
 }
 
+func (e *editor) Set(pc *pcd.PointCloud) error {
+	if len(pc.Fields) == 4 && pc.Fields[0] == "x" && pc.Fields[1] == "y" && pc.Fields[2] == "z" && pc.Fields[3] == "label" {
+		e.pc = pc
+		return nil
+	}
+	i, err := pc.Vec3Iterator()
+	if err != nil {
+		return err
+	}
+	iL, _ := pc.Uint32Iterator("label")
+
+	pcNew := &pcd.PointCloud{
+		PointCloudHeader: pcd.PointCloudHeader{
+			Version: pc.Version,
+			Fields:  []string{"x", "y", "z", "label"},
+			Size:    []int{4, 4, 4, 4},
+			Type:    []string{"F", "F", "F", "U"},
+			Count:   []int{1, 1, 1, 1},
+			Width:   pc.Points,
+			Height:  1,
+		},
+		Points: pc.Points,
+	}
+	pcNew.Data = make([]byte, pc.Points*pcNew.Stride())
+
+	j, err := pcNew.Vec3Iterator()
+	if err != nil {
+		return err
+	}
+	jL, err := pcNew.Uint32Iterator("label")
+	if err != nil {
+		return err
+	}
+	for i.IsValid() {
+		j.SetVec3(i.Vec3())
+		j.Incr()
+		i.Incr()
+		if iL != nil {
+			jL.SetUint32(jL.Uint32())
+			jL.Incr()
+			iL.Incr()
+		}
+	}
+	e.pc = pcNew
+	return nil
+}
+
 func (e *editor) Filter(fn func(mat.Vec3) bool) error {
 	it, err := e.pc.Vec3Iterator()
 	if err != nil {

@@ -216,9 +216,12 @@ func main() {
 				logPrint(err)
 				continue
 			}
-			logPrint("pcd file loaded")
-			edit.pc = p
+			if err := edit.Set(p); err != nil {
+				logPrint(err)
+				continue
+			}
 			loadPoints(gl, posBuf, edit.pc)
+			logPrint("pcd file loaded")
 		case e := <-chWheel:
 			vi.wheel(&e)
 		case e := <-chMouseDown:

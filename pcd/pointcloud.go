@@ -116,3 +116,20 @@ func (pc *PointCloud) naiveVec3Iterator() (Vec3Iterator, error) {
 	}
 	return naiveVec3Iterator{its[0], its[1], its[2]}, nil
 }
+
+func (pc *PointCloud) Uint32Iterator(name string) (Uint32Iterator, error) {
+	offset := 0
+	for i, fn := range pc.Fields {
+		if fn == name {
+			return &binaryUint32Iterator{
+				binaryIterator: binaryIterator{
+					data:   pc.Data,
+					pos:    offset,
+					stride: pc.Stride(),
+				},
+			}, nil
+		}
+		offset += pc.Size[i] * pc.Count[i]
+	}
+	return nil, errors.New("invalid field name")
+}

@@ -105,3 +105,24 @@ func (i naiveVec3Iterator) SetVec3(v mat.Vec3) {
 	i[1].SetFloat32(v[1])
 	i[2].SetFloat32(v[2])
 }
+
+type Uint32Iterator interface {
+	Incr()
+	IsValid() bool
+	Uint32() uint32
+	SetUint32(uint32)
+}
+
+type binaryUint32Iterator struct {
+	binaryIterator
+}
+
+func (i *binaryUint32Iterator) Uint32() uint32 {
+	return binary.LittleEndian.Uint32(i.binaryIterator.data[i.binaryIterator.pos : i.binaryIterator.pos+4])
+}
+
+func (i *binaryUint32Iterator) SetUint32(v uint32) {
+	binary.LittleEndian.PutUint32(
+		i.binaryIterator.data[i.binaryIterator.pos:i.binaryIterator.pos+4], v,
+	)
+}
