@@ -22,7 +22,7 @@ func main() {
 	logDiv := doc.Call("getElementById", "log")
 	logPrint := func(msg interface{}) {
 		html := logDiv.Get("innerHTML").String()
-		logDiv.Set("innerHTML", fmt.Sprintf("%s%s<br/>", html, msg))
+		logDiv.Set("innerHTML", fmt.Sprintf("%s%v<br/>", html, msg))
 	}
 
 	gl, err := webgl.New(canvas)
@@ -240,11 +240,11 @@ func main() {
 			p, err := readPCD(path)
 			if err != nil {
 				logPrint(err)
-				continue
+				break
 			}
 			if err := edit.Set(p); err != nil {
 				logPrint(err)
-				continue
+				break
 			}
 			loadPoints(gl, posBuf, edit.pc)
 			logPrint("pcd file loaded")
