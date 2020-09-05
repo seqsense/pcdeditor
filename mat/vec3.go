@@ -43,18 +43,10 @@ func (v Vec3) CrossNormSq(a Vec3) float32 {
 	return v.NormSq()*a.NormSq() - d*d
 }
 
-func (m Mat4) TransformAffine(a Vec3) Vec3 {
-	var out Vec3
-	out[0] = m[4*0+0]*a[0] + m[4*1+0]*a[1] + m[4*2+0]*a[2] + m[4*3+0]
-	out[1] = m[4*0+1]*a[0] + m[4*1+1]*a[1] + m[4*2+1]*a[2] + m[4*3+1]
-	out[2] = m[4*0+2]*a[0] + m[4*1+2]*a[1] + m[4*2+2]*a[2] + m[4*3+2]
-	return out
-}
-
-func (m Mat4) Transform(a Vec3) Vec3 {
-	var out Vec3
-	out[0] = m[4*0+0]*a[0] + m[4*1+0]*a[1] + m[4*2+0]*a[2] + m[4*3+0]
-	out[1] = m[4*0+1]*a[0] + m[4*1+1]*a[1] + m[4*2+1]*a[2] + m[4*3+1]
-	out[2] = m[4*0+2]*a[0] + m[4*1+2]*a[1] + m[4*2+2]*a[2] + m[4*3+2]
-	return out
+func (v Vec3) Cross(a Vec3) Vec3 {
+	return Vec3{
+		v[1]*a[2] - v[2]*a[1],
+		v[2]*a[0] - v[0]*a[2],
+		v[0]*a[1] - v[1]*a[0],
+	}
 }

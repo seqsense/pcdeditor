@@ -91,3 +91,23 @@ func (m Mat4) InvAffine() Mat4 {
 	out[4*3+2] = -b2[2]
 	return out
 }
+
+func (m Mat4) Transform(a Vec3) Vec3 {
+	return Vec3{
+		m[4*0+0]*a[0] + m[4*1+0]*a[1] + m[4*2+0]*a[2] + m[4*3+0],
+		m[4*0+1]*a[0] + m[4*1+1]*a[1] + m[4*2+1]*a[2] + m[4*3+1],
+		m[4*0+2]*a[0] + m[4*1+2]*a[1] + m[4*2+2]*a[2] + m[4*3+2],
+	}
+}
+
+func (m Mat4) TransformX(a Vec3) float32 {
+	return m[4*0+0]*a[0] + m[4*1+0]*a[1] + m[4*2+0]*a[2] + m[4*3+0]
+}
+
+func (m Mat4) TransformY(a Vec3) float32 {
+	return m[4*0+1]*a[0] + m[4*1+1]*a[1] + m[4*2+1]*a[2] + m[4*3+1]
+}
+
+func (m Mat4) TransformZ(a Vec3) float32 {
+	return m[4*0+2]*a[0] + m[4*1+2]*a[1] + m[4*2+2]*a[2] + m[4*3+2]
+}
