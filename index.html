@@ -13,8 +13,8 @@
     <script>
       const go = new Go();
       WebAssembly.instantiateStreaming(fetch("pcdeditor.wasm"), go.importObject).then((result) => {
-				go.run(result.instance);
-			});
+        go.run(result.instance);
+      });
     </script>
   </body>
 </html>
