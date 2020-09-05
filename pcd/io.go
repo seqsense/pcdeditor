@@ -23,6 +23,7 @@ const (
 func Parse(r io.Reader) (*PointCloud, error) {
 	rb := bufio.NewReader(r)
 	pc := &PointCloud{}
+	var fmt Format
 
 L_HEADER:
 	for {
@@ -88,11 +89,11 @@ L_HEADER:
 		case "DATA":
 			switch args[1] {
 			case "ascii":
-				pc.Format = Ascii
+				fmt = Ascii
 			case "binary":
-				pc.Format = Binary
+				fmt = Binary
 			case "binary_compressed":
-				pc.Format = BinaryCompressed
+				fmt = BinaryCompressed
 			default:
 				return nil, errors.New("unknown data format")
 			}
@@ -110,7 +111,7 @@ L_HEADER:
 		return nil, errors.New("count field size is wrong")
 	}
 
-	switch pc.Format {
+	switch fmt {
 	case Ascii:
 		panic("not implemented yet")
 	case Binary:

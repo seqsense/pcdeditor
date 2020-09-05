@@ -4,7 +4,7 @@ import (
 	"errors"
 )
 
-type PointCloud struct {
+type PointCloudHeader struct {
 	Version   float32
 	Fields    []string
 	Size      []int
@@ -13,13 +13,30 @@ type PointCloud struct {
 	Width     int
 	Height    int
 	Viewpoint []float32
-	Points    int
-	Format    Format
+}
+
+func (h *PointCloudHeader) Clone() PointCloudHeader {
+	return PointCloudHeader{
+		Version:   h.Version,
+		Fields:    append([]string{}, h.Fields...),
+		Size:      append([]int{}, h.Size...),
+		Type:      append([]string{}, h.Type...),
+		Count:     append([]int{}, h.Count...),
+		Width:     h.Width,
+		Height:    h.Height,
+		Viewpoint: append([]float32{}, h.Viewpoint...),
+	}
+}
+
+type PointCloud struct {
+	PointCloudHeader
+	Points int
+
 	Data      []byte
 	dataFloat []float32
 }
 
-func (pc *PointCloud) Stride() int {
+func (pc *PointCloudHeader) Stride() int {
 	var stride int
 	for i := range pc.Fields {
 		stride += pc.Count[i] * pc.Size[i]
