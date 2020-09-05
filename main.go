@@ -107,6 +107,13 @@ func main() {
 			return nil
 		}),
 	)
+	chSavePath := make(chan string)
+	js.Global().Set("savePCD",
+		js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			chSavePath <- args[0].String()
+			return nil
+		}),
+	)
 
 	chWheel := make(chan webgl.WheelEvent)
 	gl.Canvas.OnWheel(func(e webgl.WheelEvent) {
@@ -241,6 +248,16 @@ func main() {
 			}
 			loadPoints(gl, posBuf, edit.pc)
 			logPrint("pcd file loaded")
+		case path := <-chSavePath:
+			if edit.pc != nil {
+				logPrint("saving pcd file")
+				err := writePCD(path, edit.pc)
+				if err != nil {
+					logPrint(err)
+					continue
+				}
+				logPrint("pcd file saved")
+			}
 		case e := <-chWheel:
 			vi.wheel(&e)
 		case e := <-chMouseDown:

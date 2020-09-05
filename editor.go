@@ -22,13 +22,14 @@ func (e *editor) Set(pc *pcd.PointCloud) error {
 
 	pcNew := &pcd.PointCloud{
 		PointCloudHeader: pcd.PointCloudHeader{
-			Version: pc.Version,
-			Fields:  []string{"x", "y", "z", "label"},
-			Size:    []int{4, 4, 4, 4},
-			Type:    []string{"F", "F", "F", "U"},
-			Count:   []int{1, 1, 1, 1},
-			Width:   pc.Points,
-			Height:  1,
+			Version:   pc.Version,
+			Fields:    []string{"x", "y", "z", "label"},
+			Size:      []int{4, 4, 4, 4},
+			Type:      []string{"F", "F", "F", "U"},
+			Count:     []int{1, 1, 1, 1},
+			Viewpoint: pc.Viewpoint,
+			Width:     pc.Points,
+			Height:    1,
 		},
 		Points: pc.Points,
 	}

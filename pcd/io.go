@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"strconv"
@@ -20,7 +21,7 @@ const (
 	BinaryCompressed
 )
 
-func Parse(r io.Reader) (*PointCloud, error) {
+func Unmarshal(r io.Reader) (*PointCloud, error) {
 	rb := bufio.NewReader(r)
 	pc := &PointCloud{}
 	var fmt Format
@@ -166,4 +167,50 @@ L_HEADER:
 	}
 
 	return pc, nil
+}
+
+func Marshal(pc *PointCloud, w io.Writer) error {
+	intToStringSlice := func(d []int) []string {
+		var ret []string
+		for _, v := range d {
+			ret = append(ret, strconv.Itoa(v))
+		}
+		return ret
+	}
+	floatToStringSlice := func(d []float32) []string {
+		var ret []string
+		for _, v := range d {
+			ret = append(ret, strconv.FormatFloat(float64(v), 'f', 4, 32))
+		}
+		return ret
+	}
+	header := fmt.Sprintf(
+		`VERSION %0.1f
+FIELDS %s
+SIZE %s
+TYPE %s
+COUNT %s
+WIDTH %d
+HEIGHT %d
+VIEWPOINT %s
+POINTS %d
+DATA binary
+`,
+		pc.Version,
+		strings.Join(pc.Fields, " "),
+		strings.Join(intToStringSlice(pc.Size), " "),
+		strings.Join(pc.Type, " "),
+		strings.Join(intToStringSlice(pc.Count), " "),
+		pc.Width,
+		pc.Height,
+		strings.Join(floatToStringSlice(pc.Viewpoint), " "),
+		pc.Points,
+	)
+	if _, err := w.Write([]byte(header)); err != nil {
+		return err
+	}
+	if _, err := w.Write(pc.Data); err != nil {
+		return err
+	}
+	return nil
 }
