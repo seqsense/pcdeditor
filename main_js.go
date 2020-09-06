@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"syscall/js"
@@ -18,19 +19,28 @@ const (
 )
 
 func main() {
-	js.Global().Set("createPCDEditor", js.FuncOf(newPCDEditor))
-	cb := js.Global().Get("document").Get("onPCDEditorReady")
+	cb := js.Global().Get("document").Get("onPCDEditorLoaded")
 	if !cb.IsNull() {
-		cb.Invoke()
+		cb.Invoke(
+			map[string]interface{}{
+				"attach": js.FuncOf(newPCDEditor),
+			},
+		)
 	}
 	select {}
+}
+
+type promiseSaveLoad struct {
+	path     string
+	resolved func()
+	rejected func(error)
 }
 
 type pcdeditor struct {
 	canvas      js.Value
 	logPrint    func(msg interface{})
-	chNewPath   chan string
-	chSavePath  chan string
+	chLoadPath  chan promiseSaveLoad
+	chSavePath  chan promiseSaveLoad
 	chWheel     chan webgl.WheelEvent
 	chClick     chan webgl.MouseEvent
 	chMouseDown chan webgl.MouseEvent
@@ -46,8 +56,8 @@ func newPCDEditor(this js.Value, args []js.Value) interface{} {
 		logPrint: func(msg interface{}) {
 			fmt.Println(msg)
 		},
-		chNewPath:   make(chan string, 1),
-		chSavePath:  make(chan string, 1),
+		chLoadPath:  make(chan promiseSaveLoad, 1),
+		chSavePath:  make(chan promiseSaveLoad, 1),
 		chWheel:     make(chan webgl.WheelEvent, 10),
 		chClick:     make(chan webgl.MouseEvent, 10),
 		chMouseDown: make(chan webgl.MouseEvent, 10),
@@ -64,22 +74,45 @@ func newPCDEditor(this js.Value, args []js.Value) interface{} {
 		}
 	}
 	go pe.Run()
+
+	promise := js.Global().Get("Promise")
+
 	return js.ValueOf(map[string]interface{}{
 		"loadPCD": js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			select {
-			case pe.chNewPath <- args[0].String():
-				return true
-			default:
-				return false
-			}
+			path := args[0].String()
+			return promise.New(js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+				resolve, reject := args[0], args[1]
+				cmd := promiseSaveLoad{
+					path:     path,
+					resolved: func() { resolve.Invoke() },
+					rejected: func(err error) { reject.Invoke(errorToJS(err)) },
+				}
+				select {
+				case pe.chLoadPath <- cmd:
+					return nil
+				default:
+					reject.Invoke()
+					return nil
+				}
+			}))
 		}),
 		"savePCD": js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			select {
-			case pe.chSavePath <- args[0].String():
-				return true
-			default:
-				return false
-			}
+			path := args[0].String()
+			return promise.New(js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+				resolve, reject := args[0], args[1]
+				cmd := promiseSaveLoad{
+					path:     path,
+					resolved: func() { resolve.Invoke() },
+					rejected: func(err error) { reject.Invoke(errorToJS(err)) },
+				}
+				select {
+				case pe.chSavePath <- cmd:
+					return nil
+				default:
+					reject.Invoke()
+					return nil
+				}
+			}))
 		}),
 	})
 }
@@ -160,27 +193,6 @@ func (pe *pcdeditor) Run() {
 
 	var vib3D bool
 	var vib3DX float32
-
-	js.Global().Set("loadPCD",
-		js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			select {
-			case pe.chNewPath <- args[0].String():
-				return true
-			default:
-				return false
-			}
-		}),
-	)
-	js.Global().Set("savePCD",
-		js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			select {
-			case pe.chSavePath <- args[0].String():
-				return true
-			default:
-				return false
-			}
-		}),
-	)
 
 	gl.Canvas.OnWheel(func(e webgl.WheelEvent) {
 		e.PreventDefault()
@@ -311,28 +323,32 @@ func (pe *pcdeditor) Run() {
 		}
 
 		select {
-		case path := <-pe.chNewPath:
+		case promise := <-pe.chLoadPath:
 			pe.logPrint("loading pcd file")
-			p, err := readPCD(path)
+			p, err := readPCD(promise.path)
 			if err != nil {
-				pe.logPrint(err)
+				promise.rejected(err)
 				break
 			}
 			if err := edit.Set(p); err != nil {
-				pe.logPrint(err)
+				promise.rejected(err)
 				break
 			}
 			loadPoints(gl, posBuf, edit.pc)
 			pe.logPrint("pcd file loaded")
-		case path := <-pe.chSavePath:
+			promise.resolved()
+		case promise := <-pe.chSavePath:
 			if edit.pc != nil {
 				pe.logPrint("saving pcd file")
-				err := writePCD(path, edit.pc)
+				err := writePCD(promise.path, edit.pc)
 				if err != nil {
-					pe.logPrint(err)
+					promise.rejected(err)
 					continue
 				}
 				pe.logPrint("pcd file saved")
+				promise.resolved()
+			} else {
+				promise.rejected(errors.New("no pointcloud"))
 			}
 		case e := <-pe.chWheel:
 			switch {

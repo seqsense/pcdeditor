@@ -15,14 +15,16 @@
   </body>
   <script src="wasm_exec.js"></script>
   <script>
-    document.onPCDEditorReady = () => {
-      let pcdeditor = createPCDEditor(document.getElementById("mapCanvas"), {logger: msg => {
-          const log = document.getElementById("log");
-          log.innerHTML = msg + "<br/>" + log.innerHTML;
-        }
-      });
-      document.getElementById("loadPCD").onclick = () => pcdeditor.loadPCD('/data/map.pcd');
-      document.getElementById("savePCD").onclick = () => pcdeditor.savePCD('/upload/map.pcd');
+    document.onPCDEditorLoaded = e => {
+      const logger = msg => {
+        const log = document.getElementById("log");
+        log.innerHTML = msg + "<br/>" + log.innerHTML;
+      };
+      const pcdeditor = e.attach(document.getElementById("mapCanvas"), {logger: logger});
+      document.getElementById("loadPCD").onclick =
+        () => pcdeditor.loadPCD('/data/map.pcd').catch(logger);
+      document.getElementById("savePCD").onclick =
+        () => pcdeditor.savePCD('/upload/map.pcd').catch(logger);
     }
     const go = new Go();
     WebAssembly.instantiateStreaming(fetch("pcdeditor.wasm"), go.importObject).then((result) => {
