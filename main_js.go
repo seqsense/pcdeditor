@@ -24,7 +24,7 @@ func main() {
 	logDiv := doc.Call("getElementById", "log")
 	logPrint := func(msg interface{}) {
 		html := logDiv.Get("innerHTML").String()
-		logDiv.Set("innerHTML", fmt.Sprintf("%s%v<br/>", html, msg))
+		logDiv.Set("innerHTML", fmt.Sprintf("%v<br/>%s", msg, html))
 	}
 
 	gl, err := webgl.New(canvas)
@@ -103,46 +103,54 @@ func main() {
 	var vib3D bool
 	var vib3DX float32
 
-	chNewPath := make(chan string)
+	chNewPath := make(chan string, 1)
 	js.Global().Set("loadPCD",
 		js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			chNewPath <- args[0].String()
-			return nil
+			select {
+			case chNewPath <- args[0].String():
+				return true
+			default:
+				return false
+			}
 		}),
 	)
-	chSavePath := make(chan string)
+	chSavePath := make(chan string, 1)
 	js.Global().Set("savePCD",
 		js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			chSavePath <- args[0].String()
-			return nil
+			select {
+			case chSavePath <- args[0].String():
+				return true
+			default:
+				return false
+			}
 		}),
 	)
 
-	chWheel := make(chan webgl.WheelEvent)
+	chWheel := make(chan webgl.WheelEvent, 10)
 	gl.Canvas.OnWheel(func(e webgl.WheelEvent) {
 		e.PreventDefault()
 		e.StopPropagation()
 		chWheel <- e
 	})
-	chClick := make(chan webgl.MouseEvent)
+	chClick := make(chan webgl.MouseEvent, 10)
 	gl.Canvas.OnClick(func(e webgl.MouseEvent) {
 		e.PreventDefault()
 		e.StopPropagation()
 		chClick <- e
 	})
-	chMouseDown := make(chan webgl.MouseEvent)
+	chMouseDown := make(chan webgl.MouseEvent, 10)
 	gl.Canvas.OnMouseDown(func(e webgl.MouseEvent) {
 		e.PreventDefault()
 		e.StopPropagation()
 		chMouseDown <- e
 	})
-	chMouseMove := make(chan webgl.MouseEvent)
+	chMouseMove := make(chan webgl.MouseEvent, 10)
 	gl.Canvas.OnMouseMove(func(e webgl.MouseEvent) {
 		e.PreventDefault()
 		e.StopPropagation()
 		chMouseMove <- e
 	})
-	chMouseUp := make(chan webgl.MouseEvent)
+	chMouseUp := make(chan webgl.MouseEvent, 10)
 	gl.Canvas.OnMouseUp(func(e webgl.MouseEvent) {
 		e.PreventDefault()
 		e.StopPropagation()
@@ -152,7 +160,7 @@ func main() {
 		e.PreventDefault()
 		e.StopPropagation()
 	})
-	chKey := make(chan webgl.KeyboardEvent)
+	chKey := make(chan webgl.KeyboardEvent, 10)
 	gl.Canvas.OnKeyDown(func(e webgl.KeyboardEvent) {
 		e.PreventDefault()
 		e.StopPropagation()
