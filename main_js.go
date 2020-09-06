@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"syscall/js"
 	"time"
 
@@ -468,21 +469,22 @@ func main() {
 				var dx, dy, dz float32
 				switch e.Code {
 				case "ArrowUp":
-					dx = 0.05
-				case "ArrowDown":
-					dx = -0.05
-				case "ArrowLeft":
 					dy = 0.05
-				case "ArrowRight":
+				case "ArrowDown":
 					dy = -0.05
+				case "ArrowLeft":
+					dx = -0.05
+				case "ArrowRight":
+					dx = 0.05
 				case "PageUp":
 					dz = 0.05
 				case "PageDown":
 					dz = -0.05
 				}
+				s, c := math.Sincos(vi.yaw)
 				for i := range selected {
-					selected[i][0] += dx
-					selected[i][1] += dy
+					selected[i][0] += float32(c)*dx - float32(s)*dy
+					selected[i][1] += float32(s)*dx + float32(c)*dy
 					selected[i][2] += dz
 				}
 				if len(selected) < 3 {
