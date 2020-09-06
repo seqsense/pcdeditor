@@ -18,18 +18,76 @@ const (
 )
 
 func main() {
-	doc := js.Global().Get("document")
-	canvas := doc.Call("getElementById", "mapCanvas")
-
-	logDiv := doc.Call("getElementById", "log")
-	logPrint := func(msg interface{}) {
-		html := logDiv.Get("innerHTML").String()
-		logDiv.Set("innerHTML", fmt.Sprintf("%v<br/>%s", msg, html))
+	js.Global().Set("createPCDEditor", js.FuncOf(newPCDEditor))
+	cb := js.Global().Get("document").Get("onPCDEditorReady")
+	if !cb.IsNull() {
+		cb.Invoke()
 	}
+	select {}
+}
 
-	gl, err := webgl.New(canvas)
+type pcdeditor struct {
+	canvas      js.Value
+	logPrint    func(msg interface{})
+	chNewPath   chan string
+	chSavePath  chan string
+	chWheel     chan webgl.WheelEvent
+	chClick     chan webgl.MouseEvent
+	chMouseDown chan webgl.MouseEvent
+	chMouseMove chan webgl.MouseEvent
+	chMouseUp   chan webgl.MouseEvent
+	chKey       chan webgl.KeyboardEvent
+}
+
+func newPCDEditor(this js.Value, args []js.Value) interface{} {
+	canvas := args[0]
+	pe := &pcdeditor{
+		canvas: canvas,
+		logPrint: func(msg interface{}) {
+			fmt.Println(msg)
+		},
+		chNewPath:   make(chan string, 1),
+		chSavePath:  make(chan string, 1),
+		chWheel:     make(chan webgl.WheelEvent, 10),
+		chClick:     make(chan webgl.MouseEvent, 10),
+		chMouseDown: make(chan webgl.MouseEvent, 10),
+		chMouseMove: make(chan webgl.MouseEvent, 10),
+		chMouseUp:   make(chan webgl.MouseEvent, 10),
+		chKey:       make(chan webgl.KeyboardEvent, 10),
+	}
+	if len(args) > 1 {
+		init := args[1]
+		if logger := init.Get("logger"); !logger.IsNull() {
+			pe.logPrint = func(msg interface{}) {
+				logger.Invoke(fmt.Sprintf("%v", msg))
+			}
+		}
+	}
+	go pe.Run()
+	return js.ValueOf(map[string]interface{}{
+		"loadPCD": js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			select {
+			case pe.chNewPath <- args[0].String():
+				return true
+			default:
+				return false
+			}
+		}),
+		"savePCD": js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			select {
+			case pe.chSavePath <- args[0].String():
+				return true
+			default:
+				return false
+			}
+		}),
+	})
+}
+
+func (pe *pcdeditor) Run() {
+	gl, err := webgl.New(pe.canvas)
 	if err != nil {
-		logPrint(err)
+		pe.logPrint(err)
 		return
 	}
 
@@ -37,21 +95,21 @@ func main() {
 	gl.ShaderSource(vs, vsSource)
 	gl.CompileShader(vs)
 	if !gl.GetShaderParameter(vs, gl.COMPILE_STATUS).(bool) {
-		logPrint("Compile failed (VERTEX_SHADER)")
+		pe.logPrint("Compile failed (VERTEX_SHADER)")
 		return
 	}
 	vsSel := gl.CreateShader(gl.VERTEX_SHADER)
 	gl.ShaderSource(vsSel, vsSelectSource)
 	gl.CompileShader(vsSel)
 	if !gl.GetShaderParameter(vsSel, gl.COMPILE_STATUS).(bool) {
-		logPrint("Compile failed (VERTEX_SHADER)")
+		pe.logPrint("Compile failed (VERTEX_SHADER)")
 		return
 	}
 	fs := gl.CreateShader(gl.FRAGMENT_SHADER)
 	gl.ShaderSource(fs, fsSource)
 	gl.CompileShader(fs)
 	if !gl.GetShaderParameter(fs, gl.COMPILE_STATUS).(bool) {
-		logPrint("Compile failed (FRAGMENT_SHADER)")
+		pe.logPrint("Compile failed (FRAGMENT_SHADER)")
 		return
 	}
 
@@ -60,7 +118,7 @@ func main() {
 	gl.AttachShader(program, fs)
 	gl.LinkProgram(program)
 	if !gl.GetProgramParameter(program, gl.LINK_STATUS).(bool) {
-		logPrint("Link failed: " + gl.GetProgramInfoLog(program))
+		pe.logPrint("Link failed: " + gl.GetProgramInfoLog(program))
 		return
 	}
 
@@ -103,22 +161,20 @@ func main() {
 	var vib3D bool
 	var vib3DX float32
 
-	chNewPath := make(chan string, 1)
 	js.Global().Set("loadPCD",
 		js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			select {
-			case chNewPath <- args[0].String():
+			case pe.chNewPath <- args[0].String():
 				return true
 			default:
 				return false
 			}
 		}),
 	)
-	chSavePath := make(chan string, 1)
 	js.Global().Set("savePCD",
 		js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			select {
-			case chSavePath <- args[0].String():
+			case pe.chSavePath <- args[0].String():
 				return true
 			default:
 				return false
@@ -126,45 +182,39 @@ func main() {
 		}),
 	)
 
-	chWheel := make(chan webgl.WheelEvent, 10)
 	gl.Canvas.OnWheel(func(e webgl.WheelEvent) {
 		e.PreventDefault()
 		e.StopPropagation()
-		chWheel <- e
+		pe.chWheel <- e
 	})
-	chClick := make(chan webgl.MouseEvent, 10)
 	gl.Canvas.OnClick(func(e webgl.MouseEvent) {
 		e.PreventDefault()
 		e.StopPropagation()
-		chClick <- e
+		pe.chClick <- e
 	})
-	chMouseDown := make(chan webgl.MouseEvent, 10)
 	gl.Canvas.OnMouseDown(func(e webgl.MouseEvent) {
 		e.PreventDefault()
 		e.StopPropagation()
-		chMouseDown <- e
+		pe.chMouseDown <- e
 	})
-	chMouseMove := make(chan webgl.MouseEvent, 10)
 	gl.Canvas.OnMouseMove(func(e webgl.MouseEvent) {
 		e.PreventDefault()
 		e.StopPropagation()
-		chMouseMove <- e
+		pe.chMouseMove <- e
 	})
-	chMouseUp := make(chan webgl.MouseEvent, 10)
 	gl.Canvas.OnMouseUp(func(e webgl.MouseEvent) {
 		e.PreventDefault()
 		e.StopPropagation()
-		chMouseUp <- e
+		pe.chMouseUp <- e
 	})
 	gl.Canvas.OnContextMenu(func(e webgl.MouseEvent) {
 		e.PreventDefault()
 		e.StopPropagation()
 	})
-	chKey := make(chan webgl.KeyboardEvent, 10)
 	gl.Canvas.OnKeyDown(func(e webgl.KeyboardEvent) {
 		e.PreventDefault()
 		e.StopPropagation()
-		chKey <- e
+		pe.chKey <- e
 	})
 
 	toolBuf := gl.CreateBuffer()
@@ -261,30 +311,30 @@ func main() {
 		}
 
 		select {
-		case path := <-chNewPath:
-			logPrint("loading pcd file")
+		case path := <-pe.chNewPath:
+			pe.logPrint("loading pcd file")
 			p, err := readPCD(path)
 			if err != nil {
-				logPrint(err)
+				pe.logPrint(err)
 				break
 			}
 			if err := edit.Set(p); err != nil {
-				logPrint(err)
+				pe.logPrint(err)
 				break
 			}
 			loadPoints(gl, posBuf, edit.pc)
-			logPrint("pcd file loaded")
-		case path := <-chSavePath:
+			pe.logPrint("pcd file loaded")
+		case path := <-pe.chSavePath:
 			if edit.pc != nil {
-				logPrint("saving pcd file")
+				pe.logPrint("saving pcd file")
 				err := writePCD(path, edit.pc)
 				if err != nil {
-					logPrint(err)
+					pe.logPrint(err)
 					continue
 				}
-				logPrint("pcd file saved")
+				pe.logPrint("pcd file saved")
 			}
-		case e := <-chWheel:
+		case e := <-pe.chWheel:
 			switch {
 			case e.CtrlKey:
 				if len(selected) > 2 {
@@ -312,20 +362,20 @@ func main() {
 			default:
 				vi.wheel(&e)
 			}
-		case e := <-chMouseDown:
+		case e := <-pe.chMouseDown:
 			vi.mouseDragStart(&e)
 			if e.Button == 0 {
 				cg.DragStart()
 			}
-		case e := <-chMouseUp:
+		case e := <-pe.chMouseUp:
 			vi.mouseDragEnd(&e)
 			if e.Button == 0 {
 				cg.DragEnd()
 			}
-		case e := <-chMouseMove:
+		case e := <-pe.chMouseMove:
 			vi.mouseDrag(&e)
 			cg.Move()
-		case e := <-chClick:
+		case e := <-pe.chClick:
 			if e.Button == 0 && edit.pc != nil && cg.Click() {
 				p, ok := selectPoint(
 					edit.pc, modelViewMatrix, projectionMatrix, e.OffsetX, e.OffsetY, width, height,
@@ -361,7 +411,7 @@ func main() {
 				}
 			}
 			gl.Canvas.Focus()
-		case e := <-chKey:
+		case e := <-pe.chKey:
 			switch e.Code {
 			case "Escape":
 				selected = nil

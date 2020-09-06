@@ -7,14 +7,23 @@
     <div style="box-sizing: border-box; width: 100%; height: 100%; position: relative; margin: 0; padding: 0;">
       <canvas id="mapCanvas" tabindex="0" style="width: 100%; height: 100%; z-index: 1;"></canvas>
       <div style="z-index: 2; position: absolute; top: 0; left: 0; padding: 2px; box-sizing: border-box;">
-        <button onclick="loadPCD('/data/map.pcd')">load</button>
-        <button onclick="savePCD('/upload/map.pcd')">save</button>
+        <button id="loadPCD">load</button>
+        <button id="savePCD">save</button>
       </div>
       <div id="log" style="font-size: 0.6em; max-height: 5em; position: absolute; bottom: 1em; left: 1em; z-index: 2; color: white; pointer-events: none; overflow: hidden;"></div>
     </div>
   </body>
   <script src="wasm_exec.js"></script>
   <script>
+    document.onPCDEditorReady = () => {
+      let pcdeditor = createPCDEditor(document.getElementById("mapCanvas"), {logger: msg => {
+          const log = document.getElementById("log");
+          log.innerHTML = msg + "<br/>" + log.innerHTML;
+        }
+      });
+      document.getElementById("loadPCD").onclick = () => pcdeditor.loadPCD('/data/map.pcd');
+      document.getElementById("savePCD").onclick = () => pcdeditor.savePCD('/upload/map.pcd');
+    }
     const go = new Go();
     WebAssembly.instantiateStreaming(fetch("pcdeditor.wasm"), go.importObject).then((result) => {
       go.run(result.instance);
