@@ -13,6 +13,7 @@ import (
 const (
 	resolution         = 0.05
 	defaultSelectRange = 0.05
+	vib3DXAmp          = 0.002
 )
 
 func main() {
@@ -97,8 +98,11 @@ func main() {
 	height := gl.Canvas.ClientHeight()
 	updateProjectionMatrix(width, height)
 
-	tick := time.NewTicker(time.Second / 5)
+	tick := time.NewTicker(time.Second / 8)
 	defer tick.Stop()
+
+	var vib3D bool
+	var vib3DX float32
 
 	chNewPath := make(chan string)
 	js.Global().Set("loadPCD",
@@ -217,7 +221,7 @@ func main() {
 		}
 
 		modelViewMatrixBase :=
-			mat.Translate(0, 0, -float32(vi.distance)).
+			mat.Translate(vib3DX, 0, -float32(vi.distance)).
 				MulAffine(mat.Rotate(1, 0, 0, float32(vi.pitch)))
 		modelViewMatrix :=
 			modelViewMatrixBase.
@@ -491,8 +495,19 @@ func main() {
 					p2, p3 := rectFrom3(selected[0], selected[1], selected[2])
 					updateCursor(selected[0], selected[1], p2, p3)
 				}
+			case "KeyP":
+				vib3D = !vib3D
 			}
 		case <-tick.C:
+			if vib3D {
+				if vib3DX < 0 {
+					vib3DX = vib3DXAmp
+				} else {
+					vib3DX = -vib3DXAmp
+				}
+			} else {
+				vib3DX = 0
+			}
 		}
 	}
 }
