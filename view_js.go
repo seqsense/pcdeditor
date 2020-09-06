@@ -7,7 +7,7 @@ import (
 
 const (
 	defaultDistance = 100.0
-	defaultPitch    = 3.14 / 4
+	defaultPitch    = math.Pi / 4
 	yDeadband       = 20
 )
 
@@ -24,20 +24,25 @@ func newView() *view {
 	return &view{
 		distance: defaultDistance,
 		pitch:    defaultPitch,
-		pitch0:   defaultPitch,
 	}
 }
 
 func (v *view) reset() {
 	v.distance = defaultDistance
 	v.pitch = defaultPitch
-	v.pitch0 = defaultPitch
 }
 
 func (v *view) fps() {
 	v.distance = 0
-	v.pitch = 3.14 / 2
-	v.pitch0 = 3.14 / 2
+	v.pitch = math.Pi / 2
+}
+
+func (v *view) snapYaw() {
+	v.yaw = math.Round(v.yaw/(math.Pi/2)) * (math.Pi / 2)
+}
+
+func (v *view) snapPitch() {
+	v.pitch = math.Round(v.pitch/(math.Pi/2)) * (math.Pi / 2)
 }
 
 func (v *view) wheel(e *webgl.WheelEvent) {
@@ -52,6 +57,7 @@ func (v *view) move(dx, dy, dyaw float64) {
 	v.x += c*dy + s*dx
 	v.y += s*dy - c*dx
 	v.yaw += dyaw
+	v.yaw = math.Remainder(v.yaw, 2*math.Pi)
 }
 
 func (v *view) mouseDragStart(e *webgl.MouseEvent) {
@@ -84,6 +90,11 @@ func (v *view) mouseDrag(e *webgl.MouseEvent) {
 			yDiff = 0
 		}
 		v.pitch = v.pitch0 - 0.02*yDiff
+		if v.pitch < 0 {
+			v.pitch = 0
+		} else if v.pitch > math.Pi {
+			v.pitch = math.Pi
+		}
 	case 1:
 		s, c := math.Sincos(v.yaw)
 		v.x = v.x0 + 0.1*(xDiff*c+yDiff*s)

@@ -79,7 +79,7 @@ func main() {
 
 	posBuf := gl.CreateBuffer()
 
-	fov := 3.14 / 3
+	fov := math.Pi / 3
 	var projectionMatrix mat.Mat4
 	updateProjectionMatrix := func(width, height int) {
 		gl.Canvas.SetWidth(width)
@@ -511,14 +511,14 @@ func main() {
 			case "BracketRight", "Backslash":
 				switch e.Code {
 				case "BracketRight":
-					fov += 3.14 / 16
-					if fov > 3.14*2/3 {
-						fov = 3.14 * 2 / 3
+					fov += math.Pi / 16
+					if fov > math.Pi*2/3 {
+						fov = math.Pi * 2 / 3
 					}
 				case "Backslash":
-					fov -= 3.14 / 16
-					if fov < 3.14/8 {
-						fov = 3.14 / 8
+					fov -= math.Pi / 16
+					if fov < math.Pi/8 {
+						fov = math.Pi / 8
 					}
 				}
 				updateProjectionMatrix(width, height)
@@ -526,10 +526,12 @@ func main() {
 				vi.reset()
 			case "F2":
 				vi.fps()
+			case "F11":
+				vi.snapYaw()
+			case "F12":
+				vi.snapPitch()
 			case "KeyP":
 				vib3D = !vib3D
-			default:
-				logPrint(e.Code)
 			}
 		case <-tick.C:
 			if vib3D {
