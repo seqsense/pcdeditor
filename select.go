@@ -1,19 +1,17 @@
 package main
 
 import (
-	"math"
-
 	"github.com/seqsense/pcdeditor/mat"
 	"github.com/seqsense/pcdeditor/pcd"
 )
 
-func selectPoint(pc *pcd.PointCloud, modelViewMatrix, projectionMatrix mat.Mat4, fov float64, x, y, width, height int) (*mat.Vec3, bool) {
+func selectPoint(pc *pcd.PointCloud, modelViewMatrix, projectionMatrix mat.Mat4, x, y, width, height int) (*mat.Vec3, bool) {
 	pos := mat.NewVec3(
 		float32(x)*2/float32(width)-1,
 		1-float32(y)*2/float32(height), -1)
 
-	a := projectionMatrix.Mul(modelViewMatrix).InvAffine()
-	origin := a.Transform(mat.NewVec3(0, 0, -1-1.0/float32(math.Tan(fov))))
+	a := projectionMatrix.Mul(modelViewMatrix).Inv()
+	origin := modelViewMatrix.InvAffine().Transform((mat.NewVec3(0, 0, 0)))
 	target := a.Transform(pos)
 
 	dir := target.Sub(origin).Normalized()

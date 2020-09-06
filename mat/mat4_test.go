@@ -27,7 +27,7 @@ func TestMul(t *testing.T) {
 	}
 }
 
-func TestInv(t *testing.T) {
+func TestInvAffine(t *testing.T) {
 	m0 := Translate(0.1, 0.2, 0.3)
 	m1 := Scale(1.1, 1.2, 1.3)
 	m2 := Rotate(1, 0, 0, 0.5)
@@ -84,6 +84,39 @@ func TestTransform(t *testing.T) {
 			t.Errorf("v(%d) expected to be %0.3f, got %0.3f",
 				i, vNaive[i], v[i],
 			)
+		}
+	}
+}
+
+func TestDet(t *testing.T) {
+	m := Mat4{
+		1, 1, 1, -1,
+		1, 1, -1, 1,
+		1, -1, 1, 1,
+		-1, 1, 1, 1,
+	}
+	if d := m.Det(); d != -16.0 {
+		t.Errorf("Determinant is wrong %0.3f != %0.3f", d, -16.0)
+	}
+}
+
+func TestInv(t *testing.T) {
+	m0 := Translate(0.1, 0.2, 0.3)
+	m1 := Scale(1.1, 1.2, 1.3)
+	m2 := Rotate(1, 0, 0, 0.5)
+
+	m := m0.MulAffine(m1).MulAffine(m2)
+	mia := m.InvAffine()
+	mi := m.Inv()
+	for i := 0; i < 4; i++ {
+		for j := 0; j < 4; j++ {
+			a := j*4 + i
+			diff := mia[a] - mi[a]
+			if diff < -0.01 || 0.01 < diff {
+				t.Errorf("m(%d, %d) expected to be %0.3f, got %0.3f",
+					i, j, mia[a], mi[a],
+				)
+			}
 		}
 	}
 }

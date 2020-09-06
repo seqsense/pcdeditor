@@ -86,7 +86,7 @@ func main() {
 		projectionMatrix = mat.Perspective(
 			float32(fov),
 			float32(width)/float32(height),
-			0.5, 1000.0,
+			1.0, 1000.0,
 		)
 		gl.UseProgram(program)
 		gl.UniformMatrix4fv(projectionMatrixLocation, false, projectionMatrix)
@@ -94,9 +94,7 @@ func main() {
 		gl.UniformMatrix4fv(projectionMatrixLocationSel, false, projectionMatrix)
 		gl.Viewport(0, 0, width, height)
 	}
-	width := gl.Canvas.ClientWidth()
-	height := gl.Canvas.ClientHeight()
-	updateProjectionMatrix(width, height)
+	var width, height int
 
 	tick := time.NewTicker(time.Second / 8)
 	defer tick.Stop()
@@ -321,7 +319,7 @@ func main() {
 		case e := <-chClick:
 			if e.Button == 0 && edit.pc != nil && cg.Click() {
 				p, ok := selectPoint(
-					edit.pc, modelViewMatrix, projectionMatrix, fov, e.OffsetX, e.OffsetY, width, height,
+					edit.pc, modelViewMatrix, projectionMatrix, e.OffsetX, e.OffsetY, width, height,
 				)
 				if ok {
 					switch {
