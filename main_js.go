@@ -407,6 +407,10 @@ func main() {
 					})
 				}
 				loadPoints(gl, posBuf, edit.pc)
+			case "KeyU":
+				if edit.Undo() {
+					loadPoints(gl, posBuf, edit.pc)
+				}
 			case "KeyF":
 				if len(selected) != 3 {
 					break
