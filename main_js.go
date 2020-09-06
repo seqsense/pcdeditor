@@ -78,15 +78,15 @@ func main() {
 
 	posBuf := gl.CreateBuffer()
 
-	const fov = 3.14 / 4
+	fov := 3.14 / 3
 	var projectionMatrix mat.Mat4
 	updateProjectionMatrix := func(width, height int) {
 		gl.Canvas.SetWidth(width)
 		gl.Canvas.SetHeight(height)
 		projectionMatrix = mat.Perspective(
-			fov,
+			float32(fov),
 			float32(width)/float32(height),
-			1.0, 1000.0,
+			0.5, 1000.0,
 		)
 		gl.UseProgram(program)
 		gl.UniformMatrix4fv(projectionMatrixLocation, false, projectionMatrix)
@@ -220,13 +220,11 @@ func main() {
 			updateProjectionMatrix(width, height)
 		}
 
-		modelViewMatrixBase :=
-			mat.Translate(vib3DX, 0, -float32(vi.distance)).
-				MulAffine(mat.Rotate(1, 0, 0, float32(vi.pitch)))
 		modelViewMatrix :=
-			modelViewMatrixBase.
-				Mul(mat.Rotate(0, 0, 1, float32(vi.yaw))).
-				Mul(mat.Translate(float32(vi.x), float32(vi.y), 0))
+			mat.Translate(vib3DX, 0, -float32(vi.distance)).
+				MulAffine(mat.Rotate(1, 0, 0, float32(vi.pitch))).
+				MulAffine(mat.Rotate(0, 0, 1, float32(vi.yaw))).
+				MulAffine(mat.Translate(float32(vi.x), float32(vi.y), -1.5))
 
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 		if edit.pc != nil && edit.pc.Points > 0 {
@@ -495,8 +493,43 @@ func main() {
 					p2, p3 := rectFrom3(selected[0], selected[1], selected[2])
 					updateCursor(selected[0], selected[1], p2, p3)
 				}
+			case "KeyW", "KeyA", "KeyS", "KeyD", "KeyQ", "KeyE":
+				switch e.Code {
+				case "KeyW":
+					vi.move(0.05, 0, 0)
+				case "KeyA":
+					vi.move(0, 0.05, 0)
+				case "KeyS":
+					vi.move(-0.05, 0, 0)
+				case "KeyD":
+					vi.move(0, -0.05, 0)
+				case "KeyQ":
+					vi.move(0, 0, 0.02)
+				case "KeyE":
+					vi.move(0, 0, -0.02)
+				}
+			case "BracketRight", "Backslash":
+				switch e.Code {
+				case "BracketRight":
+					fov += 3.14 / 16
+					if fov > 3.14*2/3 {
+						fov = 3.14 * 2 / 3
+					}
+				case "Backslash":
+					fov -= 3.14 / 16
+					if fov < 3.14/8 {
+						fov = 3.14 / 8
+					}
+				}
+				updateProjectionMatrix(width, height)
+			case "F1":
+				vi.reset()
+			case "F2":
+				vi.fps()
 			case "KeyP":
 				vib3D = !vib3D
+			default:
+				logPrint(e.Code)
 			}
 		case <-tick.C:
 			if vib3D {

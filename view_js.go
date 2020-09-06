@@ -28,8 +28,30 @@ func newView() *view {
 	}
 }
 
+func (v *view) reset() {
+	v.distance = defaultDistance
+	v.pitch = defaultPitch
+	v.pitch0 = defaultPitch
+}
+
+func (v *view) fps() {
+	v.distance = 0
+	v.pitch = 3.14 / 2
+	v.pitch0 = 3.14 / 2
+}
+
 func (v *view) wheel(e *webgl.WheelEvent) {
 	v.distance += e.DeltaY
+	if v.distance < 0 {
+		v.distance = 0
+	}
+}
+
+func (v *view) move(dx, dy, dyaw float64) {
+	s, c := math.Sincos(v.yaw)
+	v.x += c*dy + s*dx
+	v.y += s*dy - c*dx
+	v.yaw += dyaw
 }
 
 func (v *view) mouseDragStart(e *webgl.MouseEvent) {
