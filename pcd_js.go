@@ -13,7 +13,9 @@ func readPCD(path string) (*pcd.PointCloud, error) {
 	var b []byte
 	var errored bool
 	chErr := make(chan error)
-	js.Global().Call("fetch", path).Call("then",
+	js.Global().Call("fetch", path, map[string]interface{}{
+		"credentials": "include",
+	}).Call("then",
 		js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			if !args[0].Get("ok").Bool() {
 				chErr <- fmt.Errorf("failed to fetch file: %s", args[0].Get("statusText").String())
@@ -67,9 +69,10 @@ func writePCD(path string, pc *pcd.PointCloud) error {
 
 	chErr := make(chan error)
 	js.Global().Call("fetch", path, map[string]interface{}{
-		"method":  "PUT",
-		"headers": map[string]interface{}{"Content-Type": "application/octet-stream"},
-		"body":    array,
+		"method":      "PUT",
+		"headers":     map[string]interface{}{"Content-Type": "application/octet-stream"},
+		"credentials": "include",
+		"body":        array,
 	}).Call("then",
 		js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			chErr <- nil
