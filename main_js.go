@@ -197,27 +197,42 @@ func (pe *pcdeditor) Run() {
 	gl.Canvas.OnWheel(func(e webgl.WheelEvent) {
 		e.PreventDefault()
 		e.StopPropagation()
-		pe.chWheel <- e
+		select {
+		case pe.chWheel <- e:
+		default:
+		}
 	})
 	gl.Canvas.OnClick(func(e webgl.MouseEvent) {
 		e.PreventDefault()
 		e.StopPropagation()
-		pe.chClick <- e
+		select {
+		case pe.chClick <- e:
+		default:
+		}
 	})
 	gl.Canvas.OnMouseDown(func(e webgl.MouseEvent) {
 		e.PreventDefault()
 		e.StopPropagation()
-		pe.chMouseDown <- e
+		select {
+		case pe.chMouseDown <- e:
+		default:
+		}
 	})
 	gl.Canvas.OnMouseMove(func(e webgl.MouseEvent) {
 		e.PreventDefault()
 		e.StopPropagation()
-		pe.chMouseMove <- e
+		select {
+		case pe.chMouseMove <- e:
+		default:
+		}
 	})
 	gl.Canvas.OnMouseUp(func(e webgl.MouseEvent) {
 		e.PreventDefault()
 		e.StopPropagation()
-		pe.chMouseUp <- e
+		select {
+		case pe.chMouseUp <- e:
+		default:
+		}
 	})
 	gl.Canvas.OnContextMenu(func(e webgl.MouseEvent) {
 		e.PreventDefault()
@@ -226,7 +241,10 @@ func (pe *pcdeditor) Run() {
 	gl.Canvas.OnKeyDown(func(e webgl.KeyboardEvent) {
 		e.PreventDefault()
 		e.StopPropagation()
-		pe.chKey <- e
+		select {
+		case pe.chKey <- e:
+		default:
+		}
 	})
 
 	toolBuf := gl.CreateBuffer()
