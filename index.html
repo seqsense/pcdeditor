@@ -17,6 +17,12 @@
   </body>
   <script src="wasm_exec.js"></script>
   <script>
+    const query = new URLSearchParams(window.location.search)
+    let loadPath = '/data/map.pcd'
+    if (query.has('source')) {
+      loadPath = query.get('source')
+    }
+
     document.onPCDEditorLoaded = e => {
       const logger = msg => {
         const log = document.getElementById("log");
@@ -24,7 +30,7 @@
       };
       const pcdeditor = e.attach(document.getElementById("mapCanvas"), {logger: logger});
       document.getElementById("loadPCD").onclick =
-        () => pcdeditor.loadPCD('/data/map.pcd').catch(logger);
+        () => pcdeditor.loadPCD(loadPath).catch(logger);
       document.getElementById("savePCD").onclick =
         () => pcdeditor.savePCD('/upload/map.pcd').catch(logger);
       document.getElementById("exportPCD").onclick =
