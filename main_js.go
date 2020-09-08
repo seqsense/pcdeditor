@@ -194,43 +194,11 @@ func (pe *pcdeditor) Run() {
 	var vib3D bool
 	var vib3DX float32
 
-	gl.Canvas.OnWheel(func(e webgl.WheelEvent) {
-		e.PreventDefault()
-		e.StopPropagation()
-		select {
-		case pe.chWheel <- e:
-		default:
-		}
-	})
 	gl.Canvas.OnClick(func(e webgl.MouseEvent) {
 		e.PreventDefault()
 		e.StopPropagation()
 		select {
 		case pe.chClick <- e:
-		default:
-		}
-	})
-	gl.Canvas.OnMouseDown(func(e webgl.MouseEvent) {
-		e.PreventDefault()
-		e.StopPropagation()
-		select {
-		case pe.chMouseDown <- e:
-		default:
-		}
-	})
-	gl.Canvas.OnMouseMove(func(e webgl.MouseEvent) {
-		e.PreventDefault()
-		e.StopPropagation()
-		select {
-		case pe.chMouseMove <- e:
-		default:
-		}
-	})
-	gl.Canvas.OnMouseUp(func(e webgl.MouseEvent) {
-		e.PreventDefault()
-		e.StopPropagation()
-		select {
-		case pe.chMouseUp <- e:
 		default:
 		}
 	})
@@ -246,6 +214,42 @@ func (pe *pcdeditor) Run() {
 		default:
 		}
 	})
+
+	wheelHandler := func(e webgl.WheelEvent) {
+		e.PreventDefault()
+		e.StopPropagation()
+		select {
+		case pe.chWheel <- e:
+		default:
+		}
+	}
+	gl.Canvas.OnWheel(wheelHandler)
+	gesture := &gesture{
+		pointers: make(map[int]webgl.PointerEvent),
+		onMouseDown: func(e webgl.MouseEvent) {
+			select {
+			case pe.chMouseDown <- e:
+			default:
+			}
+		},
+		onMouseMove: func(e webgl.MouseEvent) {
+			select {
+			case pe.chMouseMove <- e:
+			default:
+			}
+		},
+		onMouseUp: func(e webgl.MouseEvent) {
+			select {
+			case pe.chMouseUp <- e:
+			default:
+			}
+		},
+		onWheel: wheelHandler,
+	}
+	gl.Canvas.OnPointerDown(gesture.pointerDown)
+	gl.Canvas.OnPointerMove(gesture.pointerMove)
+	gl.Canvas.OnPointerUp(gesture.pointerUp)
+	gl.Canvas.OnPointerOut(gesture.pointerUp)
 
 	toolBuf := gl.CreateBuffer()
 
@@ -299,9 +303,12 @@ func (pe *pcdeditor) Run() {
 	vi := newView()
 	cg := &clickGuard{}
 
+	devicePixelRatioJS := js.Global().Get("window").Get("devicePixelRatio")
+
 	for {
-		newWidth := gl.Canvas.ClientWidth()
-		newHeight := gl.Canvas.ClientHeight()
+		scale := devicePixelRatioJS.Int()
+		newWidth := gl.Canvas.ClientWidth() * scale
+		newHeight := gl.Canvas.ClientHeight() * scale
 		if newWidth != width || newHeight != height {
 			width, height = newWidth, newHeight
 			updateProjectionMatrix(width, height)
@@ -412,7 +419,7 @@ func (pe *pcdeditor) Run() {
 		case e := <-pe.chClick:
 			if e.Button == 0 && edit.pc != nil && cg.Click() {
 				p, ok := selectPoint(
-					edit.pc, modelViewMatrix, projectionMatrix, e.OffsetX, e.OffsetY, width, height,
+					edit.pc, modelViewMatrix, projectionMatrix, e.OffsetX*scale, e.OffsetY*scale, width, height,
 				)
 				if ok {
 					switch {

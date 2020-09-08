@@ -99,3 +99,28 @@ func (c Canvas) onKey(name string, cb func(KeyboardEvent)) {
 		}),
 	)
 }
+
+func (c Canvas) OnPointerMove(cb func(PointerEvent)) {
+	c.onPointer("pointermove", cb)
+}
+
+func (c Canvas) OnPointerDown(cb func(PointerEvent)) {
+	c.onPointer("pointerdown", cb)
+}
+
+func (c Canvas) OnPointerUp(cb func(PointerEvent)) {
+	c.onPointer("pointerup", cb)
+}
+
+func (c Canvas) OnPointerOut(cb func(PointerEvent)) {
+	c.onPointer("pointerout", cb)
+}
+
+func (c Canvas) onPointer(name string, cb func(PointerEvent)) {
+	js.Value(c).Call("addEventListener", name,
+		js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			cb(parsePointerEvent(args[0]))
+			return nil
+		}),
+	)
+}

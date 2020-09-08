@@ -19,3 +19,9 @@ func (e Event) PreventDefault() {
 func (e Event) StopPropagation() {
 	e.event.Call("stopPropagation")
 }
+
+func NewEvent(typ string) Event {
+	return Event{
+		event: js.Global().Get("Event").New(typ),
+	}
+}
