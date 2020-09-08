@@ -299,6 +299,29 @@ func (pe *pcdeditor) Run() {
 
 	devicePixelRatioJS := js.Global().Get("window").Get("devicePixelRatio")
 
+	// Allow export after crash
+	defer func() {
+		if r := recover(); r != nil {
+			pe.logPrint("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+			pe.logPrint(r)
+			if edit.pc != nil {
+				pe.logPrint("CRASHED (export command is available)")
+				pe.logPrint("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+				for promise := range pe.chExport {
+					err := exportPCD(promise.path, edit.pc)
+					if err != nil {
+						promise.rejected(err)
+						continue
+					}
+					promise.resolved()
+				}
+			} else {
+				pe.logPrint("CRASHED")
+				pe.logPrint("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+			}
+		}
+	}()
+
 	for {
 		scale := devicePixelRatioJS.Int()
 		newWidth := gl.Canvas.ClientWidth() * scale
