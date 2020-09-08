@@ -10,6 +10,7 @@
       <div style="z-index: 2; position: absolute; top: 0; left: 0; padding: 2px; box-sizing: border-box;">
         <button id="loadPCD">load</button>
         <button id="savePCD">save</button>
+        <button id="exportPCD">export</button>
       </div>
       <div id="log" style="font-size: 0.6em; max-height: 20em; position: absolute; bottom: 1em; left: 1em; z-index: 2; color: white; pointer-events: none; overflow: hidden;"></div>
     </div>
@@ -26,6 +27,8 @@
         () => pcdeditor.loadPCD('/data/map.pcd').catch(logger);
       document.getElementById("savePCD").onclick =
         () => pcdeditor.savePCD('/upload/map.pcd').catch(logger);
+      document.getElementById("exportPCD").onclick =
+        () => pcdeditor.exportPCD("exported.pcd").catch(logger);
     }
     const go = new Go();
     WebAssembly.instantiateStreaming(fetch("pcdeditor.wasm"), go.importObject).then((result) => {

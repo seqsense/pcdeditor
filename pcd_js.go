@@ -90,3 +90,27 @@ func writePCD(path string, pc *pcd.PointCloud) error {
 
 	return nil
 }
+
+func exportPCD(filename string, pc *pcd.PointCloud) error {
+	var buf bytes.Buffer
+	if err := pcd.Marshal(pc, &buf); err != nil {
+		return err
+	}
+	array := js.Global().Get("Uint8Array").New(buf.Len())
+	js.CopyBytesToJS(array, buf.Bytes())
+
+	blob := js.Global().Get("Blob").New([]interface{}{array}, map[string]interface{}{
+		"type": "application.octet-stream",
+	})
+	url := js.Global().Get("URL").Call("createObjectURL", blob)
+
+	a := js.Global().Get("document").Call("createElement", "a")
+	a.Set("download", filename)
+	a.Set("href", url)
+	a.Get("dataset").Set("downloadurl",
+		[]interface{}{"application/octet-stream", filename, url},
+	)
+	a.Call("click")
+
+	return nil
+}
