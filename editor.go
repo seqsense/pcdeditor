@@ -134,6 +134,9 @@ func (e *editor) Filter(fn func(mat.Vec3) bool) error {
 		Points:           len(indice),
 		Data:             make([]byte, len(indice)*e.pc.Stride()),
 	}
+	pcNew.Width = len(indice)
+	pcNew.Height = 1
+
 	pcOld := e.pc
 	if len(indice) == 0 {
 		e.push(pcNew)
