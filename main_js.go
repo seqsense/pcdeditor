@@ -280,7 +280,7 @@ func (pe *pcdeditor) Run() {
 		if r := recover(); r != nil {
 			pe.logPrint("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 			pe.logPrint(r)
-			if pc, ok := cmd.PointCloud(); ok {
+			if pc, _, ok := cmd.PointCloud(); ok {
 				pe.logPrint("CRASHED (export command is available)")
 				pe.logPrint("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 				for promise := range pe.chExport {
@@ -325,8 +325,12 @@ func (pe *pcdeditor) Run() {
 			}
 		}
 
+		if pc, updated, ok := cmd.PointCloud(); ok && updated {
+			loadPoints(gl, posBuf, pc)
+		}
+
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
-		if pc, ok := cmd.PointCloud(); ok && pc.Points > 0 {
+		if pc, _, ok := cmd.PointCloud(); ok && pc.Points > 0 {
 			gl.UseProgram(program)
 			gl.BindBuffer(gl.ARRAY_BUFFER, posBuf)
 			gl.VertexAttribPointer(aVertexPosition, 3, gl.FLOAT, false, pc.Stride(), 0)
@@ -360,8 +364,6 @@ func (pe *pcdeditor) Run() {
 				break
 			}
 			pe.logPrint("pcd file loaded")
-			pc, _ := cmd.PointCloud()
-			loadPoints(gl, posBuf, pc)
 			promise.resolved("loaded")
 		case promise := <-pe.chSavePath:
 			pe.logPrint("saving pcd file")
@@ -418,7 +420,7 @@ func (pe *pcdeditor) Run() {
 			vi.mouseDrag(&e)
 			cg.Move()
 		case e := <-pe.chClick:
-			if pc, ok := cmd.PointCloud(); ok && e.Button == 0 && cg.Click() {
+			if pc, _, ok := cmd.PointCloud(); ok && e.Button == 0 && cg.Click() {
 				p, ok := selectPoint(
 					pc, modelViewMatrix, projectionMatrix, e.OffsetX*scale, e.OffsetY*scale, width, height,
 				)
@@ -443,10 +445,7 @@ func (pe *pcdeditor) Run() {
 			case "Delete", "Digit0", "Digit1":
 				switch e.Code {
 				case "Delete":
-					if cmd.Delete() {
-						pc, _ := cmd.PointCloud()
-						loadPoints(gl, posBuf, pc)
-					}
+					cmd.Delete()
 					if !e.ShiftKey && !e.CtrlKey {
 						cmd.UnsetCursors()
 					}
@@ -455,21 +454,12 @@ func (pe *pcdeditor) Run() {
 					if e.Code == "Digit1" {
 						l = 1
 					}
-					if cmd.Label(l) {
-						pc, _ := cmd.PointCloud()
-						loadPoints(gl, posBuf, pc)
-					}
+					cmd.Label(l)
 				}
 			case "KeyU":
-				if cmd.Undo() {
-					pc, _ := cmd.PointCloud()
-					loadPoints(gl, posBuf, pc)
-				}
+				cmd.Undo()
 			case "KeyF":
-				if cmd.AddSurface(defaultResolution) {
-					pc, _ := cmd.PointCloud()
-					loadPoints(gl, posBuf, pc)
-				}
+				cmd.AddSurface(defaultResolution)
 			case "KeyV", "KeyH":
 				switch e.Code {
 				case "KeyV":

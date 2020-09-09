@@ -20,7 +20,8 @@ type pcdIO interface {
 
 type commandContext struct {
 	*editor
-	pcdIO pcdIO
+	pcdIO             pcdIO
+	pointCloudUpdated bool
 
 	selectRange float32
 
@@ -37,6 +38,12 @@ func newCommandContext(pcdio pcdIO) *commandContext {
 		editor:      &editor{},
 		pcdIO:       pcdio,
 	}
+}
+
+func (c *commandContext) PointCloud() (*pcd.PointCloud, bool, bool) {
+	updated := c.pointCloudUpdated
+	c.pointCloudUpdated = false
+	return c.editor.pc, updated, c.editor.pc != nil
 }
 
 func (c *commandContext) updateRect() {
@@ -161,6 +168,9 @@ func (c *commandContext) AddSurface(resolution float32) bool {
 	if len(c.selected) != 3 {
 		return false
 	}
+	if resolution <= 0.0 {
+		return false
+	}
 	v0, v1 := c.rectCenter[1].Sub(c.rectCenter[0]), c.rectCenter[3].Sub(c.rectCenter[0])
 	v0n, v1n := v0.Normalized(), v1.Normalized()
 	v2n := v0n.Cross(v1n)
@@ -193,7 +203,8 @@ func (c *commandContext) AddSurface(resolution float32) bool {
 			it.Incr()
 		}
 	}
-	c.merge(pcNew)
+	c.editor.merge(pcNew)
+	c.pointCloudUpdated = true
 	return true
 }
 
@@ -202,7 +213,8 @@ func (c *commandContext) Delete() bool {
 	if !ok {
 		return false
 	}
-	c.passThrough(filter)
+	c.editor.passThrough(filter)
+	c.pointCloudUpdated = true
 	return true
 }
 
@@ -211,13 +223,19 @@ func (c *commandContext) Label(l uint32) bool {
 	if !ok {
 		return false
 	}
-	c.label(func(p mat.Vec3) (uint32, bool) {
+	c.editor.label(func(p mat.Vec3) (uint32, bool) {
 		if filter(p) {
 			return 0, false
 		}
 		return l, true
 	})
+	c.pointCloudUpdated = true
 	return true
+}
+
+func (c *commandContext) Undo() bool {
+	c.pointCloudUpdated = true
+	return c.editor.Undo()
 }
 
 func (c *commandContext) LoadPCD(path string) error {
@@ -225,9 +243,10 @@ func (c *commandContext) LoadPCD(path string) error {
 	if err != nil {
 		return err
 	}
-	if err := c.SetPointCloud(p); err != nil {
+	if err := c.editor.SetPointCloud(p); err != nil {
 		return err
 	}
+	c.pointCloudUpdated = true
 	return nil
 }
 

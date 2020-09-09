@@ -38,10 +38,6 @@ func (e *editor) Undo() bool {
 	return false
 }
 
-func (e *editor) PointCloud() (*pcd.PointCloud, bool) {
-	return e.pc, e.pc != nil
-}
-
 func (e *editor) SetPointCloud(pc *pcd.PointCloud) error {
 	if len(pc.Fields) == 4 && pc.Fields[0] == "x" && pc.Fields[1] == "y" && pc.Fields[2] == "z" && pc.Fields[3] == "label" {
 		e.push(pc)

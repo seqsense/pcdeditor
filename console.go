@@ -12,8 +12,11 @@ type console struct {
 	cmd *commandContext
 }
 
-var errArgumentNumber = errors.New("invalid number of arguments")
-var errInvalidCommand = errors.New("invalid command")
+var (
+	errArgumentNumber = errors.New("invalid number of arguments")
+	errInvalidCommand = errors.New("invalid command")
+	errSetCursor      = errors.New("failed to set cursor")
+)
 
 var consoleCommands = map[string]func(cmd *commandContext, args []float32) ([][]float32, error){
 	"select_range": func(cmd *commandContext, args []float32) ([][]float32, error) {
@@ -27,7 +30,7 @@ var consoleCommands = map[string]func(cmd *commandContext, args []float32) ([][]
 			return nil, errArgumentNumber
 		}
 	},
-	"cursors": func(cmd *commandContext, args []float32) ([][]float32, error) {
+	"cursor": func(cmd *commandContext, args []float32) ([][]float32, error) {
 		switch len(args) {
 		case 0:
 			var resFloat [][]float32
@@ -35,35 +38,81 @@ var consoleCommands = map[string]func(cmd *commandContext, args []float32) ([][]
 				resFloat = append(resFloat, []float32{float32(i), c[0], c[1], c[2]})
 			}
 			return resFloat, nil
-		default:
-			return nil, errArgumentNumber
-		}
-	},
-	"cursor": func(cmd *commandContext, args []float32) ([][]float32, error) {
-		switch len(args) {
 		case 3:
 			n := len(cmd.Cursors())
 			if !cmd.SetCursor(n, mat.Vec3{args[0], args[1], args[2]}) {
-				return nil, errors.New("failed to set cursor")
+				return nil, errSetCursor
 			}
 			return [][]float32{{float32(n), args[0], args[1], args[2]}}, nil
 		case 4:
 			if !cmd.SetCursor(int(args[0]), mat.Vec3{args[1], args[2], args[3]}) {
-				return nil, errors.New("failed to set cursor")
+				return nil, errSetCursor
 			}
 			return [][]float32{args}, nil
 		default:
 			return nil, errArgumentNumber
 		}
 	},
-	"unset_cursors": func(cmd *commandContext, args []float32) ([][]float32, error) {
+	"unset_cursor": func(cmd *commandContext, args []float32) ([][]float32, error) {
+		if len(args) != 0 {
+			return nil, errArgumentNumber
+		}
+		cmd.UnsetCursors()
+		return nil, nil
+	},
+	"snap_v": func(cmd *commandContext, args []float32) ([][]float32, error) {
+		if len(args) != 0 {
+			return nil, errArgumentNumber
+		}
+		cmd.SnapVertical()
+		return nil, nil
+	},
+	"snap_h": func(cmd *commandContext, args []float32) ([][]float32, error) {
+		if len(args) != 0 {
+			return nil, errArgumentNumber
+		}
+		cmd.SnapHorizontal()
+		return nil, nil
+	},
+	"translate_cursor": func(cmd *commandContext, args []float32) ([][]float32, error) {
+		if len(args) != 3 {
+			return nil, errArgumentNumber
+		}
+		cmd.TransformCursors(mat.Translate(args[0], args[1], args[2]))
+		return nil, nil
+	},
+	"add_surface": func(cmd *commandContext, args []float32) ([][]float32, error) {
 		switch len(args) {
 		case 0:
-			cmd.UnsetCursors()
+			cmd.AddSurface(defaultResolution)
+			return nil, nil
+		case 1:
+			cmd.AddSurface(args[0])
 			return nil, nil
 		default:
 			return nil, errArgumentNumber
 		}
+	},
+	"delete": func(cmd *commandContext, args []float32) ([][]float32, error) {
+		if len(args) != 0 {
+			return nil, errArgumentNumber
+		}
+		cmd.Delete()
+		return nil, nil
+	},
+	"label": func(cmd *commandContext, args []float32) ([][]float32, error) {
+		if len(args) != 1 {
+			return nil, errArgumentNumber
+		}
+		cmd.Label(uint32(args[0]))
+		return nil, nil
+	},
+	"undo": func(cmd *commandContext, args []float32) ([][]float32, error) {
+		if len(args) != 0 {
+			return nil, errArgumentNumber
+		}
+		cmd.Undo()
+		return nil, nil
 	},
 }
 

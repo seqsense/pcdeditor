@@ -39,7 +39,11 @@
       document.getElementById("command").onkeydown =
         e => {
           if (e.keyCode == 13) {
-            pcdeditor.command(e.target.value).then(logger).catch(logger);
+            pcdeditor.command(e.target.value).then(msg => {
+              if (msg != "") {
+                logger(msg)
+              }
+            }).catch(logger);
             e.target.value = "";
           }
           if (e.keyCode == 27) {
