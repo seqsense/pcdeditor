@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"math"
 	"syscall/js"
@@ -13,9 +12,7 @@ import (
 )
 
 const (
-	resolution         = 0.05
-	defaultSelectRange = 0.05
-	vib3DXAmp          = 0.002
+	vib3DXAmp = 0.002
 )
 
 func main() {
@@ -247,32 +244,8 @@ func (pe *pcdeditor) Run() {
 
 	toolBuf := gl.CreateBuffer()
 
-	edit := &editor{}
-	var selected []mat.Vec3
-	var selectRange float32 = defaultSelectRange
-	var nCursorPoints int
-
-	updateCursor := func(pp ...mat.Vec3) {
-		if len(pp) == 4 {
-			p0 := pp[1].Sub(pp[0])
-			p1 := pp[3].Sub(pp[0])
-			norm := p0.Cross(p1).Normalized().Mul(selectRange)
-			ppUpdated := []mat.Vec3{
-				pp[0].Add(norm), pp[1].Add(norm), pp[2].Add(norm), pp[3].Add(norm),
-				pp[0].Sub(norm), pp[1].Sub(norm), pp[2].Sub(norm), pp[3].Sub(norm),
-			}
-			pp = ppUpdated
-		}
-		nCursorPoints = len(pp)
-		buf := make([]float32, 0, len(pp)*3)
-		for _, p := range pp {
-			buf = append(buf, p[0], p[1], p[2])
-		}
-		if nCursorPoints > 0 {
-			gl.BindBuffer(gl.ARRAY_BUFFER, toolBuf)
-			gl.BufferData(gl.ARRAY_BUFFER, webgl.Float32ArrayBuffer(buf), gl.STATIC_DRAW)
-		}
-	}
+	var nRectPoints int
+	cmd := newCommandContext(&pcdIOImpl{})
 
 	loadPoints := func(gl *webgl.WebGL, buf webgl.Buffer, pc *pcd.PointCloud) {
 		if pc.Points > 0 {
@@ -304,11 +277,11 @@ func (pe *pcdeditor) Run() {
 		if r := recover(); r != nil {
 			pe.logPrint("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 			pe.logPrint(r)
-			if edit.pc != nil {
+			if pc, ok := cmd.PointCloud(); ok {
 				pe.logPrint("CRASHED (export command is available)")
 				pe.logPrint("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 				for promise := range pe.chExport {
-					err := exportPCD(promise.path, edit.pc)
+					err := cmd.pcdIO.exportPCD(promise.path, pc)
 					if err != nil {
 						promise.rejected(err)
 						continue
@@ -337,25 +310,37 @@ func (pe *pcdeditor) Run() {
 				MulAffine(mat.Rotate(0, 0, 1, float32(vi.yaw))).
 				MulAffine(mat.Translate(float32(vi.x), float32(vi.y), -1.5))
 
-		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
-		if edit.pc != nil && edit.pc.Points > 0 {
-			gl.UseProgram(program)
-			gl.BindBuffer(gl.ARRAY_BUFFER, posBuf)
-			gl.VertexAttribPointer(aVertexPosition, 3, gl.FLOAT, false, edit.pc.Stride(), 0)
-			gl.VertexAttribIPointer(aVertexLabel, 1, gl.UNSIGNED_INT, edit.pc.Stride(), 3*4)
-
-			gl.UniformMatrix4fv(modelViewMatrixLocation, false, modelViewMatrix)
-			gl.DrawArrays(gl.POINTS, 0, edit.pc.Points-1)
+		if rect, updated := cmd.Rect(); updated {
+			buf := make([]float32, 0, len(rect)*3)
+			for _, p := range rect {
+				buf = append(buf, p[0], p[1], p[2])
+			}
+			nRectPoints = len(rect)
+			if len(rect) > 0 {
+				gl.BindBuffer(gl.ARRAY_BUFFER, toolBuf)
+				gl.BufferData(gl.ARRAY_BUFFER, webgl.Float32ArrayBuffer(buf), gl.STATIC_DRAW)
+			}
 		}
 
-		if nCursorPoints > 0 {
+		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+		if pc, ok := cmd.PointCloud(); ok && pc.Points > 0 {
+			gl.UseProgram(program)
+			gl.BindBuffer(gl.ARRAY_BUFFER, posBuf)
+			gl.VertexAttribPointer(aVertexPosition, 3, gl.FLOAT, false, pc.Stride(), 0)
+			gl.VertexAttribIPointer(aVertexLabel, 1, gl.UNSIGNED_INT, pc.Stride(), 3*4)
+
+			gl.UniformMatrix4fv(modelViewMatrixLocation, false, modelViewMatrix)
+			gl.DrawArrays(gl.POINTS, 0, pc.Points-1)
+		}
+
+		if nRectPoints > 0 {
 			gl.UseProgram(programSel)
-			for i := 0; i < nCursorPoints; i += 4 {
+			for i := 0; i < nRectPoints; i += 4 {
 				gl.BindBuffer(gl.ARRAY_BUFFER, toolBuf)
 				gl.VertexAttribPointer(aVertexPositionSel, 3, gl.FLOAT, false, 3*4, 3*4*i)
 				n := 4
-				if n > nCursorPoints-i {
-					n = nCursorPoints - i
+				if n > nRectPoints-i {
+					n = nRectPoints - i
 				}
 
 				gl.UniformMatrix4fv(modelViewMatrixLocationSel, false, modelViewMatrix)
@@ -367,68 +352,44 @@ func (pe *pcdeditor) Run() {
 		select {
 		case promise := <-pe.chLoadPath:
 			pe.logPrint("loading pcd file")
-			p, err := readPCD(promise.path)
-			if err != nil {
+			if err := cmd.LoadPCD(promise.path); err != nil {
 				promise.rejected(err)
 				break
 			}
-			if err := edit.Set(p); err != nil {
-				promise.rejected(err)
-				break
-			}
-			loadPoints(gl, posBuf, edit.pc)
 			pe.logPrint("pcd file loaded")
+			pc, _ := cmd.PointCloud()
+			loadPoints(gl, posBuf, pc)
 			promise.resolved()
 		case promise := <-pe.chSavePath:
-			if edit.pc != nil {
-				pe.logPrint("saving pcd file")
-				err := writePCD(promise.path, edit.pc)
-				if err != nil {
-					promise.rejected(err)
-					continue
-				}
-				pe.logPrint("pcd file saved")
-				promise.resolved()
-			} else {
-				promise.rejected(errors.New("no pointcloud"))
+			pe.logPrint("saving pcd file")
+			if err := cmd.SavePCD(promise.path); err != nil {
+				promise.rejected(err)
+				break
 			}
+			pe.logPrint("pcd file saved")
+			promise.resolved()
 		case promise := <-pe.chExport:
-			if edit.pc != nil {
-				pe.logPrint("exporting pcd file")
-				err := exportPCD(promise.path, edit.pc)
-				if err != nil {
-					promise.rejected(err)
-					continue
-				}
-				pe.logPrint("pcd file exported")
-				promise.resolved()
-			} else {
-				promise.rejected(errors.New("no pointcloud"))
+			pe.logPrint("exporting pcd file")
+			if err := cmd.ExportPCD(promise.path); err != nil {
+				promise.rejected(err)
+				break
 			}
+			pe.logPrint("pcd file exported")
+			promise.resolved()
 		case e := <-pe.chWheel:
 			switch {
 			case e.CtrlKey:
-				if len(selected) > 2 {
-					selectRange += float32(e.DeltaY) * 0.01
-					if selectRange < 0 {
-						selectRange = 0
-					}
-					p2, p3 := rectFrom3(selected[0], selected[1], selected[2])
-					updateCursor(selected[0], selected[1], p2, p3)
-				}
+				cmd.SetSelectRange(cmd.SelectRange() + float32(e.DeltaY)*0.01)
 			case e.ShiftKey:
-				if len(selected) > 2 {
-					p2, p3 := rectFrom3(selected[0], selected[1], selected[2])
-					updateCursor(selected[0], selected[1], p2, p3)
-
-					c := selected[0].Add(selected[1]).Add(p2).Add(p3).Mul(1.0 / 4.0)
-					d0, d1, d2 := selected[0].Sub(c), selected[1].Sub(c), selected[2].Sub(c)
+				rect := cmd.RectCenter()
+				if len(rect) == 4 {
+					c := rect[0].Add(rect[1]).Add(rect[2]).Add(rect[3]).Mul(1.0 / 4.0)
 					r := 1.0 + float32(e.DeltaY)*0.01
-					selected[0] = c.Add(d0.Mul(r))
-					selected[1] = c.Add(d1.Mul(r))
-					selected[2] = c.Add(d2.Mul(r))
-					p2, p3 = rectFrom3(selected[0], selected[1], selected[2])
-					updateCursor(selected[0], selected[1], p2, p3)
+					cmd.TransformCursors(
+						mat.Translate(c[0], c[1], c[2]).
+							MulAffine(mat.Scale(r, r, r)).
+							MulAffine(mat.Translate(-c[0], -c[1], -c[2])),
+					)
 				}
 			default:
 				vi.wheel(&e)
@@ -447,37 +408,20 @@ func (pe *pcdeditor) Run() {
 			vi.mouseDrag(&e)
 			cg.Move()
 		case e := <-pe.chClick:
-			if e.Button == 0 && edit.pc != nil && cg.Click() {
+			if pc, ok := cmd.PointCloud(); ok && e.Button == 0 && cg.Click() {
 				p, ok := selectPoint(
-					edit.pc, modelViewMatrix, projectionMatrix, e.OffsetX*scale, e.OffsetY*scale, width, height,
+					pc, modelViewMatrix, projectionMatrix, e.OffsetX*scale, e.OffsetY*scale, width, height,
 				)
 				if ok {
 					switch {
 					case e.ShiftKey:
-						if len(selected) > 0 {
-							if len(selected) > 1 {
-								selected[1] = *p
-							} else {
-								selected = append(selected, *p)
-							}
-						}
+						cmd.SetCursor(1, *p)
 					default:
-						if len(selected) < 2 {
-							selected = []mat.Vec3{*p}
+						if len(cmd.Cursors()) < 2 {
+							cmd.SetCursor(0, *p)
 						} else {
-							if len(selected) > 2 {
-								selected[2] = *p
-							} else {
-								selected = append(selected, *p)
-							}
+							cmd.SetCursor(2, *p)
 						}
-					}
-					switch len(selected) {
-					case 3:
-						p2, p3 := rectFrom3(selected[0], selected[1], selected[2])
-						updateCursor(selected[0], selected[1], p2, p3)
-					default:
-						updateCursor(selected...)
 					}
 				}
 			}
@@ -485,115 +429,44 @@ func (pe *pcdeditor) Run() {
 		case e := <-pe.chKey:
 			switch e.Code {
 			case "Escape":
-				selected = nil
-				updateCursor()
+				cmd.UnsetCursors()
 			case "Delete", "Digit0", "Digit1":
-				if len(selected) != 3 {
-					break
-				}
-				p0, p1 := selected[0], selected[1]
-				_, p2 := rectFrom3(p0, p1, selected[2])
-				v0, v1 := p1.Sub(p0), p2.Sub(p0)
-				v0n, v1n := v0.Normalized(), v1.Normalized()
-				v2n := v0n.Cross(v1n)
-				m := (mat.Mat4{
-					v0n[0], v0n[1], v0n[2], 0,
-					v1n[0], v1n[1], v1n[2], 0,
-					v2n[0], v2n[1], v2n[2], 0,
-					0, 0, 0, 1,
-				}).InvAffine().MulAffine(mat.Translate(-p0[0], -p0[1], -p0[2]))
-				l0 := v0.Norm()
-				l1 := v1.Norm()
-
-				filter := func(p mat.Vec3) bool {
-					if z := m.TransformZ(p); z < -selectRange || selectRange < z {
-						return true
-					}
-					if x := m.TransformX(p); x < 0 || l0 < x {
-						return true
-					}
-					if y := m.TransformY(p); y < 0 || l1 < y {
-						return true
-					}
-					return false
-				}
 				switch e.Code {
 				case "Delete":
-					edit.Filter(filter)
+					if cmd.Delete() {
+						pc, _ := cmd.PointCloud()
+						loadPoints(gl, posBuf, pc)
+					}
 					if !e.ShiftKey && !e.CtrlKey {
-						selected = nil
-						updateCursor()
+						cmd.UnsetCursors()
 					}
 				case "Digit0", "Digit1":
 					var l uint32
 					if e.Code == "Digit1" {
 						l = 1
 					}
-					edit.Label(func(p mat.Vec3) (uint32, bool) {
-						if filter(p) {
-							return 0, false
-						}
-						return l, true
-					})
-				}
-				loadPoints(gl, posBuf, edit.pc)
-			case "KeyU":
-				if edit.Undo() {
-					loadPoints(gl, posBuf, edit.pc)
-				}
-			case "KeyF":
-				if len(selected) != 3 {
-					break
-				}
-				p0, p1 := selected[0], selected[1]
-				_, p2 := rectFrom3(p0, p1, selected[2])
-				v0, v1 := p1.Sub(p0), p2.Sub(p0)
-				v0n, v1n := v0.Normalized(), v1.Normalized()
-				v2n := v0n.Cross(v1n)
-				m := mat.Translate(p0[0], p0[1], p0[2]).MulAffine(mat.Mat4{
-					v0n[0], v0n[1], v0n[2], 0,
-					v1n[0], v1n[1], v1n[2], 0,
-					v2n[0], v2n[1], v2n[2], 0,
-					0, 0, 0, 1,
-				})
-				l0 := v0.Norm()
-				l1 := v1.Norm()
-
-				w := int(l0 / resolution)
-				h := int(l1 / resolution)
-				pcNew := &pcd.PointCloud{
-					PointCloudHeader: edit.pc.PointCloudHeader.Clone(),
-					Points:           w * h,
-					Data:             make([]byte, w*h*edit.pc.Stride()),
-				}
-				it, err := pcNew.Vec3Iterator()
-				if err != nil {
-					break
-				}
-				for x := 0; x < w; x++ {
-					for y := 0; y < h; y++ {
-						it.SetVec3(
-							m.Transform(mat.Vec3{float32(x) * resolution, float32(y) * resolution, 0}),
-						)
-						it.Incr()
+					if cmd.Label(l) {
+						pc, _ := cmd.PointCloud()
+						loadPoints(gl, posBuf, pc)
 					}
 				}
-				edit.Merge(pcNew)
-				loadPoints(gl, posBuf, edit.pc)
-			case "KeyV", "KeyH":
-				if len(selected) != 3 {
-					break
+			case "KeyU":
+				if cmd.Undo() {
+					pc, _ := cmd.PointCloud()
+					loadPoints(gl, posBuf, pc)
 				}
+			case "KeyF":
+				if cmd.AddSurface(defaultResolution) {
+					pc, _ := cmd.PointCloud()
+					loadPoints(gl, posBuf, pc)
+				}
+			case "KeyV", "KeyH":
 				switch e.Code {
 				case "KeyV":
-					selected[2][0] = selected[0][0]
-					selected[2][1] = selected[0][1]
+					cmd.SnapVertical()
 				case "KeyH":
-					selected[1][2] = selected[0][2]
-					selected[2][2] = selected[0][2]
+					cmd.SnapHorizontal()
 				}
-				p2, p3 := rectFrom3(selected[0], selected[1], selected[2])
-				updateCursor(selected[0], selected[1], p2, p3)
 			case "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "PageUp", "PageDown":
 				var dx, dy, dz float32
 				switch e.Code {
@@ -611,17 +484,11 @@ func (pe *pcdeditor) Run() {
 					dz = -0.05
 				}
 				s, c := math.Sincos(vi.yaw)
-				for i := range selected {
-					selected[i][0] += float32(c)*dx - float32(s)*dy
-					selected[i][1] += float32(s)*dx + float32(c)*dy
-					selected[i][2] += dz
-				}
-				if len(selected) < 3 {
-					updateCursor(selected...)
-				} else {
-					p2, p3 := rectFrom3(selected[0], selected[1], selected[2])
-					updateCursor(selected[0], selected[1], p2, p3)
-				}
+				cmd.TransformCursors(mat.Translate(
+					float32(c)*dx-float32(s)*dy,
+					float32(s)*dx+float32(c)*dy,
+					dz,
+				))
 			case "KeyW", "KeyA", "KeyS", "KeyD", "KeyQ", "KeyE":
 				switch e.Code {
 				case "KeyW":

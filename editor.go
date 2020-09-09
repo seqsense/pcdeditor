@@ -38,7 +38,11 @@ func (e *editor) Undo() bool {
 	return false
 }
 
-func (e *editor) Set(pc *pcd.PointCloud) error {
+func (e *editor) PointCloud() (*pcd.PointCloud, bool) {
+	return e.pc, e.pc != nil
+}
+
+func (e *editor) SetPointCloud(pc *pcd.PointCloud) error {
 	if len(pc.Fields) == 4 && pc.Fields[0] == "x" && pc.Fields[1] == "y" && pc.Fields[2] == "z" && pc.Fields[3] == "label" {
 		e.push(pc)
 		return nil
@@ -86,7 +90,7 @@ func (e *editor) Set(pc *pcd.PointCloud) error {
 	return nil
 }
 
-func (e *editor) Label(fn func(mat.Vec3) (uint32, bool)) error {
+func (e *editor) label(fn func(mat.Vec3) (uint32, bool)) error {
 	pcNew := &pcd.PointCloud{
 		PointCloudHeader: e.pc.PointCloudHeader.Clone(),
 		Points:           e.pc.Points,
@@ -115,7 +119,7 @@ func (e *editor) Label(fn func(mat.Vec3) (uint32, bool)) error {
 	return nil
 }
 
-func (e *editor) Filter(fn func(mat.Vec3) bool) error {
+func (e *editor) passThrough(fn func(mat.Vec3) bool) error {
 	it, err := e.pc.Vec3Iterator()
 	if err != nil {
 		return err
@@ -173,7 +177,7 @@ func (e *editor) Filter(fn func(mat.Vec3) bool) error {
 	return nil
 }
 
-func (e *editor) Merge(pc *pcd.PointCloud) {
+func (e *editor) merge(pc *pcd.PointCloud) {
 	e.pc.Points += pc.Points
 	e.pc.Width = e.pc.Points
 	e.pc.Height = 1

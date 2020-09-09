@@ -9,7 +9,9 @@ import (
 	"github.com/seqsense/pcdeditor/pcd"
 )
 
-func readPCD(path string) (*pcd.PointCloud, error) {
+type pcdIOImpl struct{}
+
+func (*pcdIOImpl) readPCD(path string) (*pcd.PointCloud, error) {
 	var b []byte
 	var errored bool
 	chErr := make(chan error)
@@ -59,7 +61,7 @@ func readPCD(path string) (*pcd.PointCloud, error) {
 	return pc, nil
 }
 
-func writePCD(path string, pc *pcd.PointCloud) error {
+func (*pcdIOImpl) writePCD(path string, pc *pcd.PointCloud) error {
 	var buf bytes.Buffer
 	if err := pcd.Marshal(pc, &buf); err != nil {
 		return err
@@ -91,7 +93,7 @@ func writePCD(path string, pc *pcd.PointCloud) error {
 	return nil
 }
 
-func exportPCD(filename string, pc *pcd.PointCloud) error {
+func (*pcdIOImpl) exportPCD(filename string, pc *pcd.PointCloud) error {
 	var buf bytes.Buffer
 	if err := pcd.Marshal(pc, &buf); err != nil {
 		return err
