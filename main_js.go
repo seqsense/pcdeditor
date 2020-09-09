@@ -27,18 +27,19 @@ func main() {
 	select {}
 }
 
-type promiseSaveLoad struct {
-	path     string
-	resolved func()
+type promiseCommand struct {
+	data     string
+	resolved func(string)
 	rejected func(error)
 }
 
 type pcdeditor struct {
 	canvas      js.Value
 	logPrint    func(msg interface{})
-	chLoadPath  chan promiseSaveLoad
-	chSavePath  chan promiseSaveLoad
-	chExport    chan promiseSaveLoad
+	chLoadPath  chan promiseCommand
+	chSavePath  chan promiseCommand
+	chExport    chan promiseCommand
+	chCommand   chan promiseCommand
 	chWheel     chan webgl.WheelEvent
 	chClick     chan webgl.MouseEvent
 	chMouseDown chan webgl.MouseEvent
@@ -54,9 +55,10 @@ func newPCDEditor(this js.Value, args []js.Value) interface{} {
 		logPrint: func(msg interface{}) {
 			fmt.Println(msg)
 		},
-		chLoadPath:  make(chan promiseSaveLoad, 1),
-		chSavePath:  make(chan promiseSaveLoad, 1),
-		chExport:    make(chan promiseSaveLoad, 1),
+		chLoadPath:  make(chan promiseCommand, 1),
+		chSavePath:  make(chan promiseCommand, 1),
+		chExport:    make(chan promiseCommand, 1),
+		chCommand:   make(chan promiseCommand, 1),
 		chWheel:     make(chan webgl.WheelEvent, 10),
 		chClick:     make(chan webgl.MouseEvent, 10),
 		chMouseDown: make(chan webgl.MouseEvent, 10),
@@ -76,26 +78,26 @@ func newPCDEditor(this js.Value, args []js.Value) interface{} {
 
 	return js.ValueOf(map[string]interface{}{
 		"loadPCD": js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			path := args[0].String()
-			return newSaveLoadPromise(pe.chLoadPath, path)
+			return newCommandPromise(pe.chLoadPath, args[0].String())
 		}),
 		"savePCD": js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			path := args[0].String()
-			return newSaveLoadPromise(pe.chSavePath, path)
+			return newCommandPromise(pe.chSavePath, args[0].String())
 		}),
 		"exportPCD": js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			filename := args[0].String()
-			return newSaveLoadPromise(pe.chExport, filename)
+			return newCommandPromise(pe.chExport, args[0].String())
+		}),
+		"command": js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			return newCommandPromise(pe.chCommand, args[0].String())
 		}),
 	})
 }
-func newSaveLoadPromise(ch chan promiseSaveLoad, path string) js.Value {
+func newCommandPromise(ch chan promiseCommand, data string) js.Value {
 	promise := js.Global().Get("Promise")
 	return promise.New(js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		resolve, reject := args[0], args[1]
-		cmd := promiseSaveLoad{
-			path:     path,
-			resolved: func() { resolve.Invoke() },
+		cmd := promiseCommand{
+			data:     data,
+			resolved: func(msg string) { resolve.Invoke(msg) },
 			rejected: func(err error) { reject.Invoke(errorToJS(err)) },
 		}
 		select {
@@ -246,6 +248,7 @@ func (pe *pcdeditor) Run() {
 
 	var nRectPoints int
 	cmd := newCommandContext(&pcdIOImpl{})
+	cs := &console{cmd: cmd}
 
 	loadPoints := func(gl *webgl.WebGL, buf webgl.Buffer, pc *pcd.PointCloud) {
 		if pc.Points > 0 {
@@ -281,12 +284,12 @@ func (pe *pcdeditor) Run() {
 				pe.logPrint("CRASHED (export command is available)")
 				pe.logPrint("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 				for promise := range pe.chExport {
-					err := cmd.pcdIO.exportPCD(promise.path, pc)
+					err := cmd.pcdIO.exportPCD(promise.data, pc)
 					if err != nil {
 						promise.rejected(err)
 						continue
 					}
-					promise.resolved()
+					promise.resolved("exported")
 				}
 			} else {
 				pe.logPrint("CRASHED")
@@ -352,30 +355,37 @@ func (pe *pcdeditor) Run() {
 		select {
 		case promise := <-pe.chLoadPath:
 			pe.logPrint("loading pcd file")
-			if err := cmd.LoadPCD(promise.path); err != nil {
+			if err := cmd.LoadPCD(promise.data); err != nil {
 				promise.rejected(err)
 				break
 			}
 			pe.logPrint("pcd file loaded")
 			pc, _ := cmd.PointCloud()
 			loadPoints(gl, posBuf, pc)
-			promise.resolved()
+			promise.resolved("loaded")
 		case promise := <-pe.chSavePath:
 			pe.logPrint("saving pcd file")
-			if err := cmd.SavePCD(promise.path); err != nil {
+			if err := cmd.SavePCD(promise.data); err != nil {
 				promise.rejected(err)
 				break
 			}
 			pe.logPrint("pcd file saved")
-			promise.resolved()
+			promise.resolved("saved")
 		case promise := <-pe.chExport:
 			pe.logPrint("exporting pcd file")
-			if err := cmd.ExportPCD(promise.path); err != nil {
+			if err := cmd.ExportPCD(promise.data); err != nil {
 				promise.rejected(err)
 				break
 			}
 			pe.logPrint("pcd file exported")
-			promise.resolved()
+			promise.resolved("exported")
+		case promise := <-pe.chCommand:
+			res, err := cs.Run(promise.data)
+			if err != nil {
+				promise.rejected(err)
+				break
+			}
+			promise.resolved(res)
 		case e := <-pe.chWheel:
 			switch {
 			case e.CtrlKey:

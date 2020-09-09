@@ -11,6 +11,7 @@
         <button id="loadPCD">load</button>
         <button id="savePCD">save</button>
         <button id="exportPCD">export</button>
+        <input type="text" id="command" style="opacity: 0.8;" />
       </div>
       <div id="log" style="font-size: 0.6em; max-height: 20em; position: absolute; bottom: 1em; left: 1em; z-index: 2; color: white; pointer-events: none; overflow: hidden;"></div>
     </div>
@@ -26,7 +27,7 @@
     document.onPCDEditorLoaded = e => {
       const logger = msg => {
         const log = document.getElementById("log");
-        log.innerHTML = msg + "<br/>" + log.innerHTML;
+        log.innerHTML = msg.toString().replace(/\n/g, "<br/>") + "<br/>" + log.innerHTML;
       };
       const pcdeditor = e.attach(document.getElementById("mapCanvas"), {logger: logger});
       document.getElementById("loadPCD").onclick =
@@ -35,6 +36,16 @@
         () => pcdeditor.savePCD('/upload/map.pcd').catch(logger);
       document.getElementById("exportPCD").onclick =
         () => pcdeditor.exportPCD("exported.pcd").catch(logger);
+      document.getElementById("command").onkeydown =
+        e => {
+          if (e.keyCode == 13) {
+            pcdeditor.command(e.target.value).then(logger).catch(logger);
+            e.target.value = "";
+          }
+          if (e.keyCode == 27) {
+            document.getElementById("mapCanvas").focus();
+          }
+        };
     }
     const go = new Go();
     WebAssembly.instantiateStreaming(fetch("pcdeditor.wasm"), go.importObject).then((result) => {
