@@ -8,7 +8,6 @@ import (
 
 	webgl "github.com/seqsense/pcdeditor/gl"
 	"github.com/seqsense/pcdeditor/mat"
-	"github.com/seqsense/pcdeditor/pcd"
 )
 
 const (
@@ -154,8 +153,8 @@ func (pe *pcdeditor) Run() {
 	gl.LinkProgram(programSel)
 
 	projectionMatrixLocation := gl.GetUniformLocation(program, "uProjectionMatrix")
-	projectionMatrixLocationSel := gl.GetUniformLocation(programSel, "uProjectionMatrix")
 	modelViewMatrixLocation := gl.GetUniformLocation(program, "uModelViewMatrix")
+	projectionMatrixLocationSel := gl.GetUniformLocation(programSel, "uProjectionMatrix")
 	modelViewMatrixLocationSel := gl.GetUniformLocation(programSel, "uModelViewMatrix")
 
 	gl.Enable(gl.DEPTH_TEST)
@@ -163,29 +162,8 @@ func (pe *pcdeditor) Run() {
 
 	posBuf := gl.CreateBuffer()
 
-	fov := math.Pi / 3
-	var projectionMatrix mat.Mat4
-	updateProjectionMatrix := func(width, height int) {
-		gl.Canvas.SetWidth(width)
-		gl.Canvas.SetHeight(height)
-		projectionMatrix = mat.Perspective(
-			float32(fov),
-			float32(width)/float32(height),
-			1.0, 1000.0,
-		)
-		gl.UseProgram(program)
-		gl.UniformMatrix4fv(projectionMatrixLocation, false, projectionMatrix)
-		gl.UseProgram(programSel)
-		gl.UniformMatrix4fv(projectionMatrixLocationSel, false, projectionMatrix)
-		gl.Viewport(0, 0, width, height)
-	}
-	var width, height int
-
 	tick := time.NewTicker(time.Second / 8)
 	defer tick.Stop()
-
-	var vib3D bool
-	var vib3DX float32
 
 	gl.Canvas.OnClick(func(e webgl.MouseEvent) {
 		e.PreventDefault()
@@ -246,28 +224,31 @@ func (pe *pcdeditor) Run() {
 
 	toolBuf := gl.CreateBuffer()
 
+	fov := math.Pi / 3
+	var prevFov float64
+	var projectionMatrix mat.Mat4
+	var width, height int
+
+	var vib3D bool
+	var vib3DX float32
+
 	var nRectPoints int
 	cmd := newCommandContext(&pcdIOImpl{})
 	cs := &console{cmd: cmd}
 
-	loadPoints := func(gl *webgl.WebGL, buf webgl.Buffer, pc *pcd.PointCloud) {
-		if pc.Points > 0 {
-			gl.BindBuffer(gl.ARRAY_BUFFER, buf)
-			gl.BufferData(gl.ARRAY_BUFFER, webgl.ByteArrayBuffer(pc.Data), gl.STATIC_DRAW)
-		}
-	}
-
 	gl.ClearColor(0.0, 0.0, 0.0, 1.0)
 	gl.ClearDepth(1.0)
 
+	const (
+		aVertexPosition    = 0
+		aVertexLabel       = 1
+		aVertexPositionSel = 0
+	)
 	gl.UseProgram(program)
-	aVertexPosition := 0
-	aVertexLabel := 1
 	gl.EnableVertexAttribArray(aVertexPosition)
 	gl.EnableVertexAttribArray(aVertexLabel)
 
 	gl.UseProgram(programSel)
-	aVertexPositionSel := 0
 	gl.EnableVertexAttribArray(aVertexPositionSel)
 
 	vi := newView()
@@ -303,10 +284,23 @@ func (pe *pcdeditor) Run() {
 		scale := devicePixelRatioJS.Int()
 		newWidth := gl.Canvas.ClientWidth() * scale
 		newHeight := gl.Canvas.ClientHeight() * scale
-		if newWidth != width || newHeight != height {
+		if newWidth != width || newHeight != height || fov != prevFov {
 			width, height = newWidth, newHeight
-			updateProjectionMatrix(width, height)
+
+			gl.Canvas.SetWidth(width)
+			gl.Canvas.SetHeight(height)
+			projectionMatrix = mat.Perspective(
+				float32(fov),
+				float32(width)/float32(height),
+				1.0, 1000.0,
+			)
+			gl.UseProgram(program)
+			gl.UniformMatrix4fv(projectionMatrixLocation, false, projectionMatrix)
+			gl.UseProgram(programSel)
+			gl.UniformMatrix4fv(projectionMatrixLocationSel, false, projectionMatrix)
+			gl.Viewport(0, 0, width, height)
 		}
+		prevFov = fov
 
 		modelViewMatrix :=
 			mat.Translate(vib3DX, 0, -float32(vi.distance)).
@@ -327,7 +321,10 @@ func (pe *pcdeditor) Run() {
 		}
 
 		if pc, updated, ok := cmd.PointCloud(); ok && updated {
-			loadPoints(gl, posBuf, pc)
+			if pc.Points > 0 {
+				gl.BindBuffer(gl.ARRAY_BUFFER, posBuf)
+				gl.BufferData(gl.ARRAY_BUFFER, webgl.ByteArrayBuffer(pc.Data), gl.STATIC_DRAW)
+			}
 		}
 
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
@@ -519,7 +516,6 @@ func (pe *pcdeditor) Run() {
 						fov = math.Pi / 8
 					}
 				}
-				updateProjectionMatrix(width, height)
 			case "F1":
 				vi.reset()
 			case "F2":
