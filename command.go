@@ -161,9 +161,9 @@ func (c *commandContext) TransformCursors(m mat.Mat4) {
 	c.updateRect()
 }
 
-func (c *commandContext) filter() (func(p mat.Vec3) bool, bool) {
+func (c *commandContext) SelectMatrix() (mat.Mat4, mat.Vec3, bool) {
 	if len(c.selected) != 3 {
-		return nil, false
+		return mat.Mat4{}, mat.Vec3{}, false
 	}
 	v0, v1 := c.rectCenter[1].Sub(c.rectCenter[0]), c.rectCenter[3].Sub(c.rectCenter[0])
 	v0n, v1n := v0.Normalized(), v1.Normalized()
@@ -174,18 +174,26 @@ func (c *commandContext) filter() (func(p mat.Vec3) bool, bool) {
 		v2n[0], v2n[1], v2n[2], 0,
 		0, 0, 0, 1,
 	}).InvAffine().
-		MulAffine(mat.Translate(-c.rectCenter[0][0], -c.rectCenter[0][1], -c.rectCenter[0][2]))
-	l0 := v0.Norm()
-	l1 := v1.Norm()
+		MulAffine(mat.Translate(
+			-c.rectCenter[0][0], -c.rectCenter[0][1], -c.rectCenter[0][2]))
+
+	return m, mat.Vec3{v0.Norm(), v1.Norm(), c.selectRange}, true
+}
+
+func (c *commandContext) filter() (func(p mat.Vec3) bool, bool) {
+	m, r, ok := c.SelectMatrix()
+	if !ok {
+		return nil, false
+	}
 
 	return func(p mat.Vec3) bool {
-		if z := m.TransformZ(p); z < -c.selectRange || c.selectRange < z {
+		if z := m.TransformZ(p); z < -r[2] || r[2] < z {
 			return true
 		}
-		if x := m.TransformX(p); x < 0 || l0 < x {
+		if x := m.TransformX(p); x < 0 || r[0] < x {
 			return true
 		}
-		if y := m.TransformY(p); y < 0 || l1 < y {
+		if y := m.TransformY(p); y < 0 || r[1] < y {
 			return true
 		}
 		return false

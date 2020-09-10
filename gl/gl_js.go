@@ -200,6 +200,11 @@ func (gl *WebGL) UniformMatrix4fv(loc Location, transpose bool, mat mat.Mat4) {
 	gl.gl.Call("uniformMatrix4fv", js.Value(loc), transpose, matJS)
 }
 
+func (gl *WebGL) Uniform3fv(loc Location, v mat.Vec3) {
+	vecJS := float32Array.Call("of", v[0], v[1], v[2])
+	gl.gl.Call("uniform3fv", js.Value(loc), vecJS)
+}
+
 func (gl *WebGL) Clear(mask BufferMask) {
 	gl.gl.Call("clear", int(mask))
 }

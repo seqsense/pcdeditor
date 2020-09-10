@@ -154,6 +154,8 @@ func (pe *pcdeditor) Run() {
 
 	projectionMatrixLocation := gl.GetUniformLocation(program, "uProjectionMatrix")
 	modelViewMatrixLocation := gl.GetUniformLocation(program, "uModelViewMatrix")
+	selectMatrixLocation := gl.GetUniformLocation(program, "uSelectMatrix")
+	selectRangeLocation := gl.GetUniformLocation(program, "uSelectRange")
 	projectionMatrixLocationSel := gl.GetUniformLocation(programSel, "uProjectionMatrix")
 	modelViewMatrixLocationSel := gl.GetUniformLocation(programSel, "uModelViewMatrix")
 
@@ -325,6 +327,14 @@ func (pe *pcdeditor) Run() {
 				gl.BindBuffer(gl.ARRAY_BUFFER, posBuf)
 				gl.BufferData(gl.ARRAY_BUFFER, webgl.ByteArrayBuffer(pc.Data), gl.STATIC_DRAW)
 			}
+		}
+
+		gl.UseProgram(program)
+		if m, r, ok := cmd.SelectMatrix(); ok {
+			gl.UniformMatrix4fv(selectMatrixLocation, false, m)
+			gl.Uniform3fv(selectRangeLocation, r)
+		} else {
+			gl.UniformMatrix4fv(selectMatrixLocation, false, mat.Mat4{})
 		}
 
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
