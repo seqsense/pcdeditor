@@ -46,9 +46,11 @@ func (v *view) snapPitch() {
 }
 
 func (v *view) wheel(e *webgl.WheelEvent) {
-	v.distance += e.DeltaY
+	v.distance += e.DeltaY * (v.distance*0.05 + 0.1)
 	if v.distance < 0 {
 		v.distance = 0
+	} else if v.distance > 1000 {
+		v.distance = 1000
 	}
 }
 

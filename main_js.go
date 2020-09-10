@@ -274,6 +274,7 @@ func (pe *pcdeditor) Run() {
 	cg := &clickGuard{}
 
 	devicePixelRatioJS := js.Global().Get("window").Get("devicePixelRatio")
+	wheelNormalizer := &wheelNormalizer{}
 
 	// Allow export after crash
 	defer func() {
@@ -389,6 +390,7 @@ func (pe *pcdeditor) Run() {
 			}
 			promise.resolved(res)
 		case e := <-pe.chWheel:
+			e.DeltaY = wheelNormalizer.Normalize(e.DeltaY)
 			switch {
 			case e.CtrlKey:
 				cmd.SetSelectRange(cmd.SelectRange() + float32(e.DeltaY)*0.01)
