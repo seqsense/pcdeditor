@@ -11,7 +11,11 @@ const (
 
 type editor struct {
 	pc      *pcd.PointCloud
+	pcCrop  *pcd.PointCloud
 	history []*pcd.PointCloud
+
+	cropOrigin mat.Mat4
+	cropRange  mat.Vec3
 }
 
 func (e *editor) push(pc *pcd.PointCloud) {
@@ -26,6 +30,36 @@ func (e *editor) push(pc *pcd.PointCloud) {
 		e.history = e.history[1:]
 	}
 	e.pc = pc
+	e.updateCrop()
+}
+
+func (e *editor) updateCrop() {
+	if e.cropOrigin[15] == 0.0 {
+		e.pcCrop = e.pc
+		return
+	}
+	pc, err := passThrough(e.pc, func(p mat.Vec3) bool {
+		if z := e.cropOrigin.TransformZ(p); z < -e.cropRange[2] || e.cropRange[2] < z {
+			return false
+		}
+		if x := e.cropOrigin.TransformX(p); x < 0 || e.cropRange[0] < x {
+			return false
+		}
+		if y := e.cropOrigin.TransformY(p); y < 0 || e.cropRange[1] < y {
+			return false
+		}
+		return true
+	})
+	if err != nil {
+		return
+	}
+	e.pcCrop = pc
+}
+
+func (e *editor) Crop(origin mat.Mat4, selectRange mat.Vec3) {
+	e.cropOrigin = origin
+	e.cropRange = selectRange
+	e.updateCrop()
 }
 
 func (e *editor) Undo() bool {
@@ -33,6 +67,7 @@ func (e *editor) Undo() bool {
 		e.history[n-1] = nil
 		e.history = e.history[:n-1]
 		e.pc = e.history[n-2]
+		e.updateCrop()
 		return true
 	}
 	return false
@@ -116,12 +151,21 @@ func (e *editor) label(fn func(mat.Vec3) (uint32, bool)) error {
 }
 
 func (e *editor) passThrough(fn func(mat.Vec3) bool) error {
-	it, err := e.pc.Vec3Iterator()
+	pc, err := passThrough(e.pc, fn)
 	if err != nil {
 		return err
 	}
+	e.push(pc)
+	return nil
+}
 
-	indice := make([]int, 0, e.pc.Points)
+func passThrough(pc *pcd.PointCloud, fn func(mat.Vec3) bool) (*pcd.PointCloud, error) {
+	it, err := pc.Vec3Iterator()
+	if err != nil {
+		return nil, err
+	}
+
+	indice := make([]int, 0, pc.Points)
 	for i := 0; it.IsValid(); {
 		if fn(it.Vec3()) {
 			indice = append(indice, i)
@@ -130,33 +174,31 @@ func (e *editor) passThrough(fn func(mat.Vec3) bool) error {
 		it.Incr()
 	}
 	pcNew := &pcd.PointCloud{
-		PointCloudHeader: e.pc.PointCloudHeader.Clone(),
+		PointCloudHeader: pc.PointCloudHeader.Clone(),
 		Points:           len(indice),
-		Data:             make([]byte, len(indice)*e.pc.Stride()),
+		Data:             make([]byte, len(indice)*pc.Stride()),
 	}
 	pcNew.Width = len(indice)
 	pcNew.Height = 1
 
-	pcOld := e.pc
 	if len(indice) == 0 {
-		e.push(pcNew)
-		return nil
+		return pcNew, nil
 	}
-	it, err = pcOld.Vec3Iterator()
+	it, err = pc.Vec3Iterator()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	jt, err := pcNew.Vec3Iterator()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	itL, err := pcOld.Uint32Iterator("label")
+	itL, err := pc.Uint32Iterator("label")
 	if err != nil {
-		return err
+		return nil, err
 	}
 	jtL, err := pcNew.Uint32Iterator("label")
 	if err != nil {
-		return err
+		return nil, err
 	}
 	iPrev := 0
 	for _, i := range indice {
@@ -169,8 +211,7 @@ func (e *editor) passThrough(fn func(mat.Vec3) bool) error {
 		jt.Incr()
 		jtL.Incr()
 	}
-	e.push(pcNew)
-	return nil
+	return pcNew, nil
 }
 
 func (e *editor) merge(pc *pcd.PointCloud) {

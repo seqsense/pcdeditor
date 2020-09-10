@@ -46,6 +46,34 @@ func (c *commandContext) PointCloud() (*pcd.PointCloud, bool, bool) {
 	return c.editor.pc, updated, c.editor.pc != nil
 }
 
+func (c *commandContext) PointCloudCropped() (*pcd.PointCloud, bool, bool) {
+	updated := c.pointCloudUpdated
+	c.pointCloudUpdated = false
+	return c.editor.pcCrop, updated, c.editor.pcCrop != nil
+}
+
+func (c *commandContext) Crop() bool {
+	if len(c.selected) != 3 {
+		c.editor.Crop(mat.Mat4{}, mat.Vec3{})
+		c.pointCloudUpdated = true
+		return false
+	}
+	v0, v1 := c.rectCenter[1].Sub(c.rectCenter[0]), c.rectCenter[3].Sub(c.rectCenter[0])
+	v0n, v1n := v0.Normalized(), v1.Normalized()
+	v2n := v0n.Cross(v1n)
+	m := (mat.Mat4{
+		v0n[0], v0n[1], v0n[2], 0,
+		v1n[0], v1n[1], v1n[2], 0,
+		v2n[0], v2n[1], v2n[2], 0,
+		0, 0, 0, 1,
+	}).InvAffine().
+		MulAffine(mat.Translate(-c.rectCenter[0][0], -c.rectCenter[0][1], -c.rectCenter[0][2]))
+	r := mat.Vec3{v0.Norm(), v1.Norm(), c.selectRange}
+	c.editor.Crop(m, r)
+	c.pointCloudUpdated = true
+	return true
+}
+
 func (c *commandContext) updateRect() {
 	switch len(c.selected) {
 	case 0, 1, 2:

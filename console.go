@@ -114,6 +114,13 @@ var consoleCommands = map[string]func(cmd *commandContext, args []float32) ([][]
 		cmd.Undo()
 		return nil, nil
 	},
+	"crop": func(cmd *commandContext, args []float32) ([][]float32, error) {
+		if len(args) != 0 {
+			return nil, errArgumentNumber
+		}
+		cmd.Crop()
+		return nil, nil
+	},
 }
 
 func (c *console) Run(line string) (string, error) {

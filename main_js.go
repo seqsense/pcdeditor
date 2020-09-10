@@ -320,7 +320,7 @@ func (pe *pcdeditor) Run() {
 			}
 		}
 
-		if pc, updated, ok := cmd.PointCloud(); ok && updated {
+		if pc, updated, ok := cmd.PointCloudCropped(); ok && updated {
 			if pc.Points > 0 {
 				gl.BindBuffer(gl.ARRAY_BUFFER, posBuf)
 				gl.BufferData(gl.ARRAY_BUFFER, webgl.ByteArrayBuffer(pc.Data), gl.STATIC_DRAW)
@@ -328,7 +328,7 @@ func (pe *pcdeditor) Run() {
 		}
 
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
-		if pc, _, ok := cmd.PointCloud(); ok && pc.Points > 0 {
+		if pc, _, ok := cmd.PointCloudCropped(); ok && pc.Points > 0 {
 			gl.UseProgram(program)
 			gl.BindBuffer(gl.ARRAY_BUFFER, posBuf)
 			gl.VertexAttribPointer(aVertexPosition, 3, gl.FLOAT, false, pc.Stride(), 0)
@@ -390,7 +390,11 @@ func (pe *pcdeditor) Run() {
 			e.DeltaY = wheelNormalizer.Normalize(e.DeltaY)
 			switch {
 			case e.CtrlKey:
-				cmd.SetSelectRange(cmd.SelectRange() + float32(e.DeltaY)*0.01)
+				rate := 0.01
+				if e.ShiftKey {
+					rate = 0.1
+				}
+				cmd.SetSelectRange(cmd.SelectRange() + float32(e.DeltaY*rate))
 			case e.ShiftKey:
 				rect := cmd.RectCenter()
 				if len(rect) == 4 {
@@ -419,7 +423,7 @@ func (pe *pcdeditor) Run() {
 			vi.mouseDrag(&e)
 			cg.Move()
 		case e := <-pe.chClick:
-			if pc, _, ok := cmd.PointCloud(); ok && e.Button == 0 && cg.Click() {
+			if pc, _, ok := cmd.PointCloudCropped(); ok && e.Button == 0 && cg.Click() {
 				p, ok := selectPoint(
 					pc, modelViewMatrix, projectionMatrix, e.OffsetX*scale, e.OffsetY*scale, width, height,
 				)
@@ -520,6 +524,8 @@ func (pe *pcdeditor) Run() {
 				vi.reset()
 			case "F2":
 				vi.fps()
+			case "F10":
+				cmd.Crop()
 			case "F11":
 				vi.snapYaw()
 			case "F12":
