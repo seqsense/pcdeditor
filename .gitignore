@@ -1,3 +1,4 @@
 pcdeditor.wasm
 wasm_exec.js
 data/*.pcd
+release
