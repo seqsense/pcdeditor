@@ -18,41 +18,47 @@
   </body>
   <script src="wasm_exec.js"></script>
   <script>
-    const query = new URLSearchParams(window.location.search)
-    let loadPath = '/data/map.pcd'
+    const query = new URLSearchParams(window.location.search);
+    let loadPath = '/data/map.pcd';
+    let sourceSpecified = false;
     if (query.has('source')) {
-      loadPath = query.get('source')
+      loadPath = query.get('source');
+      sourceSpecified = true;
+      document.getElementById('loadPCD').style.display = 'none';
     }
 
     document.onPCDEditorLoaded = e => {
       const logger = msg => {
-        const log = document.getElementById("log");
-        log.innerHTML = msg.toString().replace(/\n/g, "<br/>") + "<br/>" + log.innerHTML;
+        const log = document.getElementById('log');
+        log.innerHTML = msg.toString().replace(/\n/g, '<br/>') + '<br/>' + log.innerHTML;
       };
-      const pcdeditor = e.attach(document.getElementById("mapCanvas"), {logger: logger});
-      document.getElementById("loadPCD").onclick =
+      const pcdeditor = e.attach(document.getElementById('mapCanvas'), {logger: logger});
+      document.getElementById('loadPCD').onclick =
         () => pcdeditor.loadPCD(loadPath).catch(logger);
-      document.getElementById("savePCD").onclick =
+      document.getElementById('savePCD').onclick =
         () => pcdeditor.savePCD('/upload/map.pcd').catch(logger);
-      document.getElementById("exportPCD").onclick =
-        () => pcdeditor.exportPCD("exported.pcd").catch(logger);
-      document.getElementById("command").onkeydown =
+      document.getElementById('exportPCD').onclick =
+        () => pcdeditor.exportPCD('exported.pcd').catch(logger);
+      document.getElementById('command').onkeydown =
         e => {
           if (e.keyCode == 13) {
             pcdeditor.command(e.target.value).then(msg => {
-              if (msg != "") {
+              if (msg != '') {
                 logger(msg)
               }
             }).catch(logger);
-            e.target.value = "";
+            e.target.value = '';
           }
           if (e.keyCode == 27) {
-            document.getElementById("mapCanvas").focus();
+            document.getElementById('mapCanvas').focus();
           }
         };
+      if (sourceSpecified) {
+        pcdeditor.loadPCD(loadPath).catch(logger);
+      }
     }
     const go = new Go();
-    WebAssembly.instantiateStreaming(fetch("pcdeditor.wasm"), go.importObject).then((result) => {
+    WebAssembly.instantiateStreaming(fetch('pcdeditor.wasm'), go.importObject).then((result) => {
       go.run(result.instance);
     });
   </script>
