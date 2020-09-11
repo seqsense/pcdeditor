@@ -4,6 +4,11 @@ import (
 	"time"
 )
 
+const (
+	clickGuardDuration = 100 * time.Millisecond
+)
+
+// clickGuard filters misdetection of click event fired after dragging.
 type clickGuard struct {
 	deadline time.Time
 	moved    bool
@@ -18,7 +23,7 @@ func (c *clickGuard) DragStart() {
 }
 
 func (c *clickGuard) DragEnd() {
-	c.deadline = time.Now().Add(100 * time.Millisecond)
+	c.deadline = time.Now().Add(clickGuardDuration)
 }
 
 func (c *clickGuard) Click() bool {
