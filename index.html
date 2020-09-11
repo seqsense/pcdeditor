@@ -38,7 +38,13 @@
       document.getElementById('savePCD').onclick =
         () => pcdeditor.savePCD('/upload/map.pcd').catch(logger);
       document.getElementById('exportPCD').onclick =
-        () => pcdeditor.exportPCD('exported.pcd').catch(logger);
+        () => pcdeditor.exportPCD().then(blob => {
+            const a = document.createElement('a');
+            a.download = 'exported.pcd';
+            a.href = URL.createObjectURL(blob);
+            a.dataset.downloadurl = ['application/octet-stream', a.download, a.href];
+            a.click();
+          }).catch(logger);
       document.getElementById('command').onkeydown =
         e => {
           if (e.keyCode == 13) {

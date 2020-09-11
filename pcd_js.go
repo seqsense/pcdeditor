@@ -93,10 +93,10 @@ func (*pcdIOImpl) writePCD(path string, pc *pcd.PointCloud) error {
 	return nil
 }
 
-func (*pcdIOImpl) exportPCD(filename string, pc *pcd.PointCloud) error {
+func (*pcdIOImpl) exportPCD(pc *pcd.PointCloud) (interface{}, error) {
 	var buf bytes.Buffer
 	if err := pcd.Marshal(pc, &buf); err != nil {
-		return err
+		return nil, err
 	}
 	array := js.Global().Get("Uint8Array").New(buf.Len())
 	js.CopyBytesToJS(array, buf.Bytes())
@@ -104,15 +104,5 @@ func (*pcdIOImpl) exportPCD(filename string, pc *pcd.PointCloud) error {
 	blob := js.Global().Get("Blob").New([]interface{}{array}, map[string]interface{}{
 		"type": "application.octet-stream",
 	})
-	url := js.Global().Get("URL").Call("createObjectURL", blob)
-
-	a := js.Global().Get("document").Call("createElement", "a")
-	a.Set("download", filename)
-	a.Set("href", url)
-	a.Get("dataset").Set("downloadurl",
-		[]interface{}{"application/octet-stream", filename, url},
-	)
-	a.Call("click")
-
-	return nil
+	return blob, nil
 }

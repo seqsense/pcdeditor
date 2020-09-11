@@ -15,7 +15,7 @@ const (
 type pcdIO interface {
 	readPCD(path string) (*pcd.PointCloud, error)
 	writePCD(path string, pc *pcd.PointCloud) error
-	exportPCD(filename string, pc *pcd.PointCloud) error
+	exportPCD(pc *pcd.PointCloud) (interface{}, error)
 }
 
 type commandContext struct {
@@ -296,13 +296,13 @@ func (c *commandContext) SavePCD(path string) error {
 	return nil
 }
 
-func (c *commandContext) ExportPCD(path string) error {
+func (c *commandContext) ExportPCD() (interface{}, error) {
 	if c.editor.pc == nil {
-		return errors.New("no pointcloud")
+		return nil, errors.New("no pointcloud")
 	}
-	err := c.pcdIO.exportPCD(path, c.editor.pc)
+	blob, err := c.pcdIO.exportPCD(c.editor.pc)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return blob, nil
 }

@@ -28,7 +28,7 @@ func main() {
 
 type promiseCommand struct {
 	data     string
-	resolved func(string)
+	resolved func(interface{})
 	rejected func(error)
 }
 
@@ -83,7 +83,7 @@ func newPCDEditor(this js.Value, args []js.Value) interface{} {
 			return newCommandPromise(pe.chSavePath, args[0].String())
 		}),
 		"exportPCD": js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			return newCommandPromise(pe.chExport, args[0].String())
+			return newCommandPromise(pe.chExport, "")
 		}),
 		"command": js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			return newCommandPromise(pe.chCommand, args[0].String())
@@ -96,7 +96,7 @@ func newCommandPromise(ch chan promiseCommand, data string) js.Value {
 		resolve, reject := args[0], args[1]
 		cmd := promiseCommand{
 			data:     data,
-			resolved: func(msg string) { resolve.Invoke(msg) },
+			resolved: func(res interface{}) { resolve.Invoke(res) },
 			rejected: func(err error) { reject.Invoke(errorToJS(err)) },
 		}
 		select {
@@ -268,12 +268,12 @@ func (pe *pcdeditor) Run() {
 				pe.logPrint("CRASHED (export command is available)")
 				pe.logPrint("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 				for promise := range pe.chExport {
-					err := cmd.pcdIO.exportPCD(promise.data, pc)
+					blob, err := cmd.pcdIO.exportPCD(pc)
 					if err != nil {
 						promise.rejected(err)
 						continue
 					}
-					promise.resolved("exported")
+					promise.resolved(blob)
 				}
 			} else {
 				pe.logPrint("CRASHED")
@@ -383,12 +383,13 @@ func (pe *pcdeditor) Run() {
 			promise.resolved("saved")
 		case promise := <-pe.chExport:
 			pe.logPrint("exporting pcd file")
-			if err := cmd.ExportPCD(promise.data); err != nil {
+			blob, err := cmd.ExportPCD()
+			if err != nil {
 				promise.rejected(err)
 				break
 			}
 			pe.logPrint("pcd file exported")
-			promise.resolved("exported")
+			promise.resolved(blob)
 		case promise := <-pe.chCommand:
 			res, err := cs.Run(promise.data)
 			if err != nil {
