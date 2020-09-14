@@ -121,6 +121,13 @@ var consoleCommands = map[string]func(cmd *commandContext, args []float32) ([][]
 		cmd.Crop()
 		return nil, nil
 	},
+	"map_alpha": func(cmd *commandContext, args []float32) ([][]float32, error) {
+		if len(args) != 1 {
+			return nil, errArgumentNumber
+		}
+		cmd.SetMapAlpha(args[0])
+		return nil, nil
+	},
 }
 
 func (c *console) Run(line string) (string, error) {

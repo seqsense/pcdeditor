@@ -8,6 +8,7 @@ import (
 
 	webgl "github.com/seqsense/pcdeditor/gl"
 	"github.com/seqsense/pcdeditor/mat"
+	"github.com/seqsense/pcdeditor/pcd"
 )
 
 const (
@@ -27,7 +28,7 @@ func main() {
 }
 
 type promiseCommand struct {
-	data     string
+	data     interface{}
 	resolved func(interface{})
 	rejected func(error)
 }
@@ -45,6 +46,7 @@ type pcdeditor struct {
 	chMouseMove chan webgl.MouseEvent
 	chMouseUp   chan webgl.MouseEvent
 	chKey       chan webgl.KeyboardEvent
+	ch2D        chan promiseCommand
 }
 
 func newPCDEditor(this js.Value, args []js.Value) interface{} {
@@ -64,6 +66,7 @@ func newPCDEditor(this js.Value, args []js.Value) interface{} {
 		chMouseMove: make(chan webgl.MouseEvent, 10),
 		chMouseUp:   make(chan webgl.MouseEvent, 10),
 		chKey:       make(chan webgl.KeyboardEvent, 10),
+		ch2D:        make(chan promiseCommand, 1),
 	}
 	if len(args) > 1 {
 		init := args[1]
@@ -83,14 +86,17 @@ func newPCDEditor(this js.Value, args []js.Value) interface{} {
 			return newCommandPromise(pe.chSavePath, args[0].String())
 		}),
 		"exportPCD": js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			return newCommandPromise(pe.chExport, "")
+			return newCommandPromise(pe.chExport, nil)
 		}),
 		"command": js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			return newCommandPromise(pe.chCommand, args[0].String())
 		}),
+		"show2D": js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			return newCommandPromise(pe.ch2D, args[0].Bool())
+		}),
 	})
 }
-func newCommandPromise(ch chan promiseCommand, data string) js.Value {
+func newCommandPromise(ch chan promiseCommand, data interface{}) js.Value {
 	promise := js.Global().Get("Promise")
 	return promise.New(js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		resolve, reject := args[0], args[1]
@@ -130,10 +136,24 @@ func (pe *pcdeditor) Run() {
 		pe.logPrint("Compile failed (VERTEX_SHADER)")
 		return
 	}
+	vsMap := gl.CreateShader(gl.VERTEX_SHADER)
+	gl.ShaderSource(vsMap, vsMapSource)
+	gl.CompileShader(vsMap)
+	if !gl.GetShaderParameter(vsMap, gl.COMPILE_STATUS).(bool) {
+		pe.logPrint("Compile failed (VERTEX_SHADER)")
+		return
+	}
 	fs := gl.CreateShader(gl.FRAGMENT_SHADER)
 	gl.ShaderSource(fs, fsSource)
 	gl.CompileShader(fs)
 	if !gl.GetShaderParameter(fs, gl.COMPILE_STATUS).(bool) {
+		pe.logPrint("Compile failed (FRAGMENT_SHADER)")
+		return
+	}
+	fsMap := gl.CreateShader(gl.FRAGMENT_SHADER)
+	gl.ShaderSource(fsMap, fsMapSource)
+	gl.CompileShader(fsMap)
+	if !gl.GetShaderParameter(fsMap, gl.COMPILE_STATUS).(bool) {
 		pe.logPrint("Compile failed (FRAGMENT_SHADER)")
 		return
 	}
@@ -151,6 +171,19 @@ func (pe *pcdeditor) Run() {
 	gl.AttachShader(programSel, vsSel)
 	gl.AttachShader(programSel, fs)
 	gl.LinkProgram(programSel)
+	if !gl.GetProgramParameter(programSel, gl.LINK_STATUS).(bool) {
+		pe.logPrint("Link failed: " + gl.GetProgramInfoLog(programSel))
+		return
+	}
+
+	programMap := gl.CreateProgram()
+	gl.AttachShader(programMap, vsMap)
+	gl.AttachShader(programMap, fsMap)
+	gl.LinkProgram(programMap)
+	if !gl.GetProgramParameter(programMap, gl.LINK_STATUS).(bool) {
+		pe.logPrint("Link failed: " + gl.GetProgramInfoLog(programMap))
+		return
+	}
 
 	projectionMatrixLocation := gl.GetUniformLocation(program, "uProjectionMatrix")
 	modelViewMatrixLocation := gl.GetUniformLocation(program, "uModelViewMatrix")
@@ -158,11 +191,16 @@ func (pe *pcdeditor) Run() {
 	selectRangeLocation := gl.GetUniformLocation(program, "uSelectRange")
 	projectionMatrixLocationSel := gl.GetUniformLocation(programSel, "uProjectionMatrix")
 	modelViewMatrixLocationSel := gl.GetUniformLocation(programSel, "uModelViewMatrix")
+	projectionMatrixLocationMap := gl.GetUniformLocation(programMap, "uProjectionMatrix")
+	modelViewMatrixLocationMap := gl.GetUniformLocation(programMap, "uModelViewMatrix")
+	samplerLocationMap := gl.GetUniformLocation(programMap, "uSampler")
+	alphaLocationMap := gl.GetUniformLocation(programMap, "uAlpha")
 
 	gl.Enable(gl.DEPTH_TEST)
 	gl.DepthFunc(gl.LEQUAL)
 
 	posBuf := gl.CreateBuffer()
+	mapBuf := gl.CreateBuffer()
 
 	tick := time.NewTicker(time.Second / 8)
 	defer tick.Stop()
@@ -235,7 +273,7 @@ func (pe *pcdeditor) Run() {
 	var vib3DX float32
 
 	var nRectPoints int
-	cmd := newCommandContext(&pcdIOImpl{})
+	cmd := newCommandContext(&pcdIOImpl{}, &mapIOImpl{})
 	cs := &console{cmd: cmd}
 
 	gl.ClearColor(0.0, 0.0, 0.0, 1.0)
@@ -245,6 +283,8 @@ func (pe *pcdeditor) Run() {
 		aVertexPosition    = 0
 		aVertexLabel       = 1
 		aVertexPositionSel = 0
+		aVertexPositionMap = 0
+		aTextureCoordMap   = 1
 	)
 	gl.UseProgram(program)
 	gl.EnableVertexAttribArray(aVertexPosition)
@@ -253,11 +293,27 @@ func (pe *pcdeditor) Run() {
 	gl.UseProgram(programSel)
 	gl.EnableVertexAttribArray(aVertexPositionSel)
 
+	gl.UseProgram(programMap)
+	gl.EnableVertexAttribArray(aVertexPositionMap)
+	gl.EnableVertexAttribArray(aTextureCoordMap)
+
 	vi := newView()
 	cg := &clickGuard{}
 
 	devicePixelRatioJS := js.Global().Get("window").Get("devicePixelRatio")
 	wheelNormalizer := &wheelNormalizer{}
+
+	texture := gl.CreateTexture()
+	mapRect := &pcd.PointCloud{
+		PointCloudHeader: pcd.PointCloudHeader{
+			Fields: []string{"x", "y", "z", "u", "v"},
+			Size:   []int{4, 4, 4, 4, 4},
+			Count:  []int{1, 1, 1, 1, 1},
+		},
+		Points: 5,
+		Data:   make([]byte, 5*4*5),
+	}
+	var show2D bool = true
 
 	// Allow export after crash
 	defer func() {
@@ -300,6 +356,8 @@ func (pe *pcdeditor) Run() {
 			gl.UniformMatrix4fv(projectionMatrixLocation, false, projectionMatrix)
 			gl.UseProgram(programSel)
 			gl.UniformMatrix4fv(projectionMatrixLocationSel, false, projectionMatrix)
+			gl.UseProgram(programMap)
+			gl.UniformMatrix4fv(projectionMatrixLocationMap, false, projectionMatrix)
 			gl.Viewport(0, 0, width, height)
 		}
 		prevFov = fov
@@ -326,6 +384,43 @@ func (pe *pcdeditor) Run() {
 			if pc.Points > 0 {
 				gl.BindBuffer(gl.ARRAY_BUFFER, posBuf)
 				gl.BufferData(gl.ARRAY_BUFFER, webgl.ByteArrayBuffer(pc.Data), gl.STATIC_DRAW)
+
+				mi, img := cmd.Map()
+				gl.BindTexture(gl.TEXTURE_2D, texture)
+				gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img.Interface().(js.Value))
+				gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+				gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+				gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+				gl.BindTexture(gl.TEXTURE_2D, webgl.Texture(nil))
+
+				gl.UseProgram(programMap)
+				gl.ActiveTexture(gl.TEXTURE0)
+				gl.BindTexture(gl.TEXTURE_2D, texture)
+				gl.Uniform1i(samplerLocationMap, 0)
+
+				w, h := img.Width(), img.Height()
+				xi, _ := mapRect.Float32Iterator("x")
+				yi, _ := mapRect.Float32Iterator("y")
+				ui, _ := mapRect.Float32Iterator("u")
+				vi, _ := mapRect.Float32Iterator("v")
+				push := func(x, y, u, v float32) {
+					xi.SetFloat32(x)
+					yi.SetFloat32(y)
+					ui.SetFloat32(u)
+					vi.SetFloat32(v)
+					xi.Incr()
+					yi.Incr()
+					ui.Incr()
+					vi.Incr()
+				}
+				push(mi.Origin[0], mi.Origin[1], 0, 1)
+				push(mi.Origin[0]+float32(w)*mi.Resolution, mi.Origin[1], 1, 1)
+				push(mi.Origin[0]+float32(w)*mi.Resolution, mi.Origin[1]+float32(h)*mi.Resolution, 1, 0)
+				push(mi.Origin[0], mi.Origin[1]+float32(h)*mi.Resolution, 0, 0)
+				push(mi.Origin[0], mi.Origin[1], 0, 1)
+
+				gl.BindBuffer(gl.ARRAY_BUFFER, mapBuf)
+				gl.BufferData(gl.ARRAY_BUFFER, webgl.ByteArrayBuffer(mapRect.Data), gl.STATIC_DRAW)
 			}
 		}
 
@@ -343,9 +438,21 @@ func (pe *pcdeditor) Run() {
 			gl.BindBuffer(gl.ARRAY_BUFFER, posBuf)
 			gl.VertexAttribPointer(aVertexPosition, 3, gl.FLOAT, false, pc.Stride(), 0)
 			gl.VertexAttribIPointer(aVertexLabel, 1, gl.UNSIGNED_INT, pc.Stride(), 3*4)
-
 			gl.UniformMatrix4fv(modelViewMatrixLocation, false, modelViewMatrix)
 			gl.DrawArrays(gl.POINTS, 0, pc.Points-1)
+
+			if show2D {
+				gl.Enable(gl.BLEND)
+				gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+				gl.UseProgram(programMap)
+				gl.BindBuffer(gl.ARRAY_BUFFER, mapBuf)
+				gl.VertexAttribPointer(aVertexPositionMap, 3, gl.FLOAT, false, mapRect.Stride(), 0)
+				gl.VertexAttribPointer(aTextureCoordMap, 2, gl.FLOAT, false, mapRect.Stride(), 4*3)
+				gl.UniformMatrix4fv(modelViewMatrixLocationMap, false, modelViewMatrix)
+				gl.Uniform1f(alphaLocationMap, cmd.MapAlpha())
+				gl.DrawArrays(gl.TRIANGLE_FAN, 0, 5)
+				gl.Disable(gl.BLEND)
+			}
 		}
 
 		if nRectPoints > 0 {
@@ -367,7 +474,7 @@ func (pe *pcdeditor) Run() {
 		select {
 		case promise := <-pe.chLoadPath:
 			pe.logPrint("loading pcd file")
-			if err := cmd.LoadPCD(promise.data); err != nil {
+			if err := cmd.LoadPCD(promise.data.(string)); err != nil {
 				promise.rejected(err)
 				break
 			}
@@ -375,7 +482,7 @@ func (pe *pcdeditor) Run() {
 			promise.resolved("loaded")
 		case promise := <-pe.chSavePath:
 			pe.logPrint("saving pcd file")
-			if err := cmd.SavePCD(promise.data); err != nil {
+			if err := cmd.SavePCD(promise.data.(string)); err != nil {
 				promise.rejected(err)
 				break
 			}
@@ -391,12 +498,15 @@ func (pe *pcdeditor) Run() {
 			pe.logPrint("pcd file exported")
 			promise.resolved(blob)
 		case promise := <-pe.chCommand:
-			res, err := cs.Run(promise.data)
+			res, err := cs.Run(promise.data.(string))
 			if err != nil {
 				promise.rejected(err)
 				break
 			}
 			promise.resolved(res)
+		case promise := <-pe.ch2D:
+			show2D = promise.data.(bool)
+			promise.resolved("changed")
 		case e := <-pe.chWheel:
 			var ok bool
 			e.DeltaY, ok = wheelNormalizer.Normalize(e.DeltaY)

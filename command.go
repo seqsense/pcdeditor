@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"strings"
 
 	"github.com/seqsense/pcdeditor/mat"
 	"github.com/seqsense/pcdeditor/pcd"
@@ -10,6 +11,7 @@ import (
 const (
 	defaultResolution  = 0.05
 	defaultSelectRange = 0.05
+	defaultMapAlpha    = 0.3
 )
 
 type pcdIO interface {
@@ -18,9 +20,14 @@ type pcdIO interface {
 	exportPCD(pc *pcd.PointCloud) (interface{}, error)
 }
 
+type mapIO interface {
+	readMap(yamlPath string) (*occupancyGrid, mapImage, error)
+}
+
 type commandContext struct {
 	*editor
 	pcdIO             pcdIO
+	mapIO             mapIO
 	pointCloudUpdated bool
 
 	selectRange float32
@@ -30,14 +37,33 @@ type commandContext struct {
 	rectUpdated bool
 	rect        []mat.Vec3
 	rectCenter  []mat.Vec3
+
+	mapInfo *occupancyGrid
+	mapImg  mapImage
+
+	mapAlpha float32
 }
 
-func newCommandContext(pcdio pcdIO) *commandContext {
+func newCommandContext(pcdio pcdIO, mapio mapIO) *commandContext {
 	return &commandContext{
 		selectRange: defaultSelectRange,
 		editor:      &editor{},
 		pcdIO:       pcdio,
+		mapIO:       mapio,
+		mapAlpha:    defaultMapAlpha,
 	}
+}
+
+func (c *commandContext) Map() (*occupancyGrid, mapImage) {
+	return c.mapInfo, c.mapImg
+}
+
+func (c *commandContext) MapAlpha() float32 {
+	return c.mapAlpha
+}
+
+func (c *commandContext) SetMapAlpha(a float32) {
+	c.mapAlpha = a
 }
 
 func (c *commandContext) PointCloud() (*pcd.PointCloud, bool, bool) {
@@ -279,9 +305,18 @@ func (c *commandContext) LoadPCD(path string) error {
 	if err != nil {
 		return err
 	}
+	yamlPath := strings.TrimSuffix(path, ".pcd") + ".yaml"
+	mi, img, err := c.mapIO.readMap(yamlPath)
+	if err != nil {
+		return err
+	}
+	c.mapInfo = mi
+	c.mapImg = img
+
 	if err := c.editor.SetPointCloud(p); err != nil {
 		return err
 	}
+
 	c.pointCloudUpdated = true
 	return nil
 }

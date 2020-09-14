@@ -12,6 +12,10 @@
         <button id="savePCD">save</button>
         <button id="exportPCD">export</button>
         <input type="text" id="command" style="opacity: 0.8;" />
+        <span style="background-color: rgba(255, 255, 255, 0.8); padding: 2px;">
+          <input type="checkbox" checked id="show2D" />
+          <label for="show2D" style="padding-left: 0.5em; padding-right: 0.2em; margin-left: -0.5em;">2D</label>
+        </span>
       </div>
       <div id="log" style="font-size: 0.6em; max-height: 20em; position: absolute; bottom: 1em; left: 1em; z-index: 2; color: white; pointer-events: none; overflow: hidden;"></div>
     </div>
@@ -59,9 +63,14 @@
             document.getElementById('mapCanvas').focus();
           }
         };
+      document.getElementById('show2D').onchange =
+        e => {
+          pcdeditor.show2D(e.target.checked).catch(logger);
+        };
       if (sourceSpecified) {
         pcdeditor.loadPCD(loadPath).catch(logger);
       }
+      pcdeditor.show2D(document.getElementById('show2D').checked).catch(logger);
     }
     const go = new Go();
     WebAssembly.instantiateStreaming(fetch('pcdeditor.wasm'), go.importObject).then((result) => {

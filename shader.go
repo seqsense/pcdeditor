@@ -61,3 +61,28 @@ const fsSource = `#version 300 es
 		outColor = vColor;
 	}
 `
+
+const vsMapSource = `#version 300 es
+	layout (location = 0) in vec4 aVertexPosition;
+	layout (location = 1) in vec2 aTextureCoord;
+	uniform mat4 uModelViewMatrix;
+	uniform mat4 uProjectionMatrix;
+	out highp vec2 vTextureCoord;
+
+	void main(void) {
+		gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
+		vTextureCoord = aTextureCoord;
+	}
+`
+
+const fsMapSource = `#version 300 es
+	in highp vec2 vTextureCoord;
+	uniform sampler2D uSampler;
+	uniform lowp float uAlpha;
+	out lowp vec4 vColor;
+
+	void main(void) {
+		vColor = texture(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
+		vColor[3] = uAlpha;
+	}
+`

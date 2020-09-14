@@ -22,11 +22,17 @@ type BufferMask int
 type DrawMode int
 type ProgramParameter int
 type ShaderParameter int
+type TextureType int
+type PixelFormat int
+type TextureParameter int
+type TextureNumber int
+type BlendFactor int
 
 type Shader js.Value
 type Program js.Value
 type Location js.Value
 type Buffer js.Value
+type Texture *js.Value
 
 type WebGL struct {
 	gl js.Value
@@ -36,13 +42,23 @@ type WebGL struct {
 	VERTEX_SHADER, FRAGMENT_SHADER                                                ShaderType
 	ARRAY_BUFFER                                                                  BufferType
 	STATIC_DRAW                                                                   BufferUsage
-	DEPTH_TEST                                                                    Capacity
+	DEPTH_TEST, BLEND                                                             Capacity
 	LEQUAL                                                                        DepthFunc
-	FLOAT, UNSIGNED_SHORT, UNSIGNED_INT                                           Type
+	FLOAT, UNSIGNED_BYTE, UNSIGNED_SHORT, UNSIGNED_INT                            Type
 	COLOR_BUFFER_BIT, DEPTH_BUFFER_BIT, STENCIL_BUFFER_BIT                        BufferMask
 	POINTS, LINE_STRIP, LINE_LOOP, LINES, TRIANGLE_STRIP, TRIANGLE_FAN, TRIANGLES DrawMode
 	COMPILE_STATUS                                                                ShaderParameter
 	LINK_STATUS, VALIDATE_STATUS                                                  ProgramParameter
+	TEXTURE_2D                                                                    TextureType
+
+	RGBA PixelFormat
+
+	TEXTURE_MIN_FILTER, TEXTURE_WRAP_S, TEXTURE_WRAP_T TextureParameter
+	LINEAR, NEAREST, CLAMP_TO_EDGE                     int
+
+	TEXTURE0 TextureNumber
+
+	ZERO, ONE, SRC_ALPHA, ONE_MINUS_SRC_ALPHA BlendFactor
 }
 
 func New(canvas js.Value) (*WebGL, error) {
@@ -63,10 +79,12 @@ func New(canvas js.Value) (*WebGL, error) {
 		STATIC_DRAW: BufferUsage(gl.Get("STATIC_DRAW").Int()),
 
 		DEPTH_TEST: Capacity(gl.Get("DEPTH_TEST").Int()),
+		BLEND:      Capacity(gl.Get("BLEND").Int()),
 
 		LEQUAL: DepthFunc(gl.Get("LEQUAL").Int()),
 
 		FLOAT:          Type(gl.Get("FLOAT").Int()),
+		UNSIGNED_BYTE:  Type(gl.Get("UNSIGNED_BYTE").Int()),
 		UNSIGNED_SHORT: Type(gl.Get("UNSIGNED_SHORT").Int()),
 		UNSIGNED_INT:   Type(gl.Get("UNSIGNED_INT").Int()),
 
@@ -86,6 +104,25 @@ func New(canvas js.Value) (*WebGL, error) {
 
 		LINK_STATUS:     ProgramParameter(gl.Get("LINK_STATUS").Int()),
 		VALIDATE_STATUS: ProgramParameter(gl.Get("VALIDATE_STATUS").Int()),
+
+		TEXTURE_2D: TextureType(gl.Get("TEXTURE_2D").Int()),
+
+		RGBA: PixelFormat(gl.Get("RGBA").Int()),
+
+		TEXTURE_MIN_FILTER: TextureParameter(gl.Get("TEXTURE_MIN_FILTER").Int()),
+		TEXTURE_WRAP_S:     TextureParameter(gl.Get("TEXTURE_WRAP_S").Int()),
+		TEXTURE_WRAP_T:     TextureParameter(gl.Get("TEXTURE_WRAP_T").Int()),
+
+		LINEAR:        gl.Get("LINEAR").Int(),
+		NEAREST:       gl.Get("NEAREST").Int(),
+		CLAMP_TO_EDGE: gl.Get("CLAMP_TO_EDGE").Int(),
+
+		TEXTURE0: TextureNumber(gl.Get("TEXTURE0").Int()),
+
+		ZERO:                BlendFactor(gl.Get("ZERO").Int()),
+		ONE:                 BlendFactor(gl.Get("ONE").Int()),
+		SRC_ALPHA:           BlendFactor(gl.Get("SRC_ALPHA").Int()),
+		ONE_MINUS_SRC_ALPHA: BlendFactor(gl.Get("ONE_MINUS_SRC_ALPHA").Int()),
 	}, nil
 }
 
@@ -174,6 +211,10 @@ func (gl *WebGL) Enable(c Capacity) {
 	gl.gl.Call("enable", int(c))
 }
 
+func (gl *WebGL) Disable(c Capacity) {
+	gl.gl.Call("disable", int(c))
+}
+
 func (gl *WebGL) DepthFunc(f DepthFunc) {
 	gl.gl.Call("depthFunc", int(f))
 }
@@ -205,6 +246,14 @@ func (gl *WebGL) Uniform3fv(loc Location, v mat.Vec3) {
 	gl.gl.Call("uniform3fv", js.Value(loc), vecJS)
 }
 
+func (gl *WebGL) Uniform1i(loc Location, i int) {
+	gl.gl.Call("uniform1i", js.Value(loc), i)
+}
+
+func (gl *WebGL) Uniform1f(loc Location, i float32) {
+	gl.gl.Call("uniform1f", js.Value(loc), i)
+}
+
 func (gl *WebGL) Clear(mask BufferMask) {
 	gl.gl.Call("clear", int(mask))
 }
@@ -215,4 +264,33 @@ func (gl *WebGL) DrawArrays(mode DrawMode, i, n int) {
 
 func (gl *WebGL) Viewport(x1, y1, x2, y2 int) {
 	gl.gl.Call("viewport", x1, y1, x2, y2)
+}
+
+func (gl *WebGL) CreateTexture() Texture {
+	tex := gl.gl.Call("createTexture")
+	return Texture(&tex)
+}
+
+func (gl *WebGL) BindTexture(texType TextureType, tex Texture) {
+	if tex == nil {
+		gl.gl.Call("bindTexture", int(texType), nil)
+		return
+	}
+	gl.gl.Call("bindTexture", int(texType), js.Value(*tex))
+}
+
+func (gl *WebGL) TexImage2D(texType TextureType, level int, internalFmt, fmt PixelFormat, typ Type, img interface{}) {
+	gl.gl.Call("texImage2D", int(texType), level, int(internalFmt), int(fmt), int(typ), img)
+}
+
+func (gl *WebGL) TexParameteri(texType TextureType, param TextureParameter, val interface{}) {
+	gl.gl.Call("texParameteri", int(texType), int(param), val)
+}
+
+func (gl *WebGL) ActiveTexture(i TextureNumber) {
+	gl.gl.Call("activeTexture", int(i))
+}
+
+func (gl *WebGL) BlendFunc(s, d BlendFactor) {
+	gl.gl.Call("blendFunc", int(s), int(d))
 }
