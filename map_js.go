@@ -33,6 +33,7 @@ func (*mapIOImpl) readMap(yamlPath, imgPath string) (*occupancyGrid, mapImage, e
 			return nil
 		}),
 	)
+	img.Set("crossOrigin", "use-credentials")
 	img.Set("src", imgPath)
 
 	if !<-chOK {
