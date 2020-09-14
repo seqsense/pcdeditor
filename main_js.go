@@ -398,7 +398,11 @@ func (pe *pcdeditor) Run() {
 			}
 			promise.resolved(res)
 		case e := <-pe.chWheel:
-			e.DeltaY = wheelNormalizer.Normalize(e.DeltaY)
+			var ok bool
+			e.DeltaY, ok = wheelNormalizer.Normalize(e.DeltaY)
+			if !ok {
+				break
+			}
 			switch {
 			case e.CtrlKey:
 				rate := 0.01

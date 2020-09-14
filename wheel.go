@@ -5,7 +5,7 @@ import (
 )
 
 const (
-	binaryDetectCnt = 5
+	binaryDetectCnt = 3
 	initialMaxDelta = 10
 )
 
@@ -18,6 +18,9 @@ const (
 )
 
 type wheelNormalizer struct {
+	init     bool
+	eventCnt int
+
 	wheelType wheelType
 	maxDelta  float64
 
@@ -28,13 +31,19 @@ type wheelNormalizer struct {
 	dSum     float64
 }
 
-func (n *wheelNormalizer) Normalize(d float64) float64 {
+func (n *wheelNormalizer) Normalize(d float64) (float64, bool) {
+	if n.eventCnt > binaryDetectCnt {
+		n.init = true
+	} else {
+		n.eventCnt++
+	}
+
 	dAbs := d
 	if dAbs < 0 {
 		dAbs = -d
 	}
 	if dAbs == 0 {
-		return 0
+		return 0, n.init
 	}
 
 	if n.binaryAbs == dAbs {
@@ -89,9 +98,9 @@ func (n *wheelNormalizer) Normalize(d float64) float64 {
 	}
 	if n.wheelType == wheelTypeBinary {
 		if d < 0 {
-			return -1
+			return -1, n.init
 		}
-		return 1
+		return 1, n.init
 	}
-	return d * 250 / n.maxDelta
+	return d * 250 / n.maxDelta, n.init
 }
