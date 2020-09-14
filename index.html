@@ -23,22 +23,37 @@
   <script src="wasm_exec.js"></script>
   <script>
     const query = new URLSearchParams(window.location.search);
-    let loadPath = '/data/map.pcd';
-    let sourceSpecified = false;
-    if (query.has('source')) {
-      loadPath = query.get('source');
-      sourceSpecified = true;
-      document.getElementById('loadPCD').style.display = 'none';
-    }
-
     document.onPCDEditorLoaded = e => {
+      let pcdPath = '/data/map.pcd';
+      let yamlPath = '/data/map.yaml';
+      let imgPath = '/data/map.png';
+      let pcdSpecified = false;
+      let yamlSpecified = false;
+      let imgSpecified = false;
+      if (query.has('source')) {
+        pcdPath = query.get('source');
+        pcdSpecified = true;
+        document.getElementById('loadPCD').style.display = 'none';
+      }
+      if (query.has('yaml')) {
+        yamlPath = query.get('yaml');
+        yamlSpecified = true;
+      }
+      if (query.has('2d')) {
+        imgPath = query.get('2d');
+        imgSpecified = true;
+      }
+
       const logger = msg => {
         const log = document.getElementById('log');
         log.innerHTML = msg.toString().replace(/\n/g, '<br/>') + '<br/>' + log.innerHTML;
       };
       const pcdeditor = e.attach(document.getElementById('mapCanvas'), {logger: logger});
       document.getElementById('loadPCD').onclick =
-        () => pcdeditor.loadPCD(loadPath).catch(logger);
+        () => {
+          pcdeditor.loadPCD(pcdPath).catch(logger);
+          pcdeditor.load2D(yamlPath, imgPath).catch(logger);
+        };
       document.getElementById('savePCD').onclick =
         () => pcdeditor.savePCD('/upload/map.pcd').catch(logger);
       document.getElementById('exportPCD').onclick =
@@ -67,8 +82,11 @@
         e => {
           pcdeditor.show2D(e.target.checked).catch(logger);
         };
-      if (sourceSpecified) {
-        pcdeditor.loadPCD(loadPath).catch(logger);
+      if (pcdSpecified) {
+        pcdeditor.loadPCD(pcdPath).catch(logger);
+      }
+      if (yamlSpecified && imgSpecified) {
+        pcdeditor.load2D(yamlPath, imgPath).catch(logger);
       }
       pcdeditor.show2D(document.getElementById('show2D').checked).catch(logger);
     }

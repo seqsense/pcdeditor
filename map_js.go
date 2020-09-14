@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"path"
 	"syscall/js"
 
 	"gopkg.in/yaml.v2"
@@ -10,7 +9,7 @@ import (
 
 type mapIOImpl struct{}
 
-func (*mapIOImpl) readMap(yamlPath string) (*occupancyGrid, mapImage, error) {
+func (*mapIOImpl) readMap(yamlPath, imgPath string) (*occupancyGrid, mapImage, error) {
 	b, err := fetchGet(yamlPath)
 	if err != nil {
 		return nil, nil, err
@@ -19,7 +18,6 @@ func (*mapIOImpl) readMap(yamlPath string) (*occupancyGrid, mapImage, error) {
 	if err := yaml.Unmarshal(b, m); err != nil {
 		return nil, nil, err
 	}
-	imgPath := path.Dir(yamlPath) + "/" + m.Image
 
 	img := js.Global().Get("Image").New()
 	chOK := make(chan bool, 1)

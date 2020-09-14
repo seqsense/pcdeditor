@@ -36,9 +36,10 @@ type promiseCommand struct {
 type pcdeditor struct {
 	canvas      js.Value
 	logPrint    func(msg interface{})
-	chLoadPath  chan promiseCommand
-	chSavePath  chan promiseCommand
-	chExport    chan promiseCommand
+	chLoadPCD   chan promiseCommand
+	chLoad2D    chan promiseCommand
+	chSavePCD   chan promiseCommand
+	chExportPCD chan promiseCommand
 	chCommand   chan promiseCommand
 	chWheel     chan webgl.WheelEvent
 	chClick     chan webgl.MouseEvent
@@ -56,9 +57,10 @@ func newPCDEditor(this js.Value, args []js.Value) interface{} {
 		logPrint: func(msg interface{}) {
 			fmt.Println(msg)
 		},
-		chLoadPath:  make(chan promiseCommand, 1),
-		chSavePath:  make(chan promiseCommand, 1),
-		chExport:    make(chan promiseCommand, 1),
+		chLoadPCD:   make(chan promiseCommand, 1),
+		chLoad2D:    make(chan promiseCommand, 1),
+		chSavePCD:   make(chan promiseCommand, 1),
+		chExportPCD: make(chan promiseCommand, 1),
 		chCommand:   make(chan promiseCommand, 1),
 		chWheel:     make(chan webgl.WheelEvent, 10),
 		chClick:     make(chan webgl.MouseEvent, 10),
@@ -80,13 +82,16 @@ func newPCDEditor(this js.Value, args []js.Value) interface{} {
 
 	return js.ValueOf(map[string]interface{}{
 		"loadPCD": js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			return newCommandPromise(pe.chLoadPath, args[0].String())
+			return newCommandPromise(pe.chLoadPCD, args[0].String())
+		}),
+		"load2D": js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			return newCommandPromise(pe.chLoad2D, [2]string{args[0].String(), args[1].String()})
 		}),
 		"savePCD": js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			return newCommandPromise(pe.chSavePath, args[0].String())
+			return newCommandPromise(pe.chSavePCD, args[0].String())
 		}),
 		"exportPCD": js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			return newCommandPromise(pe.chExport, nil)
+			return newCommandPromise(pe.chExportPCD, nil)
 		}),
 		"command": js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			return newCommandPromise(pe.chCommand, args[0].String())
@@ -314,6 +319,7 @@ func (pe *pcdeditor) Run() {
 		Data:   make([]byte, 5*4*5),
 	}
 	var show2D bool = true
+	var has2D bool
 
 	// Allow export after crash
 	defer func() {
@@ -323,7 +329,7 @@ func (pe *pcdeditor) Run() {
 			if pc, _, ok := cmd.PointCloud(); ok {
 				pe.logPrint("CRASHED (export command is available)")
 				pe.logPrint("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-				for promise := range pe.chExport {
+				for promise := range pe.chExportPCD {
 					blob, err := cmd.pcdIO.exportPCD(pc)
 					if err != nil {
 						promise.rejected(err)
@@ -385,42 +391,45 @@ func (pe *pcdeditor) Run() {
 				gl.BindBuffer(gl.ARRAY_BUFFER, posBuf)
 				gl.BufferData(gl.ARRAY_BUFFER, webgl.ByteArrayBuffer(pc.Data), gl.STATIC_DRAW)
 
-				mi, img := cmd.Map()
-				gl.BindTexture(gl.TEXTURE_2D, texture)
-				gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img.Interface().(js.Value))
-				gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
-				gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
-				gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
-				gl.BindTexture(gl.TEXTURE_2D, webgl.Texture(nil))
+				mi, img, ok := cmd.Map()
+				has2D = ok
+				if ok {
+					gl.BindTexture(gl.TEXTURE_2D, texture)
+					gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img.Interface().(js.Value))
+					gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+					gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+					gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+					gl.BindTexture(gl.TEXTURE_2D, webgl.Texture(nil))
 
-				gl.UseProgram(programMap)
-				gl.ActiveTexture(gl.TEXTURE0)
-				gl.BindTexture(gl.TEXTURE_2D, texture)
-				gl.Uniform1i(samplerLocationMap, 0)
+					gl.UseProgram(programMap)
+					gl.ActiveTexture(gl.TEXTURE0)
+					gl.BindTexture(gl.TEXTURE_2D, texture)
+					gl.Uniform1i(samplerLocationMap, 0)
 
-				w, h := img.Width(), img.Height()
-				xi, _ := mapRect.Float32Iterator("x")
-				yi, _ := mapRect.Float32Iterator("y")
-				ui, _ := mapRect.Float32Iterator("u")
-				vi, _ := mapRect.Float32Iterator("v")
-				push := func(x, y, u, v float32) {
-					xi.SetFloat32(x)
-					yi.SetFloat32(y)
-					ui.SetFloat32(u)
-					vi.SetFloat32(v)
-					xi.Incr()
-					yi.Incr()
-					ui.Incr()
-					vi.Incr()
+					w, h := img.Width(), img.Height()
+					xi, _ := mapRect.Float32Iterator("x")
+					yi, _ := mapRect.Float32Iterator("y")
+					ui, _ := mapRect.Float32Iterator("u")
+					vi, _ := mapRect.Float32Iterator("v")
+					push := func(x, y, u, v float32) {
+						xi.SetFloat32(x)
+						yi.SetFloat32(y)
+						ui.SetFloat32(u)
+						vi.SetFloat32(v)
+						xi.Incr()
+						yi.Incr()
+						ui.Incr()
+						vi.Incr()
+					}
+					push(mi.Origin[0], mi.Origin[1], 0, 1)
+					push(mi.Origin[0]+float32(w)*mi.Resolution, mi.Origin[1], 1, 1)
+					push(mi.Origin[0]+float32(w)*mi.Resolution, mi.Origin[1]+float32(h)*mi.Resolution, 1, 0)
+					push(mi.Origin[0], mi.Origin[1]+float32(h)*mi.Resolution, 0, 0)
+					push(mi.Origin[0], mi.Origin[1], 0, 1)
+
+					gl.BindBuffer(gl.ARRAY_BUFFER, mapBuf)
+					gl.BufferData(gl.ARRAY_BUFFER, webgl.ByteArrayBuffer(mapRect.Data), gl.STATIC_DRAW)
 				}
-				push(mi.Origin[0], mi.Origin[1], 0, 1)
-				push(mi.Origin[0]+float32(w)*mi.Resolution, mi.Origin[1], 1, 1)
-				push(mi.Origin[0]+float32(w)*mi.Resolution, mi.Origin[1]+float32(h)*mi.Resolution, 1, 0)
-				push(mi.Origin[0], mi.Origin[1]+float32(h)*mi.Resolution, 0, 0)
-				push(mi.Origin[0], mi.Origin[1], 0, 1)
-
-				gl.BindBuffer(gl.ARRAY_BUFFER, mapBuf)
-				gl.BufferData(gl.ARRAY_BUFFER, webgl.ByteArrayBuffer(mapRect.Data), gl.STATIC_DRAW)
 			}
 		}
 
@@ -441,7 +450,7 @@ func (pe *pcdeditor) Run() {
 			gl.UniformMatrix4fv(modelViewMatrixLocation, false, modelViewMatrix)
 			gl.DrawArrays(gl.POINTS, 0, pc.Points-1)
 
-			if show2D {
+			if show2D && has2D {
 				gl.Enable(gl.BLEND)
 				gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 				gl.UseProgram(programMap)
@@ -472,7 +481,7 @@ func (pe *pcdeditor) Run() {
 		}
 
 		select {
-		case promise := <-pe.chLoadPath:
+		case promise := <-pe.chLoadPCD:
 			pe.logPrint("loading pcd file")
 			if err := cmd.LoadPCD(promise.data.(string)); err != nil {
 				promise.rejected(err)
@@ -480,7 +489,16 @@ func (pe *pcdeditor) Run() {
 			}
 			pe.logPrint("pcd file loaded")
 			promise.resolved("loaded")
-		case promise := <-pe.chSavePath:
+		case promise := <-pe.chLoad2D:
+			pe.logPrint("loading 2D map file")
+			paths := promise.data.([2]string)
+			if err := cmd.Load2D(paths[0], paths[1]); err != nil {
+				promise.rejected(err)
+				break
+			}
+			pe.logPrint("2D map file loaded")
+			promise.resolved("loaded")
+		case promise := <-pe.chSavePCD:
 			pe.logPrint("saving pcd file")
 			if err := cmd.SavePCD(promise.data.(string)); err != nil {
 				promise.rejected(err)
@@ -488,7 +506,7 @@ func (pe *pcdeditor) Run() {
 			}
 			pe.logPrint("pcd file saved")
 			promise.resolved("saved")
-		case promise := <-pe.chExport:
+		case promise := <-pe.chExportPCD:
 			pe.logPrint("exporting pcd file")
 			blob, err := cmd.ExportPCD()
 			if err != nil {
