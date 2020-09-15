@@ -107,7 +107,7 @@ func (e *editor) SetPointCloud(pc *pcd.PointCloud) error {
 	if err != nil {
 		return err
 	}
-	for i.IsValid() {
+	for i.IsValid() && j.IsValid() {
 		j.SetVec3(i.Vec3())
 		j.Incr()
 		i.Incr()

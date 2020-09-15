@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"math"
+	"runtime"
 	"syscall/js"
 	"time"
 
@@ -325,6 +326,14 @@ func (pe *pcdeditor) Run() {
 	defer func() {
 		if r := recover(); r != nil {
 			pe.logPrint("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+			for d := 0; ; d++ {
+				ptr, file, line, ok := runtime.Caller(d)
+				if !ok {
+					break
+				}
+				f := runtime.FuncForPC(ptr)
+				fmt.Printf("%s:%d: %s\n", file, line, f.Name())
+			}
 			pe.logPrint(r)
 			if pc, _, ok := cmd.PointCloud(); ok {
 				pe.logPrint("CRASHED (export command is available)")
