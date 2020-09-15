@@ -5,7 +5,7 @@ import (
 )
 
 const (
-	binaryDetectCnt = 3
+	binaryDetectCnt = 4
 	initialMaxDelta = 10
 )
 
