@@ -191,16 +191,20 @@ func (pe *pcdeditor) Run() {
 		return
 	}
 
-	projectionMatrixLocation := gl.GetUniformLocation(program, "uProjectionMatrix")
-	modelViewMatrixLocation := gl.GetUniformLocation(program, "uModelViewMatrix")
-	selectMatrixLocation := gl.GetUniformLocation(program, "uSelectMatrix")
-	selectRangeLocation := gl.GetUniformLocation(program, "uSelectRange")
-	projectionMatrixLocationSel := gl.GetUniformLocation(programSel, "uProjectionMatrix")
-	modelViewMatrixLocationSel := gl.GetUniformLocation(programSel, "uModelViewMatrix")
-	projectionMatrixLocationMap := gl.GetUniformLocation(programMap, "uProjectionMatrix")
-	modelViewMatrixLocationMap := gl.GetUniformLocation(programMap, "uModelViewMatrix")
-	samplerLocationMap := gl.GetUniformLocation(programMap, "uSampler")
-	alphaLocationMap := gl.GetUniformLocation(programMap, "uAlpha")
+	uProjectionMatrixLocation := gl.GetUniformLocation(program, "uProjectionMatrix")
+	uModelViewMatrixLocation := gl.GetUniformLocation(program, "uModelViewMatrix")
+	uSelectMatrixLocation := gl.GetUniformLocation(program, "uSelectMatrix")
+	uSelectRangeLocation := gl.GetUniformLocation(program, "uSelectRange")
+	uZMinLocation := gl.GetUniformLocation(program, "uZMin")
+	uZRangeLocation := gl.GetUniformLocation(program, "uZRange")
+
+	uProjectionMatrixLocationSel := gl.GetUniformLocation(programSel, "uProjectionMatrix")
+	uModelViewMatrixLocationSel := gl.GetUniformLocation(programSel, "uModelViewMatrix")
+
+	uProjectionMatrixLocationMap := gl.GetUniformLocation(programMap, "uProjectionMatrix")
+	uModelViewMatrixLocationMap := gl.GetUniformLocation(programMap, "uModelViewMatrix")
+	uSamplerLocationMap := gl.GetUniformLocation(programMap, "uSampler")
+	uAlphaLocationMap := gl.GetUniformLocation(programMap, "uAlpha")
 
 	gl.Enable(gl.DEPTH_TEST)
 	gl.DepthFunc(gl.LEQUAL)
@@ -368,11 +372,11 @@ func (pe *pcdeditor) Run() {
 				1.0, 1000.0,
 			)
 			gl.UseProgram(program)
-			gl.UniformMatrix4fv(projectionMatrixLocation, false, projectionMatrix)
+			gl.UniformMatrix4fv(uProjectionMatrixLocation, false, projectionMatrix)
 			gl.UseProgram(programSel)
-			gl.UniformMatrix4fv(projectionMatrixLocationSel, false, projectionMatrix)
+			gl.UniformMatrix4fv(uProjectionMatrixLocationSel, false, projectionMatrix)
 			gl.UseProgram(programMap)
-			gl.UniformMatrix4fv(projectionMatrixLocationMap, false, projectionMatrix)
+			gl.UniformMatrix4fv(uProjectionMatrixLocationMap, false, projectionMatrix)
 			gl.Viewport(0, 0, width, height)
 		}
 		prevFov = fov
@@ -413,7 +417,7 @@ func (pe *pcdeditor) Run() {
 					gl.UseProgram(programMap)
 					gl.ActiveTexture(gl.TEXTURE0)
 					gl.BindTexture(gl.TEXTURE_2D, texture)
-					gl.Uniform1i(samplerLocationMap, 0)
+					gl.Uniform1i(uSamplerLocationMap, 0)
 
 					w, h := img.Width(), img.Height()
 					xi, _ := mapRect.Float32Iterator("x")
@@ -444,10 +448,10 @@ func (pe *pcdeditor) Run() {
 
 		gl.UseProgram(program)
 		if m, r, ok := cmd.SelectMatrix(); ok {
-			gl.UniformMatrix4fv(selectMatrixLocation, false, m)
-			gl.Uniform3fv(selectRangeLocation, r)
+			gl.UniformMatrix4fv(uSelectMatrixLocation, false, m)
+			gl.Uniform3fv(uSelectRangeLocation, r)
 		} else {
-			gl.UniformMatrix4fv(selectMatrixLocation, false, mat.Mat4{})
+			gl.UniformMatrix4fv(uSelectMatrixLocation, false, mat.Mat4{})
 		}
 
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
@@ -456,7 +460,10 @@ func (pe *pcdeditor) Run() {
 			gl.BindBuffer(gl.ARRAY_BUFFER, posBuf)
 			gl.VertexAttribPointer(aVertexPosition, 3, gl.FLOAT, false, pc.Stride(), 0)
 			gl.VertexAttribIPointer(aVertexLabel, 1, gl.UNSIGNED_INT, pc.Stride(), 3*4)
-			gl.UniformMatrix4fv(modelViewMatrixLocation, false, modelViewMatrix)
+			gl.UniformMatrix4fv(uModelViewMatrixLocation, false, modelViewMatrix)
+			zMin, zMax := cmd.ZRange()
+			gl.Uniform1f(uZMinLocation, zMin)
+			gl.Uniform1f(uZRangeLocation, zMax-zMin)
 			gl.DrawArrays(gl.POINTS, 0, pc.Points-1)
 
 			if show2D && has2D {
@@ -466,8 +473,8 @@ func (pe *pcdeditor) Run() {
 				gl.BindBuffer(gl.ARRAY_BUFFER, mapBuf)
 				gl.VertexAttribPointer(aVertexPositionMap, 3, gl.FLOAT, false, mapRect.Stride(), 0)
 				gl.VertexAttribPointer(aTextureCoordMap, 2, gl.FLOAT, false, mapRect.Stride(), 4*3)
-				gl.UniformMatrix4fv(modelViewMatrixLocationMap, false, modelViewMatrix)
-				gl.Uniform1f(alphaLocationMap, cmd.MapAlpha())
+				gl.UniformMatrix4fv(uModelViewMatrixLocationMap, false, modelViewMatrix)
+				gl.Uniform1f(uAlphaLocationMap, cmd.MapAlpha())
 				gl.DrawArrays(gl.TRIANGLE_FAN, 0, 5)
 				gl.Disable(gl.BLEND)
 			}
@@ -483,7 +490,7 @@ func (pe *pcdeditor) Run() {
 					n = nRectPoints - i
 				}
 
-				gl.UniformMatrix4fv(modelViewMatrixLocationSel, false, modelViewMatrix)
+				gl.UniformMatrix4fv(uModelViewMatrixLocationSel, false, modelViewMatrix)
 				gl.DrawArrays(gl.LINE_LOOP, 0, n)
 				gl.DrawArrays(gl.POINTS, 0, n)
 			}

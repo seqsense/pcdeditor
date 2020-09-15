@@ -7,9 +7,8 @@ const vsSource = `#version 300 es
 	uniform mat4 uProjectionMatrix;
 	uniform mat4 uSelectMatrix;
 	uniform vec3 uSelectRange;
-	const float zMax = 5.0;
-	const float zMin = -5.0;
-	const float zRange = zMax - zMin;
+	uniform float uZMin;
+	uniform float uZRange;
 	out lowp vec4 vColor;
 	vec4 viewPosition;
 	vec4 selectPosition;
@@ -30,7 +29,7 @@ const vsSource = `#version 300 es
 		} else {
 			cSelected = 0.0;
 		}
-		c = (aVertexPosition[2] - zMin) / zRange;
+		c = (aVertexPosition[2] - uZMin) / uZRange;
 		if (aVertexLabel == 0u) {
 			vColor = vec4(c, cSelected, 1.0 - c, 1.0);
 		} else {

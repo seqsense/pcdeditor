@@ -122,11 +122,27 @@ var consoleCommands = map[string]func(cmd *commandContext, args []float32) ([][]
 		return nil, nil
 	},
 	"map_alpha": func(cmd *commandContext, args []float32) ([][]float32, error) {
-		if len(args) != 1 {
+		switch len(args) {
+		case 0:
+			return [][]float32{{cmd.MapAlpha()}}, nil
+		case 1:
+			cmd.SetMapAlpha(args[0])
+			return nil, nil
+		default:
 			return nil, errArgumentNumber
 		}
-		cmd.SetMapAlpha(args[0])
-		return nil, nil
+	},
+	"z_range": func(cmd *commandContext, args []float32) ([][]float32, error) {
+		switch len(args) {
+		case 0:
+			zMin, zMax := cmd.ZRange()
+			return [][]float32{{zMin, zMax}}, nil
+		case 2:
+			cmd.SetZRange(args[0], args[1])
+			return nil, nil
+		default:
+			return nil, errArgumentNumber
+		}
 	},
 }
 

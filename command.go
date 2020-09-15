@@ -11,6 +11,8 @@ const (
 	defaultResolution  = 0.05
 	defaultSelectRange = 0.05
 	defaultMapAlpha    = 0.3
+	defaultZMin        = -5.0
+	defaultZMax        = 5.0
 )
 
 type pcdIO interface {
@@ -41,6 +43,8 @@ type commandContext struct {
 	mapImg  mapImage
 
 	mapAlpha float32
+
+	zMin, zMax float32
 }
 
 func newCommandContext(pcdio pcdIO, mapio mapIO) *commandContext {
@@ -50,6 +54,8 @@ func newCommandContext(pcdio pcdIO, mapio mapIO) *commandContext {
 		pcdIO:       pcdio,
 		mapIO:       mapio,
 		mapAlpha:    defaultMapAlpha,
+		zMin:        defaultZMin,
+		zMax:        defaultZMax,
 	}
 }
 
@@ -63,6 +69,14 @@ func (c *commandContext) MapAlpha() float32 {
 
 func (c *commandContext) SetMapAlpha(a float32) {
 	c.mapAlpha = a
+}
+
+func (c *commandContext) ZRange() (float32, float32) {
+	return c.zMin, c.zMax
+}
+
+func (c *commandContext) SetZRange(zMin, zMax float32) {
+	c.zMin, c.zMax = zMin, zMax
 }
 
 func (c *commandContext) PointCloud() (*pcd.PointCloud, bool, bool) {
