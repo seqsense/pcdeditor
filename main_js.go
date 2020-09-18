@@ -455,7 +455,10 @@ func (pe *pcdeditor) Run() {
 		}
 
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+
+		var hasPointCloud bool
 		if pc, _, ok := cmd.PointCloudCropped(); ok && pc.Points > 0 {
+			hasPointCloud = true
 			gl.UseProgram(program)
 			gl.BindBuffer(gl.ARRAY_BUFFER, posBuf)
 			gl.VertexAttribPointer(aVertexPosition, 3, gl.FLOAT, false, pc.Stride(), 0)
@@ -465,19 +468,6 @@ func (pe *pcdeditor) Run() {
 			gl.Uniform1f(uZMinLocation, zMin)
 			gl.Uniform1f(uZRangeLocation, zMax-zMin)
 			gl.DrawArrays(gl.POINTS, 0, pc.Points-1)
-
-			if show2D && has2D {
-				gl.Enable(gl.BLEND)
-				gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
-				gl.UseProgram(programMap)
-				gl.BindBuffer(gl.ARRAY_BUFFER, mapBuf)
-				gl.VertexAttribPointer(aVertexPositionMap, 3, gl.FLOAT, false, mapRect.Stride(), 0)
-				gl.VertexAttribPointer(aTextureCoordMap, 2, gl.FLOAT, false, mapRect.Stride(), 4*3)
-				gl.UniformMatrix4fv(uModelViewMatrixLocationMap, false, modelViewMatrix)
-				gl.Uniform1f(uAlphaLocationMap, cmd.MapAlpha())
-				gl.DrawArrays(gl.TRIANGLE_FAN, 0, 5)
-				gl.Disable(gl.BLEND)
-			}
 		}
 
 		if nRectPoints > 0 {
@@ -494,6 +484,19 @@ func (pe *pcdeditor) Run() {
 				gl.DrawArrays(gl.LINE_LOOP, 0, n)
 				gl.DrawArrays(gl.POINTS, 0, n)
 			}
+		}
+
+		if hasPointCloud && show2D && has2D {
+			gl.Enable(gl.BLEND)
+			gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+			gl.UseProgram(programMap)
+			gl.BindBuffer(gl.ARRAY_BUFFER, mapBuf)
+			gl.VertexAttribPointer(aVertexPositionMap, 3, gl.FLOAT, false, mapRect.Stride(), 0)
+			gl.VertexAttribPointer(aTextureCoordMap, 2, gl.FLOAT, false, mapRect.Stride(), 4*3)
+			gl.UniformMatrix4fv(uModelViewMatrixLocationMap, false, modelViewMatrix)
+			gl.Uniform1f(uAlphaLocationMap, cmd.MapAlpha())
+			gl.DrawArrays(gl.TRIANGLE_FAN, 0, 5)
+			gl.Disable(gl.BLEND)
 		}
 
 		select {
