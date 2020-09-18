@@ -215,9 +215,13 @@ func passThrough(pc *pcd.PointCloud, fn func(mat.Vec3) bool) (*pcd.PointCloud, e
 }
 
 func (e *editor) merge(pc *pcd.PointCloud) {
-	e.pc.Points += pc.Points
-	e.pc.Width = e.pc.Points
-	e.pc.Height = 1
-	e.pc.Data = append(e.pc.Data, pc.Data...)
-	e.push(e.pc)
+	pcNew := &pcd.PointCloud{
+		PointCloudHeader: e.pc.PointCloudHeader.Clone(),
+		Points:           e.pc.Points + pc.Points,
+		Data:             append(e.pc.Data[:e.pc.Stride()*e.pc.Points], pc.Data...),
+	}
+	pcNew.Width = pcNew.Points
+	pcNew.Height = 1
+
+	e.push(pcNew)
 }
