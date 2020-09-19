@@ -607,9 +607,9 @@ func (pe *pcdeditor) Run() {
 			switch e.Code {
 			case "Escape":
 				cmd.UnsetCursors()
-			case "Delete", "Digit0", "Digit1":
+			case "Delete", "Backspace", "Digit0", "Digit1":
 				switch e.Code {
-				case "Delete":
+				case "Delete", "Backspace":
 					cmd.Delete()
 					if !e.ShiftKey && !e.CtrlKey {
 						cmd.UnsetCursors()

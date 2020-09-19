@@ -90,6 +90,9 @@ func (g *gesture) pointerMove(e webgl.PointerEvent) {
 				UIEvent: webgl.UIEvent{
 					Event: webgl.NewEvent("WheelEvent"),
 				},
+				AltKey:   e.AltKey,
+				CtrlKey:  e.CtrlKey,
+				ShiftKey: e.ShiftKey,
 			},
 			DeltaY: (g.distance0 - d) / 10,
 		}
