@@ -25,6 +25,11 @@
   <script>
     const query = new URLSearchParams(window.location.search);
     document.onPCDEditorLoaded = e => {
+      const logger = msg => {
+        const log = document.getElementById('log');
+        log.innerHTML = msg.toString().replace(/\n/g, '<br/>') + '<br/>' + log.innerHTML;
+      };
+
       let pcdPath = '/data/map.pcd';
       let yamlPath = '/data/map.yaml';
       let imgPath = '/data/map.png';
@@ -44,11 +49,52 @@
         imgPath = query.get('2d');
         imgSpecified = true;
       }
+      if (query.has('mapID') && query.has('gql')) {
+        pcdSpecified = false;
+        yamlSpecified = false;
+        imgSpecified = false;
+        document.getElementById('loadPCD').style.display = 'none';
 
-      const logger = msg => {
-        const log = document.getElementById('log');
-        log.innerHTML = msg.toString().replace(/\n/g, '<br/>') + '<br/>' + log.innerHTML;
-      };
+        fetch(query.get('gql'), {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify({query: `
+            query Map($id: ID!) {
+              map(id: $id) {
+                name
+                mapFiles {
+                  name
+                  currentMapFile {
+                    mapFileVersion {
+                      fileURL
+                    }
+                  }
+                }
+              }
+            }`, variables: {id: query.get('mapID')}})
+        }).then(r => r.json()).then(res => {
+          let yamlPath = null;
+          let imgPath = null;
+          for (const file of res.data.map.mapFiles) {
+            switch (file.name) {
+            case 'map.pcd':
+              pcdeditor.loadPCD(file.currentMapFile.mapFileVersion.fileURL).catch(logger);
+            case 'map.yaml':
+              yamlPath = file.currentMapFile.mapFileVersion.fileURL;
+            case 'map.png':
+              imgPath = file.currentMapFile.mapFileVersion.fileURL;
+            }
+          }
+          if (yamlPath != null && imgPath != null) {
+            pcdeditor.load2D(yamlPath, imgPath).catch(logger);
+          }
+        }).catch(logger);
+      }
+
       const pcdeditor = e.attach(document.getElementById('mapCanvas'), {logger: logger});
       document.getElementById('loadPCD').onclick =
         () => {
