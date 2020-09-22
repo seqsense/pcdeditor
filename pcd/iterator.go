@@ -18,7 +18,7 @@ func (i *binaryIterator) Incr() {
 }
 
 func (i *binaryIterator) IsValid() bool {
-	return i.pos+i.stride < len(i.data)
+	return i.pos+i.stride <= len(i.data)
 }
 
 type Float32Iterator interface {
@@ -63,7 +63,7 @@ func (i *float32Iterator) Incr() {
 }
 
 func (i *float32Iterator) IsValid() bool {
-	return i.pos+i.stride < len(i.data)
+	return i.pos+i.stride <= len(i.data)
 }
 
 func (i *float32Iterator) Float32() float32 {

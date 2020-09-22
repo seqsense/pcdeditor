@@ -50,3 +50,7 @@ func (v Vec3) Cross(a Vec3) Vec3 {
 		v[0]*a[1] - v[1]*a[0],
 	}
 }
+
+func (v Vec3) Equal(a Vec3) bool {
+	return a[0] == v[0] && a[1] == v[1] && a[2] == v[2]
+}
