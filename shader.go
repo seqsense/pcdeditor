@@ -6,7 +6,6 @@ const vsSource = `#version 300 es
 	uniform mat4 uModelViewMatrix;
 	uniform mat4 uProjectionMatrix;
 	uniform mat4 uSelectMatrix;
-	uniform vec3 uSelectRange;
 	uniform float uZMin;
 	uniform float uZRange;
 	out lowp vec4 vColor;
@@ -22,9 +21,9 @@ const vsSource = `#version 300 es
 
 		selectPosition = uSelectMatrix * aVertexPosition;
 		if (uSelectMatrix[3][3] == 1.0 &&
-				0.0 < selectPosition[0] && selectPosition[0] < uSelectRange[0] &&
-				0.0 < selectPosition[1] && selectPosition[1] < uSelectRange[1] &&
-				-uSelectRange[2] < selectPosition[2] && selectPosition[2] < uSelectRange[2]) {
+				0.0 <= selectPosition[0] && selectPosition[0] <= 1.0 &&
+				0.0 <= selectPosition[1] && selectPosition[1] <= 1.0 &&
+				0.0 <= selectPosition[2] && selectPosition[2] <= 1.0) {
 			cSelected = 0.5;
 		} else {
 			cSelected = 0.0;

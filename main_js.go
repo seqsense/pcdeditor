@@ -194,7 +194,6 @@ func (pe *pcdeditor) Run() {
 	uProjectionMatrixLocation := gl.GetUniformLocation(program, "uProjectionMatrix")
 	uModelViewMatrixLocation := gl.GetUniformLocation(program, "uModelViewMatrix")
 	uSelectMatrixLocation := gl.GetUniformLocation(program, "uSelectMatrix")
-	uSelectRangeLocation := gl.GetUniformLocation(program, "uSelectRange")
 	uZMinLocation := gl.GetUniformLocation(program, "uZMin")
 	uZRangeLocation := gl.GetUniformLocation(program, "uZRange")
 
@@ -447,9 +446,8 @@ func (pe *pcdeditor) Run() {
 		}
 
 		gl.UseProgram(program)
-		if m, r, ok := cmd.SelectMatrix(); ok {
+		if m, ok := cmd.SelectMatrix(); ok {
 			gl.UniformMatrix4fv(uSelectMatrixLocation, false, m)
-			gl.Uniform3fv(uSelectRangeLocation, r)
 		} else {
 			gl.UniformMatrix4fv(uSelectMatrixLocation, false, mat.Mat4{})
 		}
@@ -556,11 +554,27 @@ func (pe *pcdeditor) Run() {
 				if e.ShiftKey {
 					rate = 0.1
 				}
-				cmd.SetSelectRange(cmd.SelectRange() + float32(e.DeltaY*rate))
+				if len(cmd.Cursors()) < 4 {
+					cmd.SetSelectRange(cmd.SelectRange() + float32(e.DeltaY*rate))
+					break
+				}
+				r := 1.0 + float32(e.DeltaY*rate)
+				m, _ := cmd.SelectMatrix()
+				cmd.TransformCursors(
+					m.InvAffine().
+						MulAffine(mat.Translate(0, 0, 0.5)).
+						MulAffine(mat.Scale(1, 1, r)).
+						MulAffine(mat.Translate(0, 0, -0.5)).
+						MulAffine(m),
+				)
 			case e.ShiftKey:
-				rect := cmd.RectCenter()
-				if len(rect) == 4 {
-					c := rect[0].Add(rect[1]).Add(rect[2]).Add(rect[3]).Mul(1.0 / 4.0)
+				rect, _ := cmd.Rect()
+				if len(rect) > 0 {
+					var c mat.Vec3
+					for _, p := range rect {
+						c = c.Add(p)
+					}
+					c = c.Mul(1.0 / float32(len(rect)))
 					r := 1.0 + float32(e.DeltaY)*0.01
 					cmd.TransformCursors(
 						mat.Translate(c[0], c[1], c[2]).
@@ -592,7 +606,11 @@ func (pe *pcdeditor) Run() {
 				if ok {
 					switch {
 					case e.ShiftKey:
-						cmd.SetCursor(1, *p)
+						if len(cmd.Cursors()) < 3 {
+							cmd.SetCursor(1, *p)
+						} else {
+							cmd.SetCursor(3, *p)
+						}
 					default:
 						if len(cmd.Cursors()) < 2 {
 							cmd.SetCursor(0, *p)

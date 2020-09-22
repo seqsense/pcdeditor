@@ -43,10 +43,30 @@ func selectPoint(pc *pcd.PointCloud, modelViewMatrix, projectionMatrix mat.Mat4,
 	return nil, false
 }
 
-func rectFrom3(p0, p1, p2 mat.Vec3) (mat.Vec3, mat.Vec3) {
+func rectFrom3(p0, p1, p2 mat.Vec3) [4]mat.Vec3 {
 	base := p1.Sub(p0)
 	proj := p0.Add(
 		base.Mul(base.Dot(p2.Sub(p0)) / base.NormSq()))
 	perp := p2.Sub(proj)
-	return p1.Add(perp), p0.Add(perp)
+	return [4]mat.Vec3{p0, p1, p1.Add(perp), p0.Add(perp)}
+}
+
+func boxFrom4(p0, p1, p2, p3 mat.Vec3) [8]mat.Vec3 {
+	pp := rectFrom3(p0, p1, p2)
+	v0n, v1n := pp[1].Sub(p0).Normalized(), pp[3].Sub(p0).Normalized()
+	v2n := v0n.Cross(v1n)
+	m := (mat.Mat4{
+		v0n[0], v0n[1], v0n[2], 0,
+		v1n[0], v1n[1], v1n[2], 0,
+		v2n[0], v2n[1], v2n[2], 0,
+		0, 0, 0, 1,
+	}).InvAffine().MulAffine(mat.Translate(-p0[0], -p0[1], -p0[2]))
+
+	z := m.TransformZ(p3)
+	v3 := v2n.Mul(z)
+
+	return [8]mat.Vec3{
+		pp[0], pp[1], pp[2], pp[3],
+		pp[0].Add(v3), pp[1].Add(v3), pp[2].Add(v3), pp[3].Add(v3),
+	}
 }

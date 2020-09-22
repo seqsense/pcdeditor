@@ -15,7 +15,6 @@ type editor struct {
 	history []*pcd.PointCloud
 
 	cropOrigin mat.Mat4
-	cropRange  mat.Vec3
 }
 
 func (e *editor) push(pc *pcd.PointCloud) {
@@ -39,13 +38,13 @@ func (e *editor) updateCrop() {
 		return
 	}
 	pc, err := passThrough(e.pc, func(p mat.Vec3) bool {
-		if z := e.cropOrigin.TransformZ(p); z < -e.cropRange[2] || e.cropRange[2] < z {
+		if z := e.cropOrigin.TransformZ(p); z < 0 || 1 < z {
 			return false
 		}
-		if x := e.cropOrigin.TransformX(p); x < 0 || e.cropRange[0] < x {
+		if x := e.cropOrigin.TransformX(p); x < 0 || 1 < x {
 			return false
 		}
-		if y := e.cropOrigin.TransformY(p); y < 0 || e.cropRange[1] < y {
+		if y := e.cropOrigin.TransformY(p); y < 0 || 1 < y {
 			return false
 		}
 		return true
@@ -56,9 +55,8 @@ func (e *editor) updateCrop() {
 	e.pcCrop = pc
 }
 
-func (e *editor) Crop(origin mat.Mat4, selectRange mat.Vec3) {
+func (e *editor) Crop(origin mat.Mat4) {
 	e.cropOrigin = origin
-	e.cropRange = selectRange
 	e.updateCrop()
 }
 

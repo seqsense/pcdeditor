@@ -92,23 +92,13 @@ func (c *commandContext) PointCloudCropped() (*pcd.PointCloud, bool, bool) {
 }
 
 func (c *commandContext) Crop() bool {
-	if len(c.selected) != 3 {
-		c.editor.Crop(mat.Mat4{}, mat.Vec3{})
+	m, ok := c.SelectMatrix()
+	if !ok {
+		c.editor.Crop(mat.Mat4{})
 		c.pointCloudUpdated = true
 		return false
 	}
-	v0, v1 := c.rectCenter[1].Sub(c.rectCenter[0]), c.rectCenter[3].Sub(c.rectCenter[0])
-	v0n, v1n := v0.Normalized(), v1.Normalized()
-	v2n := v0n.Cross(v1n)
-	m := (mat.Mat4{
-		v0n[0], v0n[1], v0n[2], 0,
-		v1n[0], v1n[1], v1n[2], 0,
-		v2n[0], v2n[1], v2n[2], 0,
-		0, 0, 0, 1,
-	}).InvAffine().
-		MulAffine(mat.Translate(-c.rectCenter[0][0], -c.rectCenter[0][1], -c.rectCenter[0][2]))
-	r := mat.Vec3{v0.Norm(), v1.Norm(), c.selectRange}
-	c.editor.Crop(m, r)
+	c.editor.Crop(m)
 	c.pointCloudUpdated = true
 	return true
 }
@@ -118,14 +108,17 @@ func (c *commandContext) updateRect() {
 	case 0, 1, 2:
 		c.rect = c.selected
 	case 3:
-		p0, p1 := c.selected[0], c.selected[1]
-		p2, p3 := rectFrom3(p0, p1, c.selected[2])
-		c.rectCenter = []mat.Vec3{p0, p1, p2, p3}
-		norm := (p1.Sub(p0)).Cross(p3.Sub(p0)).Normalized().Mul(c.selectRange)
+		pp := rectFrom3(c.selected[0], c.selected[1], c.selected[2])
+		c.rectCenter = []mat.Vec3{pp[0], pp[1], pp[2], pp[3]}
+		norm := (pp[1].Sub(pp[0])).Cross(pp[3].Sub(pp[0])).Normalized().Mul(c.selectRange)
 		c.rect = []mat.Vec3{
-			p0.Add(norm), p1.Add(norm), p2.Add(norm), p3.Add(norm),
-			p0.Sub(norm), p1.Sub(norm), p2.Sub(norm), p3.Sub(norm),
+			pp[0].Add(norm), pp[1].Add(norm), pp[2].Add(norm), pp[3].Add(norm),
+			pp[0].Sub(norm), pp[1].Sub(norm), pp[2].Sub(norm), pp[3].Sub(norm),
 		}
+	case 4:
+		pp := boxFrom4(c.selected[0], c.selected[1], c.selected[2], c.selected[3])
+		c.rectCenter = []mat.Vec3{pp[0], pp[1], pp[2], pp[3]}
+		c.rect = pp[:]
 	}
 	c.rectUpdated = true
 }
@@ -158,7 +151,7 @@ func (c *commandContext) SetCursor(i int, p mat.Vec3) bool {
 		c.updateRect()
 		return true
 	}
-	if i == len(c.selected) && i < 4 {
+	if i == len(c.selected) && i < 5 {
 		c.selected = append(c.selected, p)
 		c.updateRect()
 		return true
@@ -200,39 +193,53 @@ func (c *commandContext) TransformCursors(m mat.Mat4) {
 	c.updateRect()
 }
 
-func (c *commandContext) SelectMatrix() (mat.Mat4, mat.Vec3, bool) {
-	if len(c.selected) != 3 {
-		return mat.Mat4{}, mat.Vec3{}, false
-	}
-	v0, v1 := c.rectCenter[1].Sub(c.rectCenter[0]), c.rectCenter[3].Sub(c.rectCenter[0])
-	v0n, v1n := v0.Normalized(), v1.Normalized()
-	v2n := v0n.Cross(v1n)
-	m := (mat.Mat4{
-		v0n[0], v0n[1], v0n[2], 0,
-		v1n[0], v1n[1], v1n[2], 0,
-		v2n[0], v2n[1], v2n[2], 0,
-		0, 0, 0, 1,
-	}).InvAffine().
-		MulAffine(mat.Translate(
-			-c.rectCenter[0][0], -c.rectCenter[0][1], -c.rectCenter[0][2]))
+func (c *commandContext) SelectMatrix() (mat.Mat4, bool) {
+	switch len(c.selected) {
+	case 3:
+		v0, v1 := c.rectCenter[1].Sub(c.rectCenter[0]), c.rectCenter[3].Sub(c.rectCenter[0])
+		v0n, v1n := v0.Normalized(), v1.Normalized()
+		v2 := v0n.Cross(v1n).Mul(c.selectRange * 2)
+		origin := c.rectCenter[0].Sub(v2.Mul(0.5))
+		m := (mat.Mat4{
+			v0[0], v0[1], v0[2], 0,
+			v1[0], v1[1], v1[2], 0,
+			v2[0], v2[1], v2[2], 0,
+			0, 0, 0, 1,
+		}).InvAffine().
+			MulAffine(mat.Translate(-origin[0], -origin[1], -origin[2]))
 
-	return m, mat.Vec3{v0.Norm(), v1.Norm(), c.selectRange}, true
+		return m, true
+	case 4:
+		v0, v1 := c.rect[1].Sub(c.rect[0]), c.rect[3].Sub(c.rect[0])
+		v2 := c.rect[4].Sub(c.rect[0])
+		m := (mat.Mat4{
+			v0[0], v0[1], v0[2], 0,
+			v1[0], v1[1], v1[2], 0,
+			v2[0], v2[1], v2[2], 0,
+			0, 0, 0, 1,
+		}).InvAffine().
+			MulAffine(mat.Translate(-c.rect[0][0], -c.rect[0][1], -c.rect[0][2]))
+
+		return m, true
+	default:
+		return mat.Mat4{}, false
+	}
 }
 
 func (c *commandContext) filter() (func(p mat.Vec3) bool, bool) {
-	m, r, ok := c.SelectMatrix()
+	m, ok := c.SelectMatrix()
 	if !ok {
 		return nil, false
 	}
 
 	return func(p mat.Vec3) bool {
-		if z := m.TransformZ(p); z < -r[2] || r[2] < z {
+		if z := m.TransformZ(p); z < 0 || 1 < z {
 			return true
 		}
-		if x := m.TransformX(p); x < 0 || r[0] < x {
+		if x := m.TransformX(p); x < 0 || 1 < x {
 			return true
 		}
-		if y := m.TransformY(p); y < 0 || r[1] < y {
+		if y := m.TransformY(p); y < 0 || 1 < y {
 			return true
 		}
 		return false
