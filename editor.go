@@ -32,6 +32,12 @@ func (e *editor) push(pc *pcd.PointCloud) {
 	e.updateCrop()
 }
 
+func (e *editor) pop() *pcd.PointCloud {
+	back := e.history[len(e.history)-1]
+	e.history = e.history[:len(e.history)-1]
+	return back
+}
+
 func (e *editor) updateCrop() {
 	if e.cropOrigin[15] == 0.0 {
 		e.pcCrop = e.pc

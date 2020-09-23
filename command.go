@@ -5,6 +5,7 @@ import (
 
 	"github.com/seqsense/pcdeditor/mat"
 	"github.com/seqsense/pcdeditor/pcd"
+	"github.com/seqsense/pcdeditor/pcd/filter/voxelgrid"
 )
 
 const (
@@ -298,6 +299,54 @@ func (c *commandContext) Delete() bool {
 	c.editor.passThrough(filter)
 	c.pointCloudUpdated = true
 	return true
+}
+
+func (c *commandContext) VoxelFilter(resolution float32) error {
+	m, selected := c.SelectMatrix()
+	var pc *pcd.PointCloud
+	if selected {
+		var err error
+		pc, err = passThrough(c.editor.pc, func(p mat.Vec3) bool {
+			if z := m.TransformZ(p); z < 0 || 1 < z {
+				return false
+			}
+			if x := m.TransformX(p); x < 0 || 1 < x {
+				return false
+			}
+			if y := m.TransformY(p); y < 0 || 1 < y {
+				return false
+			}
+			return true
+		})
+		if err != nil {
+			return err
+		}
+	} else {
+		pc = c.editor.pc
+	}
+
+	vg := voxelgrid.New(mat.Vec3{resolution, resolution, resolution})
+	pcFiltered, err := vg.Filter(pc)
+	if err != nil {
+		return err
+	}
+
+	if selected {
+		filter, ok := c.filter()
+		if !ok {
+			return errors.New("failed to create filter")
+		}
+		c.editor.passThrough(filter)
+		c.editor.pop()
+		c.editor.merge(pcFiltered)
+	} else {
+		if err := c.editor.SetPointCloud(pcFiltered); err != nil {
+			return err
+		}
+	}
+
+	c.pointCloudUpdated = true
+	return nil
 }
 
 func (c *commandContext) Label(l uint32) bool {

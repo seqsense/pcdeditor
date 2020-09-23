@@ -132,6 +132,16 @@ var consoleCommands = map[string]func(cmd *commandContext, args []float32) ([][]
 			return nil, errArgumentNumber
 		}
 	},
+	"voxel_grid": func(cmd *commandContext, args []float32) ([][]float32, error) {
+		switch len(args) {
+		case 0:
+			return [][]float32{}, cmd.VoxelFilter(defaultResolution)
+		case 1:
+			return [][]float32{}, cmd.VoxelFilter(args[0])
+		default:
+			return nil, errArgumentNumber
+		}
+	},
 	"z_range": func(cmd *commandContext, args []float32) ([][]float32, error) {
 		switch len(args) {
 		case 0:

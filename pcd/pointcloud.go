@@ -2,6 +2,8 @@ package pcd
 
 import (
 	"errors"
+
+	"github.com/seqsense/pcdeditor/pcd/internal/float"
 )
 
 type PointCloudHeader struct {
@@ -50,8 +52,8 @@ func (pc *PointCloud) Float32Iterator(name string) (Float32Iterator, error) {
 		if fn == name {
 			if pc.Stride()&3 == 0 && offset&3 == 0 {
 				// Aligned
-				if pc.dataFloat == nil || isShadowing(pc.Data, pc.dataFloat) {
-					pc.dataFloat = byteSliceAsFloat32Slice(pc.Data)
+				if pc.dataFloat == nil || float.IsShadowing(pc.Data, pc.dataFloat) {
+					pc.dataFloat = float.ByteSliceAsFloat32Slice(pc.Data)
 				}
 				return &float32Iterator{
 					data:   pc.dataFloat,
