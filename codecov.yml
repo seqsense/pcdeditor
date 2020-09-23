@@ -1,0 +1,12 @@
+coverage:
+  status:
+    project:
+      default:
+        # Allow decreasing 5% of total coverage to avoid noise.
+        threshold: 5%
+    patch:
+      default:
+        informational: true
+        only_pulls: true
+ignore:
+  - "examples"

@@ -4,3 +4,4 @@ data/*.pcd
 data/*.png
 data/*.yaml
 release
+cover.out
