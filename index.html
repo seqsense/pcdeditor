@@ -83,10 +83,13 @@
             switch (file.name) {
             case 'map.pcd':
               pcdeditor.loadPCD(file.currentMapFile.mapFileVersion.fileURL).catch(logger);
+              break;
             case 'map.yaml':
               yamlPath = file.currentMapFile.mapFileVersion.fileURL;
+              break;
             case 'map.png':
               imgPath = file.currentMapFile.mapFileVersion.fileURL;
+              break;
             }
           }
           if (yamlPath != null && imgPath != null) {
