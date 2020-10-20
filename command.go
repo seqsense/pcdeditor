@@ -319,8 +319,12 @@ func (c *commandContext) Delete() bool {
 	cropMat := c.editor.cropMatrix
 	if cropMat[15] != 0.0 {
 		selectFilter := filter
+		cropFilter := mat4Filter(cropMat).Filter
 		filter = func(p mat.Vec3) bool {
-			return selectFilter(p) || mat4Filter(cropMat).Filter(p)
+			if selectFilter(p) {
+				return true
+			}
+			return cropFilter(p)
 		}
 	}
 	c.editor.passThrough(filter)
