@@ -154,6 +154,20 @@ var consoleCommands = map[string]func(cmd *commandContext, args []float32) ([][]
 			return nil, errArgumentNumber
 		}
 	},
+	"ortho": func(cmd *commandContext, args []float32) ([][]float32, error) {
+		if len(args) != 0 {
+			return nil, errArgumentNumber
+		}
+		cmd.SetProjectionType(ProjectionOrthographic)
+		return nil, nil
+	},
+	"perspective": func(cmd *commandContext, args []float32) ([][]float32, error) {
+		if len(args) != 0 {
+			return nil, errArgumentNumber
+		}
+		cmd.SetProjectionType(ProjectionPerspective)
+		return nil, nil
+	},
 }
 
 func (c *console) Run(line string) (string, error) {

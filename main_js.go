@@ -196,6 +196,7 @@ func (pe *pcdeditor) Run() {
 	uSelectMatrixLocation := gl.GetUniformLocation(program, "uSelectMatrix")
 	uZMinLocation := gl.GetUniformLocation(program, "uZMin")
 	uZRangeLocation := gl.GetUniformLocation(program, "uZRange")
+	uPointSizeBase := gl.GetUniformLocation(program, "uPointSizeBase")
 
 	uProjectionMatrixLocationSel := gl.GetUniformLocation(programSel, "uProjectionMatrix")
 	uModelViewMatrixLocationSel := gl.GetUniformLocation(programSel, "uModelViewMatrix")
@@ -277,6 +278,8 @@ func (pe *pcdeditor) Run() {
 	var prevFov float64
 	var projectionMatrix mat.Mat4
 	var width, height int
+	var distance float64
+	var projectionType ProjectionType
 
 	var vib3D bool
 	var vib3DX float32
@@ -360,16 +363,33 @@ func (pe *pcdeditor) Run() {
 		scale := devicePixelRatioJS.Int()
 		newWidth := gl.Canvas.ClientWidth() * scale
 		newHeight := gl.Canvas.ClientHeight() * scale
-		if newWidth != width || newHeight != height || fov != prevFov {
+		newProjectionType := cmd.ProjectionType()
+		newDistance := vi.distance
+		if newWidth != width || newHeight != height || fov != prevFov || projectionType != newProjectionType || (newProjectionType == ProjectionOrthographic && newDistance != distance) {
 			width, height = newWidth, newHeight
+			projectionType = newProjectionType
+			distance = newDistance
 
 			gl.Canvas.SetWidth(width)
 			gl.Canvas.SetHeight(height)
-			projectionMatrix = mat.Perspective(
-				float32(fov),
-				float32(width)/float32(height),
-				1.0, 1000.0,
-			)
+			switch projectionType {
+			case ProjectionPerspective:
+				projectionMatrix = mat.Perspective(
+					float32(fov),
+					float32(width)/float32(height),
+					1.0, 1000.0,
+				)
+				gl.Uniform1f(uPointSizeBase, 20.0)
+			case ProjectionOrthographic:
+				projectionMatrix = mat.Orthographic(
+					-float32(width/2)*float32(distance)/1000,
+					float32(width/2)*float32(distance)/1000,
+					float32(height/2)*float32(distance)/1000,
+					-float32(height/2)*float32(distance)/1000,
+					-1000, 1000.0,
+				)
+				gl.Uniform1f(uPointSizeBase, 1.0)
+			}
 			gl.UseProgram(program)
 			gl.UniformMatrix4fv(uProjectionMatrixLocation, false, projectionMatrix)
 			gl.UseProgram(programSel)
@@ -380,11 +400,13 @@ func (pe *pcdeditor) Run() {
 		}
 		prevFov = fov
 
-		modelViewMatrix :=
-			mat.Translate(vib3DX, 0, -float32(vi.distance)).
-				MulAffine(mat.Rotate(1, 0, 0, float32(vi.pitch))).
-				MulAffine(mat.Rotate(0, 0, 1, float32(vi.yaw))).
-				MulAffine(mat.Translate(float32(vi.x), float32(vi.y), -1.5))
+		modelViewMatrix := mat.Rotate(1, 0, 0, float32(vi.pitch)).
+			MulAffine(mat.Rotate(0, 0, 1, float32(vi.yaw))).
+			MulAffine(mat.Translate(float32(vi.x), float32(vi.y), -1.5))
+		if projectionType == ProjectionPerspective {
+			modelViewMatrix =
+				mat.Translate(vib3DX, 0, -float32(vi.distance)).MulAffine(modelViewMatrix)
+		}
 
 		if rect, updated := cmd.Rect(); updated {
 			buf := make([]float32, 0, len(rect)*3)
@@ -600,9 +622,19 @@ func (pe *pcdeditor) Run() {
 			cg.Move()
 		case e := <-pe.chClick:
 			if pc, _, ok := cmd.PointCloudCropped(); ok && e.Button == 0 && cg.Click() {
-				p, ok := selectPoint(
-					pc, modelViewMatrix, projectionMatrix, e.OffsetX*scale, e.OffsetY*scale, width, height,
-				)
+				var p *mat.Vec3
+				switch projectionType {
+				case ProjectionPerspective:
+					p, ok = selectPoint(
+						pc, projectionType, modelViewMatrix, projectionMatrix, e.OffsetX*scale, e.OffsetY*scale, width, height,
+					)
+				case ProjectionOrthographic:
+					p = selectPointOrtho(
+						modelViewMatrix, projectionMatrix, e.OffsetX*scale, e.OffsetY*scale, width, height,
+					)
+				default:
+					ok = false
+				}
 				if ok {
 					switch {
 					case e.ShiftKey:
@@ -704,6 +736,10 @@ func (pe *pcdeditor) Run() {
 				vi.reset()
 			case "F2":
 				vi.fps()
+			case "F3":
+				cmd.SetProjectionType(ProjectionPerspective)
+			case "F4":
+				cmd.SetProjectionType(ProjectionOrthographic)
 			case "F10":
 				cmd.Crop()
 			case "F11":

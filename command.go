@@ -9,11 +9,12 @@ import (
 )
 
 const (
-	defaultResolution  = 0.05
-	defaultSelectRange = 0.05
-	defaultMapAlpha    = 0.3
-	defaultZMin        = -5.0
-	defaultZMax        = 5.0
+	defaultResolution             = 0.05
+	defaultSelectRangePerspective = 0.05
+	defaultSelectRangeOrtho       = 10.0
+	defaultMapAlpha               = 0.3
+	defaultZMin                   = -5.0
+	defaultZMax                   = 5.0
 )
 
 type pcdIO interface {
@@ -32,7 +33,9 @@ type commandContext struct {
 	mapIO             mapIO
 	pointCloudUpdated bool
 
-	selectRange float32
+	selectRange            *float32
+	selectRangeOrtho       float32
+	selectRangePerspective float32
 
 	selected []mat.Vec3
 
@@ -45,19 +48,24 @@ type commandContext struct {
 
 	mapAlpha float32
 
-	zMin, zMax float32
+	zMin, zMax     float32
+	projectionType ProjectionType
 }
 
 func newCommandContext(pcdio pcdIO, mapio mapIO) *commandContext {
-	return &commandContext{
-		selectRange: defaultSelectRange,
-		editor:      &editor{},
-		pcdIO:       pcdio,
-		mapIO:       mapio,
-		mapAlpha:    defaultMapAlpha,
-		zMin:        defaultZMin,
-		zMax:        defaultZMax,
+	c := &commandContext{
+		selectRangeOrtho:       defaultSelectRangeOrtho,
+		selectRangePerspective: defaultSelectRangePerspective,
+		editor:                 &editor{},
+		pcdIO:                  pcdio,
+		mapIO:                  mapio,
+		mapAlpha:               defaultMapAlpha,
+		zMin:                   defaultZMin,
+		zMax:                   defaultZMax,
+		projectionType:         ProjectionPerspective,
 	}
+	c.selectRange = &c.selectRangePerspective
+	return c
 }
 
 func (c *commandContext) Map() (*occupancyGrid, mapImage, bool) {
@@ -111,7 +119,7 @@ func (c *commandContext) updateRect() {
 	case 3:
 		pp := rectFrom3(c.selected[0], c.selected[1], c.selected[2])
 		c.rectCenter = []mat.Vec3{pp[0], pp[1], pp[2], pp[3]}
-		norm := (pp[1].Sub(pp[0])).Cross(pp[3].Sub(pp[0])).Normalized().Mul(c.selectRange)
+		norm := (pp[1].Sub(pp[0])).Cross(pp[3].Sub(pp[0])).Normalized().Mul(*c.selectRange)
 		c.rect = []mat.Vec3{
 			pp[0].Add(norm), pp[1].Add(norm), pp[2].Add(norm), pp[3].Add(norm),
 			pp[0].Sub(norm), pp[1].Sub(norm), pp[2].Sub(norm), pp[3].Sub(norm),
@@ -120,6 +128,13 @@ func (c *commandContext) updateRect() {
 		pp := boxFrom4(c.selected[0], c.selected[1], c.selected[2], c.selected[3])
 		c.rectCenter = []mat.Vec3{pp[0], pp[1], pp[2], pp[3]}
 		c.rect = pp[:]
+	}
+	switch len(c.selected) {
+	case 3, 4:
+		c.rect = append(c.rect,
+			c.rect[0], c.rect[2], c.rect[6], c.rect[4],
+			c.rect[1], c.rect[3], c.rect[7], c.rect[5],
+		)
 	}
 	c.rectUpdated = true
 }
@@ -138,12 +153,12 @@ func (c *commandContext) SetSelectRange(r float32) {
 	if r < 0 {
 		r = 0
 	}
-	c.selectRange = r
+	*c.selectRange = r
 	c.updateRect()
 }
 
 func (c *commandContext) SelectRange() float32 {
-	return c.selectRange
+	return *c.selectRange
 }
 
 func (c *commandContext) SetCursor(i int, p mat.Vec3) bool {
@@ -158,6 +173,22 @@ func (c *commandContext) SetCursor(i int, p mat.Vec3) bool {
 		return true
 	}
 	return false
+}
+
+func (c *commandContext) ProjectionType() ProjectionType {
+	return c.projectionType
+}
+
+func (c *commandContext) SetProjectionType(p ProjectionType) {
+	c.projectionType = p
+	switch p {
+	case ProjectionOrthographic:
+		c.selectRange = &c.selectRangeOrtho
+	case ProjectionPerspective:
+		c.selectRange = &c.selectRangePerspective
+	default:
+		panic("unknown projection type")
+	}
 }
 
 func (c *commandContext) Cursors() []mat.Vec3 {
@@ -199,7 +230,7 @@ func (c *commandContext) SelectMatrix() (mat.Mat4, bool) {
 	case 3:
 		v0, v1 := c.rectCenter[1].Sub(c.rectCenter[0]), c.rectCenter[3].Sub(c.rectCenter[0])
 		v0n, v1n := v0.Normalized(), v1.Normalized()
-		v2 := v0n.Cross(v1n).Mul(c.selectRange * 2)
+		v2 := v0n.Cross(v1n).Mul(*c.selectRange * 2)
 		origin := c.rectCenter[0].Sub(v2.Mul(0.5))
 		m := (mat.Mat4{
 			v0[0], v0[1], v0[2], 0,

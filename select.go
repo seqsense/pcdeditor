@@ -5,15 +5,32 @@ import (
 	"github.com/seqsense/pcdeditor/pcd"
 )
 
-func selectPoint(pc *pcd.PointCloud, modelViewMatrix, projectionMatrix mat.Mat4, x, y, width, height int) (*mat.Vec3, bool) {
+func selectPointOrtho(modelViewMatrix, projectionMatrix mat.Mat4, x, y, width, height int) *mat.Vec3 {
+	pos := mat.NewVec3(
+		float32(x)*2/float32(width)-1,
+		1-float32(y)*2/float32(height), 0)
+
+	a := projectionMatrix.Mul(modelViewMatrix).Inv()
+	target := a.Transform(pos)
+	return &target
+}
+
+func selectPoint(pc *pcd.PointCloud, projectionType ProjectionType, modelViewMatrix, projectionMatrix mat.Mat4, x, y, width, height int) (*mat.Vec3, bool) {
 	pos := mat.NewVec3(
 		float32(x)*2/float32(width)-1,
 		1-float32(y)*2/float32(height), -1)
 
 	a := projectionMatrix.Mul(modelViewMatrix).Inv()
-	origin := modelViewMatrix.InvAffine().Transform((mat.NewVec3(0, 0, 0)))
 	target := a.Transform(pos)
 
+	var origin mat.Vec3
+
+	switch projectionType {
+	case ProjectionPerspective:
+		origin = modelViewMatrix.InvAffine().Transform(mat.NewVec3(0, 0, 0))
+	case ProjectionOrthographic:
+		origin = a.Transform(mat.NewVec3(pos[0], pos[1], 1))
+	}
 	dir := target.Sub(origin).Normalized()
 
 	it, err := pc.Vec3Iterator()

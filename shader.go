@@ -8,6 +8,7 @@ const vsSource = `#version 300 es
 	uniform mat4 uSelectMatrix;
 	uniform float uZMin;
 	uniform float uZRange;
+	uniform float uPointSizeBase;
 	out lowp vec4 vColor;
 	vec4 viewPosition;
 	vec4 selectPosition;
@@ -17,7 +18,7 @@ const vsSource = `#version 300 es
 	void main(void) {
 		viewPosition = uModelViewMatrix * aVertexPosition;
 		gl_Position = uProjectionMatrix * viewPosition;
-		gl_PointSize = clamp(20.0 / length(viewPosition), 1.0, 5.0);
+		gl_PointSize = clamp(uPointSizeBase / length(viewPosition), 1.0, 5.0);
 
 		selectPosition = uSelectMatrix * aVertexPosition;
 		if (uSelectMatrix[3][3] == 1.0 &&
