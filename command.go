@@ -264,18 +264,7 @@ func (c *commandContext) filter() (func(p mat.Vec3) bool, bool) {
 		return nil, false
 	}
 
-	return func(p mat.Vec3) bool {
-		if z := m.TransformZ(p); z < 0 || 1 < z {
-			return true
-		}
-		if x := m.TransformX(p); x < 0 || 1 < x {
-			return true
-		}
-		if y := m.TransformY(p); y < 0 || 1 < y {
-			return true
-		}
-		return false
-	}, true
+	return mat4Filter(m).Filter, true
 }
 
 func (c *commandContext) AddSurface(resolution float32) bool {
@@ -327,6 +316,13 @@ func (c *commandContext) Delete() bool {
 	if !ok {
 		return false
 	}
+	cropMat := c.editor.cropMatrix
+	if cropMat[15] != 0.0 {
+		selectFilter := filter
+		filter = func(p mat.Vec3) bool {
+			return selectFilter(p) || mat4Filter(cropMat).Filter(p)
+		}
+	}
 	c.editor.passThrough(filter)
 	c.pointCloudUpdated = true
 	return true
@@ -337,19 +333,7 @@ func (c *commandContext) VoxelFilter(resolution float32) error {
 	var pc *pcd.PointCloud
 	if selected {
 		var err error
-		pc, err = passThrough(c.editor.pc, func(p mat.Vec3) bool {
-			if z := m.TransformZ(p); z < 0 || 1 < z {
-				return false
-			}
-			if x := m.TransformX(p); x < 0 || 1 < x {
-				return false
-			}
-			if y := m.TransformY(p); y < 0 || 1 < y {
-				return false
-			}
-			return true
-		})
-		if err != nil {
+		if pc, err = passThrough(c.editor.pc, mat4Filter(m).FilterInv); err != nil {
 			return err
 		}
 	} else {
