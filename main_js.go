@@ -491,6 +491,8 @@ func (pe *pcdeditor) Run() {
 		}
 
 		if nRectPoints > 0 {
+			gl.Enable(gl.BLEND)
+			gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 			gl.UseProgram(programSel)
 			for i := 0; i < nRectPoints; i += 4 {
 				gl.BindBuffer(gl.ARRAY_BUFFER, toolBuf)
@@ -504,6 +506,7 @@ func (pe *pcdeditor) Run() {
 				gl.DrawArrays(gl.LINE_LOOP, 0, n)
 				gl.DrawArrays(gl.POINTS, 0, n)
 			}
+			gl.Disable(gl.BLEND)
 		}
 
 		if hasPointCloud && show2D && has2D {
