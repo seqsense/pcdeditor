@@ -353,11 +353,32 @@ func (c *commandContext) Delete() bool {
 }
 
 func (c *commandContext) VoxelFilter(resolution float32) error {
+	var filter, filterInv func(p mat.Vec3) bool
 	m, selected := c.SelectMatrix()
+	if selected {
+		filterInv = mat4Filter(m).FilterInv
+		filter = mat4Filter(m).Filter
+
+		cropMat := c.editor.cropMatrix
+		if cropMat[15] != 0.0 {
+			selectFilter := filter
+			cropFilter := mat4Filter(cropMat).Filter
+			filter = func(p mat.Vec3) bool {
+				if selectFilter(p) {
+					return true
+				}
+				return cropFilter(p)
+			}
+			filterInv = func(p mat.Vec3) bool {
+				return !filter(p)
+			}
+		}
+	}
+
 	var pc *pcd.PointCloud
 	if selected {
 		var err error
-		if pc, err = passThrough(c.editor.pc, mat4Filter(m).FilterInv); err != nil {
+		if pc, err = passThrough(c.editor.pc, filterInv); err != nil {
 			return err
 		}
 	} else {
@@ -371,10 +392,6 @@ func (c *commandContext) VoxelFilter(resolution float32) error {
 	}
 
 	if selected {
-		filter, ok := c.filter()
-		if !ok {
-			return errors.New("failed to create filter")
-		}
 		c.editor.passThrough(filter)
 		c.editor.pop()
 		c.editor.merge(pcFiltered)
@@ -392,6 +409,17 @@ func (c *commandContext) Label(l uint32) bool {
 	filter, ok := c.filter()
 	if !ok {
 		return false
+	}
+	cropMat := c.editor.cropMatrix
+	if cropMat[15] != 0.0 {
+		selectFilter := filter
+		cropFilter := mat4Filter(cropMat).Filter
+		filter = func(p mat.Vec3) bool {
+			if selectFilter(p) {
+				return true
+			}
+			return cropFilter(p)
+		}
 	}
 	c.editor.label(func(p mat.Vec3) (uint32, bool) {
 		if filter(p) {
