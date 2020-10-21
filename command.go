@@ -37,7 +37,8 @@ type commandContext struct {
 	selectRangeOrtho       float32
 	selectRangePerspective float32
 
-	selected []mat.Vec3
+	selected      []mat.Vec3
+	selectedStack [][]mat.Vec3
 
 	rectUpdated bool
 	rect        []mat.Vec3
@@ -200,6 +201,25 @@ func (c *commandContext) UnsetCursors() {
 	c.updateRect()
 }
 
+func (c *commandContext) PushCursors() {
+	if len(c.selected) == 0 {
+		return
+	}
+	var copied []mat.Vec3
+	for _, s := range c.selected {
+		copied = append(copied, mat.Vec3{s[0], s[1], s[2]})
+	}
+	c.selectedStack = append(c.selectedStack, copied)
+}
+
+func (c *commandContext) PopCursors() {
+	if len(c.selected) == 0 {
+		return
+	}
+	c.selected = c.selectedStack[len(c.selectedStack)-1]
+	c.selectedStack = c.selectedStack[:len(c.selectedStack)-1]
+}
+
 func (c *commandContext) SnapVertical() {
 	if len(c.selected) > 2 {
 		c.selected[2][0] = c.selected[0][0]
@@ -220,7 +240,7 @@ func (c *commandContext) SnapHorizontal() {
 
 func (c *commandContext) TransformCursors(m mat.Mat4) {
 	for i := range c.selected {
-		c.selected[i] = m.Transform(c.selected[i])
+		c.selected[i] = m.TransformAffine(c.selected[i])
 	}
 	c.updateRect()
 }
@@ -301,7 +321,7 @@ func (c *commandContext) AddSurface(resolution float32) bool {
 	for x := 0; x < w; x++ {
 		for y := 0; y < h; y++ {
 			it.SetVec3(
-				m.Transform(mat.Vec3{float32(x) * resolution, float32(y) * resolution, 0}),
+				m.TransformAffine(mat.Vec3{float32(x) * resolution, float32(y) * resolution, 0}),
 			)
 			it.Incr()
 		}

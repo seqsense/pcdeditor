@@ -12,6 +12,7 @@ const (
 	gestureNone gestureMode = iota
 	gestureRotate
 	gestureWheel
+	gestureDrag
 	gestureMove
 )
 
@@ -20,7 +21,7 @@ type gesture struct {
 	pointer0 webgl.PointerEvent
 
 	onMouseUp   func(webgl.MouseEvent)
-	onMouseMove func(webgl.MouseEvent)
+	onMouseDrag func(webgl.MouseEvent)
 	onMouseDown func(webgl.MouseEvent)
 	onWheel     func(e webgl.WheelEvent)
 
@@ -42,7 +43,7 @@ func (g *gesture) pointerUp(e webgl.PointerEvent) {
 		switch g.mode {
 		case gestureRotate:
 			g.onMouseUp(g.pointer0.MouseEvent)
-		case gestureMove:
+		case gestureDrag:
 			g.pointer0.MouseEvent.Button = 1
 			g.onMouseUp(g.pointer0.MouseEvent)
 		}
@@ -68,13 +69,13 @@ func (g *gesture) pointerMove(e webgl.PointerEvent) {
 		case 3:
 			g.pointer0.MouseEvent.Button = 1
 			g.onMouseDown(g.pointer0.MouseEvent)
-			g.mode = gestureMove
+			g.mode = gestureDrag
 		}
 	}
 	switch g.mode {
 	case gestureRotate:
 		if e.IsPrimary {
-			g.onMouseMove(e.MouseEvent)
+			g.onMouseDrag(e.MouseEvent)
 		}
 	case gestureWheel:
 		if len(g.pointers) != 2 {
@@ -98,10 +99,10 @@ func (g *gesture) pointerMove(e webgl.PointerEvent) {
 		}
 		g.onWheel(we)
 		g.distance0 = d
-	case gestureMove:
+	case gestureDrag:
 		if e.IsPrimary {
 			e.MouseEvent.Button = 1
-			g.onMouseMove(e.MouseEvent)
+			g.onMouseDrag(e.MouseEvent)
 		}
 	}
 	if e.IsPrimary {

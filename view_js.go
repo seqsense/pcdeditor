@@ -71,6 +71,9 @@ func (v *view) mouseDragStart(e *webgl.MouseEvent) {
 }
 
 func (v *view) mouseDragEnd(e *webgl.MouseEvent) {
+	if v.drag0 == nil {
+		return
+	}
 	v.mouseDrag(e)
 	v.drag0 = nil
 }

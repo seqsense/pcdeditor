@@ -92,7 +92,7 @@ func (m Mat4) InvAffine() Mat4 {
 	return out
 }
 
-func (m Mat4) Transform(a Vec3) Vec3 {
+func (m Mat4) TransformAffine(a Vec3) Vec3 {
 	return Vec3{
 		m[4*0+0]*a[0] + m[4*1+0]*a[1] + m[4*2+0]*a[2] + m[4*3+0],
 		m[4*0+1]*a[0] + m[4*1+1]*a[1] + m[4*2+1]*a[2] + m[4*3+1],
@@ -100,15 +100,24 @@ func (m Mat4) Transform(a Vec3) Vec3 {
 	}
 }
 
-func (m Mat4) TransformX(a Vec3) float32 {
+func (m Mat4) Transform(a Vec3) Vec3 {
+	w := 1 / (m[4*0+3]*a[0] + m[4*1+3]*a[1] + m[4*2+3]*a[2] + m[4*3+3])
+	return Vec3{
+		(m[4*0+0]*a[0] + m[4*1+0]*a[1] + m[4*2+0]*a[2] + m[4*3+0]) * w,
+		(m[4*0+1]*a[0] + m[4*1+1]*a[1] + m[4*2+1]*a[2] + m[4*3+1]) * w,
+		(m[4*0+2]*a[0] + m[4*1+2]*a[1] + m[4*2+2]*a[2] + m[4*3+2]) * w,
+	}
+}
+
+func (m Mat4) TransformAffineX(a Vec3) float32 {
 	return m[4*0+0]*a[0] + m[4*1+0]*a[1] + m[4*2+0]*a[2] + m[4*3+0]
 }
 
-func (m Mat4) TransformY(a Vec3) float32 {
+func (m Mat4) TransformAffineY(a Vec3) float32 {
 	return m[4*0+1]*a[0] + m[4*1+1]*a[1] + m[4*2+1]*a[2] + m[4*3+1]
 }
 
-func (m Mat4) TransformZ(a Vec3) float32 {
+func (m Mat4) TransformAffineZ(a Vec3) float32 {
 	return m[4*0+2]*a[0] + m[4*1+2]*a[1] + m[4*2+2]*a[2] + m[4*3+2]
 }
 

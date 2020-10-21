@@ -44,13 +44,13 @@ func (e *editor) updateCrop() {
 		return
 	}
 	pc, err := passThrough(e.pc, func(p mat.Vec3) bool {
-		if z := e.cropMatrix.TransformZ(p); z < 0 || 1 < z {
+		if z := e.cropMatrix.TransformAffineZ(p); z < 0 || 1 < z {
 			return false
 		}
-		if x := e.cropMatrix.TransformX(p); x < 0 || 1 < x {
+		if x := e.cropMatrix.TransformAffineX(p); x < 0 || 1 < x {
 			return false
 		}
-		if y := e.cropMatrix.TransformY(p); y < 0 || 1 < y {
+		if y := e.cropMatrix.TransformAffineY(p); y < 0 || 1 < y {
 			return false
 		}
 		return true

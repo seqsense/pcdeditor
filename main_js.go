@@ -45,6 +45,7 @@ type pcdeditor struct {
 	chWheel     chan webgl.WheelEvent
 	chClick     chan webgl.MouseEvent
 	chMouseDown chan webgl.MouseEvent
+	chMouseDrag chan webgl.MouseEvent
 	chMouseMove chan webgl.MouseEvent
 	chMouseUp   chan webgl.MouseEvent
 	chKey       chan webgl.KeyboardEvent
@@ -66,6 +67,7 @@ func newPCDEditor(this js.Value, args []js.Value) interface{} {
 		chWheel:     make(chan webgl.WheelEvent, 10),
 		chClick:     make(chan webgl.MouseEvent, 10),
 		chMouseDown: make(chan webgl.MouseEvent, 10),
+		chMouseDrag: make(chan webgl.MouseEvent, 10),
 		chMouseMove: make(chan webgl.MouseEvent, 10),
 		chMouseUp:   make(chan webgl.MouseEvent, 10),
 		chKey:       make(chan webgl.KeyboardEvent, 10),
@@ -253,9 +255,9 @@ func (pe *pcdeditor) Run() {
 			default:
 			}
 		},
-		onMouseMove: func(e webgl.MouseEvent) {
+		onMouseDrag: func(e webgl.MouseEvent) {
 			select {
-			case pe.chMouseMove <- e:
+			case pe.chMouseDrag <- e:
 			default:
 			}
 		},
@@ -271,12 +273,18 @@ func (pe *pcdeditor) Run() {
 	gl.Canvas.OnPointerMove(gesture.pointerMove)
 	gl.Canvas.OnPointerUp(gesture.pointerUp)
 	gl.Canvas.OnPointerOut(gesture.pointerUp)
+	gl.Canvas.OnMouseMove(func(e webgl.MouseEvent) {
+		select {
+		case pe.chMouseMove <- e:
+		default:
+		}
+	})
 
 	toolBuf := gl.CreateBuffer()
 
 	fov := math.Pi / 3
 	var prevFov float64
-	var projectionMatrix mat.Mat4
+	var projectionMatrix, modelViewMatrix mat.Mat4
 	var width, height int
 	var distance float64
 	var projectionType ProjectionType
@@ -325,8 +333,21 @@ func (pe *pcdeditor) Run() {
 		Points: 5,
 		Data:   make([]byte, 5*4*5),
 	}
+	var scale int
+	var pcCursor *pcd.PointCloud
+	var moveStart *mat.Vec3
 	var show2D bool = true
 	var has2D bool
+
+	cursorOnSelect := func(e webgl.MouseEvent) (*mat.Vec3, bool) {
+		if nRectPoints == 0 || pcCursor == nil {
+			return nil, false
+		}
+		return selectPoint(
+			pcCursor, projectionType, modelViewMatrix, projectionMatrix,
+			e.OffsetX*scale, e.OffsetY*scale, width, height,
+		)
+	}
 
 	// Allow export after crash
 	defer func() {
@@ -360,7 +381,7 @@ func (pe *pcdeditor) Run() {
 	}()
 
 	for {
-		scale := devicePixelRatioJS.Int()
+		scale = devicePixelRatioJS.Int()
 		newWidth := gl.Canvas.ClientWidth() * scale
 		newHeight := gl.Canvas.ClientHeight() * scale
 		newProjectionType := cmd.ProjectionType()
@@ -372,6 +393,7 @@ func (pe *pcdeditor) Run() {
 
 			gl.Canvas.SetWidth(width)
 			gl.Canvas.SetHeight(height)
+			gl.UseProgram(program)
 			switch projectionType {
 			case ProjectionPerspective:
 				projectionMatrix = mat.Perspective(
@@ -390,7 +412,6 @@ func (pe *pcdeditor) Run() {
 				)
 				gl.Uniform1f(uPointSizeBase, 1.0)
 			}
-			gl.UseProgram(program)
 			gl.UniformMatrix4fv(uProjectionMatrixLocation, false, projectionMatrix)
 			gl.UseProgram(programSel)
 			gl.UniformMatrix4fv(uProjectionMatrixLocationSel, false, projectionMatrix)
@@ -400,7 +421,7 @@ func (pe *pcdeditor) Run() {
 		}
 		prevFov = fov
 
-		modelViewMatrix := mat.Rotate(1, 0, 0, float32(vi.pitch)).
+		modelViewMatrix = mat.Rotate(1, 0, 0, float32(vi.pitch)).
 			MulAffine(mat.Rotate(0, 0, 1, float32(vi.yaw))).
 			MulAffine(mat.Translate(float32(vi.x), float32(vi.y), -1.5))
 		if projectionType == ProjectionPerspective {
@@ -415,6 +436,24 @@ func (pe *pcdeditor) Run() {
 			}
 			nRectPoints = len(rect)
 			if len(rect) > 0 {
+				pcCursor = &pcd.PointCloud{
+					PointCloudHeader: pcd.PointCloudHeader{
+						Fields: []string{"x", "y", "z"},
+						Size:   []int{4, 4, 4},
+						Type:   []string{"F", "F", "F"},
+						Count:  []int{1, 1, 1},
+						Width:  nRectPoints,
+						Height: 1,
+					},
+					Points: nRectPoints,
+				}
+				pcCursor.Data = make([]byte, nRectPoints*pcCursor.Stride())
+				it, _ := pcCursor.Vec3Iterator()
+				for _, p := range rect {
+					it.SetVec3(p)
+					it.Incr()
+				}
+
 				gl.BindBuffer(gl.ARRAY_BUFFER, toolBuf)
 				gl.BufferData(gl.ARRAY_BUFFER, webgl.Float32ArrayBuffer(buf), gl.STATIC_DRAW)
 			}
@@ -611,18 +650,58 @@ func (pe *pcdeditor) Run() {
 				vi.wheel(&e)
 			}
 		case e := <-pe.chMouseDown:
-			vi.mouseDragStart(&e)
 			if e.Button == 0 {
 				cg.DragStart()
 			}
+			if p, ok := cursorOnSelect(e); ok {
+				cmd.PushCursors()
+				moveStart = selectPointOrtho(
+					modelViewMatrix, projectionMatrix,
+					e.OffsetX*scale, e.OffsetY*scale, width, height, p,
+				)
+				continue
+			}
+			moveStart = nil
+			vi.mouseDragStart(&e)
 		case e := <-pe.chMouseUp:
-			vi.mouseDragEnd(&e)
 			if e.Button == 0 {
 				cg.DragEnd()
 			}
-		case e := <-pe.chMouseMove:
-			vi.mouseDrag(&e)
+			if moveStart != nil {
+				cmd.PopCursors()
+				moveEnd := selectPointOrtho(
+					modelViewMatrix, projectionMatrix,
+					e.OffsetX*scale, e.OffsetY*scale, width, height, moveStart,
+				)
+				diff := moveEnd.Sub(*moveStart)
+				cmd.TransformCursors(mat.Translate(diff[0], diff[1], diff[2]))
+
+				moveStart = nil
+				continue
+			}
+			vi.mouseDragEnd(&e)
+		case e := <-pe.chMouseDrag:
 			cg.Move()
+			if moveStart != nil {
+				cmd.PopCursors()
+				cmd.PushCursors()
+
+				moveEnd := selectPointOrtho(
+					modelViewMatrix, projectionMatrix,
+					e.OffsetX*scale, e.OffsetY*scale, width, height, moveStart,
+				)
+				diff := moveEnd.Sub(*moveStart)
+				cmd.TransformCursors(mat.Translate(diff[0], diff[1], diff[2]))
+
+				continue
+			}
+			vi.mouseDrag(&e)
+		case e := <-pe.chMouseMove:
+			if _, ok := cursorOnSelect(e); ok {
+				pe.SetCursor(cursorMove)
+			} else {
+				pe.SetCursor(cursorAuto)
+			}
 		case e := <-pe.chClick:
 			if pc, _, ok := cmd.PointCloudCropped(); ok && e.Button == 0 && cg.Click() {
 				var p *mat.Vec3
@@ -633,7 +712,7 @@ func (pe *pcdeditor) Run() {
 					)
 				case ProjectionOrthographic:
 					p = selectPointOrtho(
-						modelViewMatrix, projectionMatrix, e.OffsetX*scale, e.OffsetY*scale, width, height,
+						modelViewMatrix, projectionMatrix, e.OffsetX*scale, e.OffsetY*scale, width, height, nil,
 					)
 				default:
 					ok = false

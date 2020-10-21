@@ -5,13 +5,20 @@ import (
 	"github.com/seqsense/pcdeditor/pcd"
 )
 
-func selectPointOrtho(modelViewMatrix, projectionMatrix mat.Mat4, x, y, width, height int) *mat.Vec3 {
+func selectPointOrtho(modelViewMatrix, projectionMatrix mat.Mat4, x, y, width, height int, depth *mat.Vec3) *mat.Vec3 {
+	a := projectionMatrix.Mul(modelViewMatrix)
+
+	var d float32
+	if depth != nil {
+		dp := a.Transform(*depth)
+		d = dp[2]
+	}
+
 	pos := mat.NewVec3(
 		float32(x)*2/float32(width)-1,
-		1-float32(y)*2/float32(height), 0)
+		1-float32(y)*2/float32(height), d)
 
-	a := projectionMatrix.Mul(modelViewMatrix).Inv()
-	target := a.Transform(pos)
+	target := a.Inv().Transform(pos)
 	return &target
 }
 
@@ -27,7 +34,7 @@ func selectPoint(pc *pcd.PointCloud, projectionType ProjectionType, modelViewMat
 
 	switch projectionType {
 	case ProjectionPerspective:
-		origin = modelViewMatrix.InvAffine().Transform(mat.NewVec3(0, 0, 0))
+		origin = modelViewMatrix.InvAffine().TransformAffine(mat.NewVec3(0, 0, 0))
 	case ProjectionOrthographic:
 		origin = a.Transform(mat.NewVec3(pos[0], pos[1], 1))
 	}
@@ -79,7 +86,7 @@ func boxFrom4(p0, p1, p2, p3 mat.Vec3) [8]mat.Vec3 {
 		0, 0, 0, 1,
 	}).InvAffine().MulAffine(mat.Translate(-p0[0], -p0[1], -p0[2]))
 
-	z := m.TransformZ(p3)
+	z := m.TransformAffineZ(p3)
 	v3 := v2n.Mul(z)
 
 	return [8]mat.Vec3{
