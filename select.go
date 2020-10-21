@@ -30,37 +30,51 @@ func selectPoint(pc *pcd.PointCloud, projectionType ProjectionType, modelViewMat
 	a := projectionMatrix.Mul(modelViewMatrix).Inv()
 	target := a.Transform(pos)
 
-	var origin mat.Vec3
-
-	switch projectionType {
-	case ProjectionPerspective:
-		origin = modelViewMatrix.InvAffine().TransformAffine(mat.NewVec3(0, 0, 0))
-	case ProjectionOrthographic:
-		origin = a.Transform(mat.NewVec3(pos[0], pos[1], 1))
-	}
-	dir := target.Sub(origin).Normalized()
-
 	it, err := pc.Vec3Iterator()
 	if err != nil {
 		return nil, false
 	}
+
 	var selected *mat.Vec3
-	dSqMin := float32(0.1 * 0.1)
-	vMin := float32(1000 * 1000)
-	for ; it.IsValid(); it.Incr() {
-		p := it.Vec3()
-		pRel := origin.Sub(p)
-		dot := pRel.Dot(dir)
-		if dot < 0 {
-			distSq := pRel.NormSq()
-			dSq := distSq - dot*dot
-			v := distSq/10000 + dSq
-			if dSq < dSqMin && v < vMin && distSq > 1 {
-				vMin = v
+
+	switch projectionType {
+	case ProjectionPerspective:
+		origin := modelViewMatrix.InvAffine().TransformAffine(mat.NewVec3(0, 0, 0))
+		dir := target.Sub(origin).Normalized()
+		dSqMin := float32(0.1 * 0.1)
+		vMin := float32(1000 * 1000)
+		for ; it.IsValid(); it.Incr() {
+			p := it.Vec3()
+			pRel := origin.Sub(p)
+			dot := pRel.Dot(dir)
+			if dot < 0 {
+				distSq := pRel.NormSq()
+				dSq := distSq - dot*dot
+				v := dSq + distSq/10000
+				if dSq < dSqMin && v < vMin && distSq > 1 {
+					vMin = v
+					selected = &p
+				}
+			}
+		}
+	case ProjectionOrthographic:
+		o1 := a.TransformAffine(mat.NewVec3(pos[0], pos[1], 0))
+		o2 := a.TransformAffine(mat.NewVec3(pos[0], pos[1], 1))
+		oDiff := o2.Sub(o1)
+		oDiffNormSq := oDiff.NormSq()
+
+		dSqMin := float32(0.1 * 0.1)
+		for ; it.IsValid(); it.Incr() {
+			p := it.Vec3()
+			dSq := oDiff.CrossNormSq(p.Sub(o1)) / oDiffNormSq
+			if dSq < dSqMin {
+				dSqMin = dSq
 				selected = &p
 			}
 		}
+
 	}
+
 	if selected != nil {
 		return selected, true
 	}
