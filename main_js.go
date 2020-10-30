@@ -104,6 +104,7 @@ func newPCDEditor(this js.Value, args []js.Value) interface{} {
 		}),
 	})
 }
+
 func newCommandPromise(ch chan promiseCommand, data interface{}) js.Value {
 	promise := js.Global().Get("Promise")
 	return promise.New(js.FuncOf(func(this js.Value, args []js.Value) interface{} {
@@ -293,8 +294,6 @@ func (pe *pcdeditor) Run() {
 	var vib3DX float32
 
 	var nRectPoints int
-	cmd := newCommandContext(&pcdIOImpl{}, &mapIOImpl{})
-	cs := &console{cmd: cmd}
 
 	gl.ClearColor(0.0, 0.0, 0.0, 1.0)
 	gl.ClearDepth(1.0)
@@ -319,6 +318,8 @@ func (pe *pcdeditor) Run() {
 
 	vi := newView()
 	cg := &clickGuard{}
+	cmd := newCommandContext(&pcdIOImpl{}, &mapIOImpl{})
+	cs := &console{cmd: cmd, view: vi}
 
 	devicePixelRatioJS := js.Global().Get("window").Get("devicePixelRatio")
 	wheelNormalizer := &wheelNormalizer{}
@@ -789,17 +790,17 @@ func (pe *pcdeditor) Run() {
 			case "KeyW", "KeyA", "KeyS", "KeyD", "KeyQ", "KeyE":
 				switch e.Code {
 				case "KeyW":
-					vi.move(0.05, 0, 0)
+					vi.Move(0.05, 0, 0)
 				case "KeyA":
-					vi.move(0, 0.05, 0)
+					vi.Move(0, 0.05, 0)
 				case "KeyS":
-					vi.move(-0.05, 0, 0)
+					vi.Move(-0.05, 0, 0)
 				case "KeyD":
-					vi.move(0, -0.05, 0)
+					vi.Move(0, -0.05, 0)
 				case "KeyQ":
-					vi.move(0, 0, 0.02)
+					vi.Move(0, 0, 0.02)
 				case "KeyE":
-					vi.move(0, 0, -0.02)
+					vi.Move(0, 0, -0.02)
 				}
 			case "BracketRight", "Backslash":
 				switch e.Code {
@@ -815,9 +816,9 @@ func (pe *pcdeditor) Run() {
 					}
 				}
 			case "F1":
-				vi.reset()
+				vi.Reset()
 			case "F2":
-				vi.fps()
+				vi.Fps()
 			case "F3":
 				cmd.SetProjectionType(ProjectionPerspective)
 			case "F4":
@@ -825,9 +826,9 @@ func (pe *pcdeditor) Run() {
 			case "F10":
 				cmd.Crop()
 			case "F11":
-				vi.snapYaw()
+				vi.SnapYaw()
 			case "F12":
-				vi.snapPitch()
+				vi.SnapPitch()
 			case "KeyP":
 				vib3D = !vib3D
 			}

@@ -16,6 +16,13 @@
           <input type="checkbox" checked id="show2D" />
           <label for="show2D" style="padding-left: 0.5em; padding-right: 0.2em; margin-left: -0.5em;">2D</label>
         </span>
+        <span style="background-color: rgba(255, 255, 255, 0.8); padding: 2px; border-radius: 0.3em; margin-left: 0.5em;">
+          <input type="checkbox" checked id="ortho" />
+          <label for="ortho" style="padding-left: 0.5em; padding-right: 0.2em; margin-left: -0.5em;">Ortho</label>
+        </span>
+        <span style="background-color: rgba(255, 255, 255, 0.8); padding: 2px 8px; border-radius: 0.3em; margin-left: 0.5em;">
+          <span id="side" style="cursor: pointer;">↪</span>
+          <span id="top" style="cursor: pointer;">🔝</span></span>
         <a href="https://github.com/seqsense/pcdeditor#%E6%93%8D%E4%BD%9C" style="text-decoration: none; color: black; padding: 2px 0.5em; background-color: rgba(255, 255, 255, 0.8); border-radius: 0.3em; margin-left: 0.5em;" target="_blank">❓</a>
       </div>
       <div id="log" style="font-size: 0.6em; max-height: 20em; position: absolute; bottom: 1em; left: 1em; z-index: 2; color: white; pointer-events: none; overflow: hidden;"></div>
@@ -128,17 +135,29 @@
             document.getElementById('mapCanvas').focus();
           }
         };
-      document.getElementById('show2D').onchange =
-        e => {
-          pcdeditor.show2D(e.target.checked).catch(logger);
-        };
       if (pcdSpecified) {
         pcdeditor.loadPCD(pcdPath).catch(logger);
       }
       if (yamlSpecified && imgSpecified) {
         pcdeditor.load2D(yamlPath, imgPath).catch(logger);
       }
+
+      document.getElementById('show2D').onchange =
+        e => pcdeditor.show2D(e.target.checked).catch(logger);
       pcdeditor.show2D(document.getElementById('show2D').checked).catch(logger);
+
+      const projectionMode =
+        target => pcdeditor.command(target.checked ? 'ortho' : 'perspective').catch(logger);
+      document.getElementById('ortho').onchange = e => projectionMode(e.target);
+      projectionMode(document.getElementById('ortho'));
+
+      document.getElementById('top').onclick =
+        e => pcdeditor.command('pitch 0').catch(logger);
+      document.getElementById('side').onclick =
+        e => pcdeditor.command('snap_yaw')
+                      .then(pcdeditor.command('pitch 1.570796327'))
+                      .then(pcdeditor.command('rotate_yaw 1.570796327'))
+                      .catch(logger);
     }
     const go = new Go();
     WebAssembly.instantiateStreaming(fetch('pcdeditor.wasm'), go.importObject).then((result) => {

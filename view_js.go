@@ -11,7 +11,7 @@ const (
 	yDeadband       = 20
 )
 
-type view struct {
+type viewImpl struct {
 	fov              float64
 	x, y, yaw, pitch float64
 	distance         float64
@@ -20,32 +20,48 @@ type view struct {
 	drag0                *webgl.MouseEvent
 }
 
-func newView() *view {
-	return &view{
+func newView() *viewImpl {
+	return &viewImpl{
 		distance: defaultDistance,
 		pitch:    defaultPitch,
 	}
 }
 
-func (v *view) reset() {
+func (v *viewImpl) Reset() {
 	v.distance = defaultDistance
 	v.pitch = defaultPitch
 }
 
-func (v *view) fps() {
+func (v *viewImpl) Fps() {
 	v.distance = 0
 	v.pitch = math.Pi / 2
 }
 
-func (v *view) snapYaw() {
+func (v *viewImpl) SnapYaw() {
 	v.yaw = math.Round(v.yaw/(math.Pi/2)) * (math.Pi / 2)
 }
 
-func (v *view) snapPitch() {
+func (v *viewImpl) SnapPitch() {
 	v.pitch = math.Round(v.pitch/(math.Pi/2)) * (math.Pi / 2)
 }
 
-func (v *view) wheel(e *webgl.WheelEvent) {
+func (v *viewImpl) RotateYaw(y float64) {
+	v.yaw += y
+}
+
+func (v *viewImpl) SetPitch(p float64) {
+	v.pitch = p
+}
+
+func (v *viewImpl) Move(dx, dy, dyaw float64) {
+	s, c := math.Sincos(v.yaw)
+	v.x += c*dy + s*dx
+	v.y += s*dy - c*dx
+	v.yaw += dyaw
+	v.yaw = math.Remainder(v.yaw, 2*math.Pi)
+}
+
+func (v *viewImpl) wheel(e *webgl.WheelEvent) {
 	v.distance += e.DeltaY * (v.distance*0.05 + 0.1)
 	if v.distance < 0 {
 		v.distance = 0
@@ -54,15 +70,7 @@ func (v *view) wheel(e *webgl.WheelEvent) {
 	}
 }
 
-func (v *view) move(dx, dy, dyaw float64) {
-	s, c := math.Sincos(v.yaw)
-	v.x += c*dy + s*dx
-	v.y += s*dy - c*dx
-	v.yaw += dyaw
-	v.yaw = math.Remainder(v.yaw, 2*math.Pi)
-}
-
-func (v *view) mouseDragStart(e *webgl.MouseEvent) {
+func (v *viewImpl) mouseDragStart(e *webgl.MouseEvent) {
 	v.drag0 = e
 	v.yaw0 = v.yaw
 	v.pitch0 = v.pitch
@@ -70,7 +78,7 @@ func (v *view) mouseDragStart(e *webgl.MouseEvent) {
 	v.y0 = v.y
 }
 
-func (v *view) mouseDragEnd(e *webgl.MouseEvent) {
+func (v *viewImpl) mouseDragEnd(e *webgl.MouseEvent) {
 	if v.drag0 == nil {
 		return
 	}
@@ -78,7 +86,7 @@ func (v *view) mouseDragEnd(e *webgl.MouseEvent) {
 	v.drag0 = nil
 }
 
-func (v *view) mouseDrag(e *webgl.MouseEvent) {
+func (v *viewImpl) mouseDrag(e *webgl.MouseEvent) {
 	if v.drag0 == nil {
 		return
 	}

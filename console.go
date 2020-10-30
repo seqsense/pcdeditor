@@ -9,7 +9,8 @@ import (
 )
 
 type console struct {
-	cmd *commandContext
+	cmd  *commandContext
+	view view
 }
 
 var (
@@ -18,34 +19,34 @@ var (
 	errSetCursor      = errors.New("failed to set cursor")
 )
 
-var consoleCommands = map[string]func(cmd *commandContext, args []float32) ([][]float32, error){
-	"select_range": func(cmd *commandContext, args []float32) ([][]float32, error) {
+var consoleCommands = map[string]func(c *console, args []float32) ([][]float32, error){
+	"select_range": func(c *console, args []float32) ([][]float32, error) {
 		switch len(args) {
 		case 0:
-			return [][]float32{{cmd.SelectRange()}}, nil
+			return [][]float32{{c.cmd.SelectRange()}}, nil
 		case 1:
-			cmd.SetSelectRange(args[0])
-			return [][]float32{{cmd.SelectRange()}}, nil
+			c.cmd.SetSelectRange(args[0])
+			return [][]float32{{c.cmd.SelectRange()}}, nil
 		default:
 			return nil, errArgumentNumber
 		}
 	},
-	"cursor": func(cmd *commandContext, args []float32) ([][]float32, error) {
+	"cursor": func(c *console, args []float32) ([][]float32, error) {
 		switch len(args) {
 		case 0:
 			var resFloat [][]float32
-			for i, c := range cmd.Cursors() {
+			for i, c := range c.cmd.Cursors() {
 				resFloat = append(resFloat, []float32{float32(i), c[0], c[1], c[2]})
 			}
 			return resFloat, nil
 		case 3:
-			n := len(cmd.Cursors())
-			if !cmd.SetCursor(n, mat.Vec3{args[0], args[1], args[2]}) {
+			n := len(c.cmd.Cursors())
+			if !c.cmd.SetCursor(n, mat.Vec3{args[0], args[1], args[2]}) {
 				return nil, errSetCursor
 			}
 			return [][]float32{{float32(n), args[0], args[1], args[2]}}, nil
 		case 4:
-			if !cmd.SetCursor(int(args[0]), mat.Vec3{args[1], args[2], args[3]}) {
+			if !c.cmd.SetCursor(int(args[0]), mat.Vec3{args[1], args[2], args[3]}) {
 				return nil, errSetCursor
 			}
 			return [][]float32{args}, nil
@@ -53,119 +54,147 @@ var consoleCommands = map[string]func(cmd *commandContext, args []float32) ([][]
 			return nil, errArgumentNumber
 		}
 	},
-	"unset_cursor": func(cmd *commandContext, args []float32) ([][]float32, error) {
+	"unset_cursor": func(c *console, args []float32) ([][]float32, error) {
 		if len(args) != 0 {
 			return nil, errArgumentNumber
 		}
-		cmd.UnsetCursors()
+		c.cmd.UnsetCursors()
 		return nil, nil
 	},
-	"snap_v": func(cmd *commandContext, args []float32) ([][]float32, error) {
+	"snap_v": func(c *console, args []float32) ([][]float32, error) {
 		if len(args) != 0 {
 			return nil, errArgumentNumber
 		}
-		cmd.SnapVertical()
+		c.cmd.SnapVertical()
 		return nil, nil
 	},
-	"snap_h": func(cmd *commandContext, args []float32) ([][]float32, error) {
+	"snap_h": func(c *console, args []float32) ([][]float32, error) {
 		if len(args) != 0 {
 			return nil, errArgumentNumber
 		}
-		cmd.SnapHorizontal()
+		c.cmd.SnapHorizontal()
 		return nil, nil
 	},
-	"translate_cursor": func(cmd *commandContext, args []float32) ([][]float32, error) {
+	"translate_cursor": func(c *console, args []float32) ([][]float32, error) {
 		if len(args) != 3 {
 			return nil, errArgumentNumber
 		}
-		cmd.TransformCursors(mat.Translate(args[0], args[1], args[2]))
+		c.cmd.TransformCursors(mat.Translate(args[0], args[1], args[2]))
 		return nil, nil
 	},
-	"add_surface": func(cmd *commandContext, args []float32) ([][]float32, error) {
+	"add_surface": func(c *console, args []float32) ([][]float32, error) {
 		switch len(args) {
 		case 0:
-			cmd.AddSurface(defaultResolution)
+			c.cmd.AddSurface(defaultResolution)
 			return nil, nil
 		case 1:
-			cmd.AddSurface(args[0])
+			c.cmd.AddSurface(args[0])
 			return nil, nil
 		default:
 			return nil, errArgumentNumber
 		}
 	},
-	"delete": func(cmd *commandContext, args []float32) ([][]float32, error) {
+	"delete": func(c *console, args []float32) ([][]float32, error) {
 		if len(args) != 0 {
 			return nil, errArgumentNumber
 		}
-		cmd.Delete()
+		c.cmd.Delete()
 		return nil, nil
 	},
-	"label": func(cmd *commandContext, args []float32) ([][]float32, error) {
+	"label": func(c *console, args []float32) ([][]float32, error) {
 		if len(args) != 1 {
 			return nil, errArgumentNumber
 		}
-		cmd.Label(uint32(args[0]))
+		c.cmd.Label(uint32(args[0]))
 		return nil, nil
 	},
-	"undo": func(cmd *commandContext, args []float32) ([][]float32, error) {
+	"undo": func(c *console, args []float32) ([][]float32, error) {
 		if len(args) != 0 {
 			return nil, errArgumentNumber
 		}
-		cmd.Undo()
+		c.cmd.Undo()
 		return nil, nil
 	},
-	"crop": func(cmd *commandContext, args []float32) ([][]float32, error) {
+	"crop": func(c *console, args []float32) ([][]float32, error) {
 		if len(args) != 0 {
 			return nil, errArgumentNumber
 		}
-		cmd.Crop()
+		c.cmd.Crop()
 		return nil, nil
 	},
-	"map_alpha": func(cmd *commandContext, args []float32) ([][]float32, error) {
+	"map_alpha": func(c *console, args []float32) ([][]float32, error) {
 		switch len(args) {
 		case 0:
-			return [][]float32{{cmd.MapAlpha()}}, nil
+			return [][]float32{{c.cmd.MapAlpha()}}, nil
 		case 1:
-			cmd.SetMapAlpha(args[0])
+			c.cmd.SetMapAlpha(args[0])
 			return nil, nil
 		default:
 			return nil, errArgumentNumber
 		}
 	},
-	"voxel_grid": func(cmd *commandContext, args []float32) ([][]float32, error) {
+	"voxel_grid": func(c *console, args []float32) ([][]float32, error) {
 		switch len(args) {
 		case 0:
-			return [][]float32{}, cmd.VoxelFilter(defaultResolution)
+			return [][]float32{}, c.cmd.VoxelFilter(defaultResolution)
 		case 1:
-			return [][]float32{}, cmd.VoxelFilter(args[0])
+			return [][]float32{}, c.cmd.VoxelFilter(args[0])
 		default:
 			return nil, errArgumentNumber
 		}
 	},
-	"z_range": func(cmd *commandContext, args []float32) ([][]float32, error) {
+	"z_range": func(c *console, args []float32) ([][]float32, error) {
 		switch len(args) {
 		case 0:
-			zMin, zMax := cmd.ZRange()
+			zMin, zMax := c.cmd.ZRange()
 			return [][]float32{{zMin, zMax}}, nil
 		case 2:
-			cmd.SetZRange(args[0], args[1])
+			c.cmd.SetZRange(args[0], args[1])
 			return nil, nil
 		default:
 			return nil, errArgumentNumber
 		}
 	},
-	"ortho": func(cmd *commandContext, args []float32) ([][]float32, error) {
+	"ortho": func(c *console, args []float32) ([][]float32, error) {
 		if len(args) != 0 {
 			return nil, errArgumentNumber
 		}
-		cmd.SetProjectionType(ProjectionOrthographic)
+		c.cmd.SetProjectionType(ProjectionOrthographic)
 		return nil, nil
 	},
-	"perspective": func(cmd *commandContext, args []float32) ([][]float32, error) {
+	"perspective": func(c *console, args []float32) ([][]float32, error) {
 		if len(args) != 0 {
 			return nil, errArgumentNumber
 		}
-		cmd.SetProjectionType(ProjectionPerspective)
+		c.cmd.SetProjectionType(ProjectionPerspective)
+		return nil, nil
+	},
+	"rotate_yaw": func(c *console, args []float32) ([][]float32, error) {
+		if len(args) != 1 {
+			return nil, errArgumentNumber
+		}
+		c.view.RotateYaw(float64(args[0]))
+		return nil, nil
+	},
+	"pitch": func(c *console, args []float32) ([][]float32, error) {
+		if len(args) != 1 {
+			return nil, errArgumentNumber
+		}
+		c.view.SetPitch(float64(args[0]))
+		return nil, nil
+	},
+	"snap_pitch": func(c *console, args []float32) ([][]float32, error) {
+		if len(args) != 0 {
+			return nil, errArgumentNumber
+		}
+		c.view.SnapPitch()
+		return nil, nil
+	},
+	"snap_yaw": func(c *console, args []float32) ([][]float32, error) {
+		if len(args) != 0 {
+			return nil, errArgumentNumber
+		}
+		c.view.SnapYaw()
 		return nil, nil
 	},
 }
@@ -187,7 +216,7 @@ func (c *console) Run(line string) (string, error) {
 		}
 		argsFloat = append(argsFloat, float32(f))
 	}
-	res, err := fn(c.cmd, argsFloat)
+	res, err := fn(c, argsFloat)
 	if err != nil {
 		return "", err
 	}
