@@ -22,7 +22,7 @@ func (*uploader) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
-	f, err := os.Create("data/saved.pcd")
+	f, err := os.Create("fixture/saved.pcd")
 	if err != nil {
 		log.Println(err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)

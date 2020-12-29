@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <style>
+      .main iframe {
+        width: 80vw;
+        height: 50vh;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="main"></div>
+    <div id="log" style="font-size: 0.6em; max-height: 20em; position: absolute; bottom: 1em; left: 1em; z-index: 2; color: #555; pointer-events: none; overflow: hidden;"></div>
+  </body>
+  <script src="vendor_js/postmate.min.js"></script>
+  <script type="module">
+    /** Shorthand for document.querySelector */
+    const qs = (q) => document.querySelector(q);
+    const logger = msg => {
+      const log = qs('#log');
+      log.innerHTML = msg.toString().replace(/\n/g, '<br/>') + '<br/>' + log.innerHTML;
+    };
+    async function main() {
+      const child = await new Postmate({
+        container: qs('.main'),
+        url: 'iframe.html',
+        name: 'pcdeditor',
+      });
+      child.call('load', {
+        mapPcd: "fixture/map.pcd",
+        mapPng: "fixture/map.png",
+        mapYaml: "fixture/map.yaml",
+      });
+      child.on('save-pcd', async (objUrl) => {
+        logger('Got "save-pcd" event')
+        const resp = await fetch(objUrl);
+        const text = await resp.text();
+        logger(`Received pcd of length = ${text.length} bytes`);
+        logger(`data = "${text.slice(0, 100).replace(/\n/g, ' ')}..."`);
+      });
+    }
+    main()
+  </script>
+</html>

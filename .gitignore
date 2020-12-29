@@ -1,7 +1,5 @@
 pcdeditor.wasm
 wasm_exec.js
-data/*.pcd
-data/*.png
-data/*.yaml
 release
 cover.out
+vendor_js
