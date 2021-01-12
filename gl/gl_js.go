@@ -12,6 +12,7 @@ var (
 	uint8Array   = js.Global().Get("Uint8Array")
 )
 
+type ErrorNumber int
 type ShaderType int
 type BufferType int
 type BufferUsage int
@@ -38,6 +39,9 @@ type WebGL struct {
 	gl js.Value
 
 	Canvas Canvas
+
+	NO_ERROR, INVALID_ENUM, INVALID_VALUE, INVALID_OPERATION,
+	INVALID_FRAMEBUFFER_OPERATION, OUT_OF_MEMORY, CONTEXT_LOST_WEBGL ErrorNumber
 
 	VERTEX_SHADER, FRAGMENT_SHADER                                                ShaderType
 	ARRAY_BUFFER                                                                  BufferType
@@ -70,6 +74,14 @@ func New(canvas js.Value) (*WebGL, error) {
 		gl: gl,
 
 		Canvas: Canvas(gl.Get("canvas")),
+
+		NO_ERROR:                      ErrorNumber(gl.Get("NO_ERROR").Int()),
+		INVALID_ENUM:                  ErrorNumber(gl.Get("INVALID_ENUM").Int()),
+		INVALID_VALUE:                 ErrorNumber(gl.Get("INVALID_VALUE").Int()),
+		INVALID_OPERATION:             ErrorNumber(gl.Get("INVALID_OPERATION").Int()),
+		INVALID_FRAMEBUFFER_OPERATION: ErrorNumber(gl.Get("INVALID_FRAMEBUFFER_OPERATION").Int()),
+		OUT_OF_MEMORY:                 ErrorNumber(gl.Get("OUT_OF_MEMORY").Int()),
+		CONTEXT_LOST_WEBGL:            ErrorNumber(gl.Get("CONTEXT_LOST_WEBGL").Int()),
 
 		VERTEX_SHADER:   ShaderType(gl.Get("VERTEX_SHADER").Int()),
 		FRAGMENT_SHADER: ShaderType(gl.Get("FRAGMENT_SHADER").Int()),
@@ -124,6 +136,17 @@ func New(canvas js.Value) (*WebGL, error) {
 		SRC_ALPHA:           BlendFactor(gl.Get("SRC_ALPHA").Int()),
 		ONE_MINUS_SRC_ALPHA: BlendFactor(gl.Get("ONE_MINUS_SRC_ALPHA").Int()),
 	}, nil
+}
+
+func (gl *WebGL) GetError() error {
+	e := ErrorNumber(gl.gl.Call("getError").Int())
+	if e == gl.NO_ERROR {
+		return nil
+	}
+	return &Error{
+		Context: gl,
+		Number:  e,
+	}
 }
 
 func (gl *WebGL) CreateShader(t ShaderType) Shader {

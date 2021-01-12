@@ -468,12 +468,17 @@ func (pe *pcdeditor) Run() {
 				mi, img, ok := cmd.Map()
 				has2D = ok
 				if ok {
+					err0 := gl.GetError()
 					gl.BindTexture(gl.TEXTURE_2D, texture)
 					gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img.Interface().(js.Value))
 					gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
 					gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
 					gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
 					gl.BindTexture(gl.TEXTURE_2D, webgl.Texture(nil))
+
+					if err := gl.GetError(); err0 == nil && err != nil {
+						pe.logPrint(fmt.Sprintf("Failed to render 2D map image (%v): 2D map image size may be too large for your graphic card", err))
+					}
 
 					gl.UseProgram(programMap)
 					gl.ActiveTexture(gl.TEXTURE0)
