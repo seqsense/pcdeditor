@@ -1,6 +1,8 @@
 package main
 
 import (
+	"runtime"
+
 	"github.com/seqsense/pcdeditor/mat"
 	"github.com/seqsense/pcdeditor/pcd"
 )
@@ -42,6 +44,7 @@ func (e *editor) push(pc *pcd.PointCloud) {
 	if len(e.history) > e.MaxHistory()+1 {
 		e.history[0] = nil
 		e.history = e.history[1:]
+		runtime.GC()
 	}
 	e.pc = pc
 	e.updateCrop()
@@ -56,6 +59,7 @@ func (e *editor) pop() *pcd.PointCloud {
 func (e *editor) updateCrop() {
 	if e.cropMatrix[15] == 0.0 {
 		e.pcCrop = e.pc
+		runtime.GC()
 		return
 	}
 	pc, err := passThrough(e.pc, func(p mat.Vec3) bool {

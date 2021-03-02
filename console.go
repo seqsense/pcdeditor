@@ -2,6 +2,8 @@ package main
 
 import (
 	"errors"
+	"fmt"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -20,6 +22,12 @@ var (
 )
 
 var consoleCommands = map[string]func(c *console, args []float32) ([][]float32, error){
+	"mem": func(c *console, args []float32) ([][]float32, error) {
+		var stat runtime.MemStats
+		runtime.ReadMemStats(&stat)
+		fmt.Printf("%+v\n", stat)
+		return nil, nil
+	},
 	"select_range": func(c *console, args []float32) ([][]float32, error) {
 		switch len(args) {
 		case 0:
