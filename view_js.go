@@ -92,8 +92,27 @@ func (v *viewImpl) mouseDrag(e *webgl.MouseEvent) {
 	}
 	xDiff := float64(e.OffsetX - v.drag0.OffsetX)
 	yDiff := float64(e.OffsetY - v.drag0.OffsetY)
+
+	type dragType int
+	const (
+		dragRotate dragType = iota
+		dragTranslate
+	)
+
+	var t dragType
 	switch v.drag0.Button {
-	case 0:
+	case 0: // Left
+		if e.ShiftKey {
+			t = dragTranslate
+		} else {
+			t = dragRotate
+		}
+	case 1: // Middle
+		t = dragTranslate
+	}
+
+	switch t {
+	case dragRotate:
 		v.yaw = v.yaw0 - 0.02*xDiff
 		if yDiff < -yDeadband {
 			yDiff += yDeadband
@@ -108,7 +127,7 @@ func (v *viewImpl) mouseDrag(e *webgl.MouseEvent) {
 		} else if v.pitch > math.Pi {
 			v.pitch = math.Pi
 		}
-	case 1:
+	case dragTranslate:
 		s, c := math.Sincos(v.yaw)
 		v.x = v.x0 + 0.1*(xDiff*c+yDiff*s)
 		v.y = v.y0 + 0.1*(xDiff*s-yDiff*c)
