@@ -6,15 +6,30 @@ import (
 )
 
 const (
-	maxHistory = 5
+	maxHistoryDefault = 4
 )
 
 type editor struct {
-	pc      *pcd.PointCloud
-	pcCrop  *pcd.PointCloud
-	history []*pcd.PointCloud
+	pc         *pcd.PointCloud
+	pcCrop     *pcd.PointCloud
+	history    []*pcd.PointCloud
+	maxHistory *int
 
 	cropMatrix mat.Mat4
+}
+
+func (e *editor) MaxHistory() int {
+	if e.maxHistory == nil {
+		return maxHistoryDefault
+	}
+	return *e.maxHistory
+}
+
+func (e *editor) SetMaxHistory(m int) {
+	if m < 0 {
+		m = 0
+	}
+	e.maxHistory = &m
 }
 
 func (e *editor) push(pc *pcd.PointCloud) {
@@ -24,7 +39,7 @@ func (e *editor) push(pc *pcd.PointCloud) {
 		Data:             pc.Data,
 	}
 	e.history = append(e.history, shallowCopy)
-	if len(e.history) > maxHistory {
+	if len(e.history) > e.MaxHistory()+1 {
 		e.history[0] = nil
 		e.history = e.history[1:]
 	}

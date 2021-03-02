@@ -115,6 +115,17 @@ var consoleCommands = map[string]func(c *console, args []float32) ([][]float32, 
 		c.cmd.Undo()
 		return nil, nil
 	},
+	"max_history": func(c *console, args []float32) ([][]float32, error) {
+		switch len(args) {
+		case 0:
+			return [][]float32{{float32(c.cmd.MaxHistory())}}, nil
+		case 1:
+			c.cmd.SetMaxHistory(int(args[0]))
+			return nil, nil
+		default:
+			return nil, errArgumentNumber
+		}
+	},
 	"crop": func(c *console, args []float32) ([][]float32, error) {
 		if len(args) != 0 {
 			return nil, errArgumentNumber

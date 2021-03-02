@@ -436,6 +436,18 @@ func (c *commandContext) Undo() bool {
 	return c.editor.Undo()
 }
 
+func (c *commandContext) MaxHistory() int {
+	return c.editor.MaxHistory()
+}
+
+func (c *commandContext) SetMaxHistory(m int) bool {
+	if m < 0 {
+		return false
+	}
+	c.editor.SetMaxHistory(m)
+	return true
+}
+
 func (c *commandContext) LoadPCD(path string) error {
 	p, err := c.pcdIO.readPCD(path)
 	if err != nil {
