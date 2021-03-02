@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"strconv"
 	"strings"
 
@@ -116,8 +115,8 @@ L_HEADER:
 	case Ascii:
 		panic("not implemented yet")
 	case Binary:
-		b, err := ioutil.ReadAll(rb)
-		if err != nil {
+		b := make([]byte, pc.Points*pc.Stride())
+		if _, err := io.ReadFull(rb, b); err != nil {
 			return nil, err
 		}
 		pc.Data = b
@@ -130,8 +129,8 @@ L_HEADER:
 			return nil, err
 		}
 
-		b, err := ioutil.ReadAll(rb)
-		if err != nil {
+		b := make([]byte, nCompressed)
+		if _, err := io.ReadFull(rb, b); err != nil {
 			return nil, err
 		}
 
