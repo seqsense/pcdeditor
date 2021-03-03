@@ -32,6 +32,7 @@ type commandContext struct {
 	pcdIO             pcdIO
 	mapIO             mapIO
 	pointCloudUpdated bool
+	mapUpdated        bool
 
 	selectRange            *float32
 	selectRangeOrtho       float32
@@ -69,8 +70,10 @@ func newCommandContext(pcdio pcdIO, mapio mapIO) *commandContext {
 	return c
 }
 
-func (c *commandContext) Map() (*occupancyGrid, mapImage, bool) {
-	return c.mapInfo, c.mapImg, c.mapInfo != nil
+func (c *commandContext) Map() (*occupancyGrid, mapImage, bool, bool) {
+	updated := c.mapUpdated
+	c.mapUpdated = false
+	return c.mapInfo, c.mapImg, updated, c.mapInfo != nil
 }
 
 func (c *commandContext) MapAlpha() float32 {
@@ -95,21 +98,17 @@ func (c *commandContext) PointCloud() (*pcd.PointCloud, bool, bool) {
 	return c.editor.pc, updated, c.editor.pc != nil
 }
 
-func (c *commandContext) PointCloudCropped() (*pcd.PointCloud, bool, bool) {
-	updated := c.pointCloudUpdated
-	c.pointCloudUpdated = false
-	return c.editor.pcCrop, updated, c.editor.pcCrop != nil
+func (c *commandContext) CropMatrix() mat.Mat4 {
+	return c.editor.cropMatrix
 }
 
 func (c *commandContext) Crop() bool {
 	m, ok := c.SelectMatrix()
 	if !ok {
 		c.editor.Crop(mat.Mat4{})
-		c.pointCloudUpdated = true
 		return false
 	}
 	c.editor.Crop(m)
-	c.pointCloudUpdated = true
 	return true
 }
 
@@ -331,21 +330,13 @@ func (c *commandContext) AddSurface(resolution float32) bool {
 	return true
 }
 
-func (c *commandContext) Delete() bool {
-	filter, ok := c.filter()
-	if !ok {
-		return false
-	}
-	cropMat := c.editor.cropMatrix
-	if cropMat[15] != 0.0 {
-		selectFilter := filter
-		cropFilter := mat4Filter(cropMat).Filter
-		filter = func(p mat.Vec3) bool {
-			if selectFilter(p) {
-				return true
-			}
-			return cropFilter(p)
-		}
+func (c *commandContext) Delete(sel []uint32) bool {
+	i := 0
+	filter := func(p mat.Vec3) bool {
+		mask := sel[i]
+		i++
+		return mask&selectBitmaskCropped != 0 ||
+			mask&selectBitmaskSelected == 0
 	}
 	c.editor.passThrough(filter)
 	c.pointCloudUpdated = true
@@ -470,7 +461,7 @@ func (c *commandContext) Load2D(yamlPath, imgPath string) error {
 	c.mapInfo = mi
 	c.mapImg = img
 
-	c.pointCloudUpdated = true
+	c.mapUpdated = true
 	return nil
 }
 

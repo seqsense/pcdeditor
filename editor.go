@@ -13,7 +13,6 @@ const (
 
 type editor struct {
 	pc         *pcd.PointCloud
-	pcCrop     *pcd.PointCloud
 	history    []*pcd.PointCloud
 	maxHistory *int
 
@@ -47,7 +46,6 @@ func (e *editor) push(pc *pcd.PointCloud) {
 		runtime.GC()
 	}
 	e.pc = pc
-	e.updateCrop()
 }
 
 func (e *editor) pop() *pcd.PointCloud {
@@ -56,33 +54,8 @@ func (e *editor) pop() *pcd.PointCloud {
 	return back
 }
 
-func (e *editor) updateCrop() {
-	if e.cropMatrix[15] == 0.0 {
-		e.pcCrop = e.pc
-		runtime.GC()
-		return
-	}
-	pc, err := passThrough(e.pc, func(p mat.Vec3) bool {
-		if z := e.cropMatrix.TransformAffineZ(p); z < 0 || 1 < z {
-			return false
-		}
-		if x := e.cropMatrix.TransformAffineX(p); x < 0 || 1 < x {
-			return false
-		}
-		if y := e.cropMatrix.TransformAffineY(p); y < 0 || 1 < y {
-			return false
-		}
-		return true
-	})
-	if err != nil {
-		return
-	}
-	e.pcCrop = pc
-}
-
 func (e *editor) Crop(origin mat.Mat4) {
 	e.cropMatrix = origin
-	e.updateCrop()
 }
 
 func (e *editor) Undo() bool {
@@ -90,7 +63,6 @@ func (e *editor) Undo() bool {
 		e.history[n-1] = nil
 		e.history = e.history[:n-1]
 		e.pc = e.history[n-2]
-		e.updateCrop()
 		return true
 	}
 	return false

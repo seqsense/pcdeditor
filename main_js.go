@@ -173,6 +173,20 @@ func (pe *pcdeditor) Run() {
 		pe.logPrint("Compile failed (FRAGMENT_SHADER)")
 		return
 	}
+	csComputeSelect := gl.CreateShader(gl.VERTEX_SHADER)
+	gl.ShaderSource(csComputeSelect, csComputeSelectSource)
+	gl.CompileShader(csComputeSelect)
+	if !gl.GetShaderParameter(csComputeSelect, gl.COMPILE_STATUS).(bool) {
+		pe.logPrint("Compile failed (VERTEX_SHADER)")
+		return
+	}
+	fsComputeSelect := gl.CreateShader(gl.FRAGMENT_SHADER)
+	gl.ShaderSource(fsComputeSelect, fsComputeSelectSource)
+	gl.CompileShader(fsComputeSelect)
+	if !gl.GetShaderParameter(fsComputeSelect, gl.COMPILE_STATUS).(bool) {
+		pe.logPrint("Compile failed (FRAGMENT_SHADER)")
+		return
+	}
 
 	program := gl.CreateProgram()
 	gl.AttachShader(program, vs)
@@ -201,7 +215,21 @@ func (pe *pcdeditor) Run() {
 		return
 	}
 
+	programComputeSelect := gl.CreateProgram()
+	gl.AttachShader(programComputeSelect, csComputeSelect)
+	gl.AttachShader(programComputeSelect, fsComputeSelect)
+	gl.TransformFeedbackVaryings(programComputeSelect, []string{"oResult"}, gl.SEPARATE_ATTRIBS)
+	gl.LinkProgram(programComputeSelect)
+	if !gl.GetProgramParameter(programComputeSelect, gl.LINK_STATUS).(bool) {
+		pe.logPrint("Link failed: " + gl.GetProgramInfoLog(programComputeSelect))
+		return
+	}
+
+	tf := gl.CreateTransformFeedback()
+	gl.BindTransformFeedback(gl.TRANSFORM_FEEDBACK, tf)
+
 	uProjectionMatrixLocation := gl.GetUniformLocation(program, "uProjectionMatrix")
+	uCropMatrixLocation := gl.GetUniformLocation(program, "uCropMatrix")
 	uModelViewMatrixLocation := gl.GetUniformLocation(program, "uModelViewMatrix")
 	uSelectMatrixLocation := gl.GetUniformLocation(program, "uSelectMatrix")
 	uZMinLocation := gl.GetUniformLocation(program, "uZMin")
@@ -216,11 +244,19 @@ func (pe *pcdeditor) Run() {
 	uSamplerLocationMap := gl.GetUniformLocation(programMap, "uSampler")
 	uAlphaLocationMap := gl.GetUniformLocation(programMap, "uAlpha")
 
+	uCropMatrixLocationComputeSelect := gl.GetUniformLocation(programComputeSelect, "uCropMatrix")
+	uSelectMatrixLocationComputeSelect := gl.GetUniformLocation(programComputeSelect, "uSelectMatrix")
+	uOriginLocationComputeSelect := gl.GetUniformLocation(programComputeSelect, "uOrigin")
+	uDirLocationComputeSelect := gl.GetUniformLocation(programComputeSelect, "uDir")
+
 	gl.Enable(gl.DEPTH_TEST)
 	gl.DepthFunc(gl.LEQUAL)
 
 	posBuf := gl.CreateBuffer()
 	mapBuf := gl.CreateBuffer()
+	selectResultBuf := gl.CreateBuffer()
+	var selectResultJS js.Value
+	var selectResultGo []byte
 
 	tick := time.NewTicker(time.Second / 8)
 	defer tick.Stop()
@@ -306,22 +342,23 @@ func (pe *pcdeditor) Run() {
 	gl.ClearDepth(1.0)
 
 	const (
-		aVertexPosition    = 0
-		aVertexLabel       = 1
-		aVertexPositionSel = 0
-		aVertexPositionMap = 0
-		aTextureCoordMap   = 1
+		aVertexPosition  = 0
+		aVertexLabel     = 1
+		aTextureCoordMap = 1
 	)
 	gl.UseProgram(program)
 	gl.EnableVertexAttribArray(aVertexPosition)
 	gl.EnableVertexAttribArray(aVertexLabel)
 
 	gl.UseProgram(programSel)
-	gl.EnableVertexAttribArray(aVertexPositionSel)
+	gl.EnableVertexAttribArray(aVertexPosition)
 
 	gl.UseProgram(programMap)
-	gl.EnableVertexAttribArray(aVertexPositionMap)
+	gl.EnableVertexAttribArray(aVertexPosition)
 	gl.EnableVertexAttribArray(aTextureCoordMap)
+
+	gl.UseProgram(programComputeSelect)
+	gl.EnableVertexAttribArray(aVertexPosition)
 
 	vi := newView()
 	cg := &clickGuard{}
@@ -345,17 +382,6 @@ func (pe *pcdeditor) Run() {
 	var pcCursor *pcd.PointCloud
 	var moveStart *mat.Vec3
 	var show2D bool = true
-	var has2D bool
-
-	cursorOnSelect := func(e webgl.MouseEvent) (*mat.Vec3, bool) {
-		if nRectPoints == 0 || pcCursor == nil {
-			return nil, false
-		}
-		return selectPoint(
-			pcCursor, projectionType, modelViewMatrix, projectionMatrix,
-			e.OffsetX*scale, e.OffsetY*scale, width, height,
-		)
-	}
 
 	// Allow export after crash
 	defer func() {
@@ -438,6 +464,7 @@ func (pe *pcdeditor) Run() {
 		}
 
 		if rect, updated := cmd.Rect(); updated {
+			// Send select box vertices to GPU
 			buf := make([]float32, 0, len(rect)*3)
 			for _, p := range rect {
 				buf = append(buf, p[0], p[1], p[2])
@@ -467,88 +494,93 @@ func (pe *pcdeditor) Run() {
 			}
 		}
 
-		if pc, updated, ok := cmd.PointCloudCropped(); ok && updated {
-			if pc.Points > 0 {
-				gl.BindBuffer(gl.ARRAY_BUFFER, posBuf)
-				gl.BufferData(gl.ARRAY_BUFFER, webgl.ByteArrayBuffer(pc.Data), gl.STATIC_DRAW)
+		mi, img, mapUpdated, has2D := cmd.Map()
+		if has2D && mapUpdated {
+			// Send 2D map texture to GPU
+			err0 := gl.GetError()
+			gl.BindTexture(gl.TEXTURE_2D, texture)
+			gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img.Interface().(js.Value))
+			gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+			gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+			gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+			gl.BindTexture(gl.TEXTURE_2D, webgl.Texture(nil))
 
-				mi, img, ok := cmd.Map()
-				has2D = ok
-				if ok {
-					err0 := gl.GetError()
-					gl.BindTexture(gl.TEXTURE_2D, texture)
-					gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img.Interface().(js.Value))
-					gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
-					gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
-					gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
-					gl.BindTexture(gl.TEXTURE_2D, webgl.Texture(nil))
-
-					if err := gl.GetError(); err0 == nil && err != nil {
-						pe.logPrint(fmt.Sprintf("Failed to render 2D map image (%v): 2D map image size may be too large for your graphic card", err))
-					}
-
-					gl.UseProgram(programMap)
-					gl.ActiveTexture(gl.TEXTURE0)
-					gl.BindTexture(gl.TEXTURE_2D, texture)
-					gl.Uniform1i(uSamplerLocationMap, 0)
-
-					w, h := img.Width(), img.Height()
-					xi, _ := mapRect.Float32Iterator("x")
-					yi, _ := mapRect.Float32Iterator("y")
-					ui, _ := mapRect.Float32Iterator("u")
-					vi, _ := mapRect.Float32Iterator("v")
-					push := func(x, y, u, v float32) {
-						xi.SetFloat32(x)
-						yi.SetFloat32(y)
-						ui.SetFloat32(u)
-						vi.SetFloat32(v)
-						xi.Incr()
-						yi.Incr()
-						ui.Incr()
-						vi.Incr()
-					}
-					push(mi.Origin[0], mi.Origin[1], 0, 1)
-					push(mi.Origin[0]+float32(w)*mi.Resolution, mi.Origin[1], 1, 1)
-					push(mi.Origin[0]+float32(w)*mi.Resolution, mi.Origin[1]+float32(h)*mi.Resolution, 1, 0)
-					push(mi.Origin[0], mi.Origin[1]+float32(h)*mi.Resolution, 0, 0)
-					push(mi.Origin[0], mi.Origin[1], 0, 1)
-
-					gl.BindBuffer(gl.ARRAY_BUFFER, mapBuf)
-					gl.BufferData(gl.ARRAY_BUFFER, webgl.ByteArrayBuffer(mapRect.Data), gl.STATIC_DRAW)
-				}
+			if err := gl.GetError(); err0 == nil && err != nil {
+				pe.logPrint(fmt.Sprintf("Failed to render 2D map image (%v): 2D map image size may be too large for your graphic card", err))
 			}
+
+			gl.UseProgram(programMap)
+			gl.ActiveTexture(gl.TEXTURE0)
+			gl.BindTexture(gl.TEXTURE_2D, texture)
+			gl.Uniform1i(uSamplerLocationMap, 0)
+
+			w, h := img.Width(), img.Height()
+			xi, _ := mapRect.Float32Iterator("x")
+			yi, _ := mapRect.Float32Iterator("y")
+			ui, _ := mapRect.Float32Iterator("u")
+			vi, _ := mapRect.Float32Iterator("v")
+			push := func(x, y, u, v float32) {
+				xi.SetFloat32(x)
+				yi.SetFloat32(y)
+				ui.SetFloat32(u)
+				vi.SetFloat32(v)
+				xi.Incr()
+				yi.Incr()
+				ui.Incr()
+				vi.Incr()
+			}
+			push(mi.Origin[0], mi.Origin[1], 0, 1)
+			push(mi.Origin[0]+float32(w)*mi.Resolution, mi.Origin[1], 1, 1)
+			push(mi.Origin[0]+float32(w)*mi.Resolution, mi.Origin[1]+float32(h)*mi.Resolution, 1, 0)
+			push(mi.Origin[0], mi.Origin[1]+float32(h)*mi.Resolution, 0, 0)
+			push(mi.Origin[0], mi.Origin[1], 0, 1)
+
+			gl.BindBuffer(gl.ARRAY_BUFFER, mapBuf)
+			gl.BufferData(gl.ARRAY_BUFFER, webgl.ByteArrayBuffer(mapRect.Data), gl.STATIC_DRAW)
 		}
 
-		gl.UseProgram(program)
-		if m, ok := cmd.SelectMatrix(); ok {
-			gl.UniformMatrix4fv(uSelectMatrixLocation, false, m)
-		} else {
-			gl.UniformMatrix4fv(uSelectMatrixLocation, false, mat.Mat4{})
+		pc, updatedPointCloud, hasPointCloud := cmd.PointCloud()
+		if hasPointCloud && updatedPointCloud && pc.Points > 0 {
+			// Send PointCloud vertices to GPU
+			gl.BindBuffer(gl.ARRAY_BUFFER, posBuf)
+			gl.BufferData(gl.ARRAY_BUFFER, webgl.ByteArrayBuffer(pc.Data), gl.STATIC_DRAW)
+
+			// Register buffer to receive GPGPU processing result
+			gl.BindBuffer(gl.ARRAY_BUFFER, selectResultBuf)
+			selectResultJS = js.Global().Get("Uint8Array").New(pc.Points * 4)
+			selectResultGo = make([]byte, pc.Points*4)
+			gl.BufferData_JS(gl.ARRAY_BUFFER, js.ValueOf(pc.Points*4), gl.STREAM_READ)
 		}
 
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
-		var hasPointCloud bool
-		if pc, _, ok := cmd.PointCloudCropped(); ok && pc.Points > 0 {
-			hasPointCloud = true
+		if hasPointCloud && pc.Points > 0 {
+			// Render PointCloud
 			gl.UseProgram(program)
 			gl.BindBuffer(gl.ARRAY_BUFFER, posBuf)
 			gl.VertexAttribPointer(aVertexPosition, 3, gl.FLOAT, false, pc.Stride(), 0)
 			gl.VertexAttribIPointer(aVertexLabel, 1, gl.UNSIGNED_INT, pc.Stride(), 3*4)
 			gl.UniformMatrix4fv(uModelViewMatrixLocation, false, modelViewMatrix)
+			gl.UniformMatrix4fv(uCropMatrixLocation, false, cmd.CropMatrix())
+
 			zMin, zMax := cmd.ZRange()
 			gl.Uniform1f(uZMinLocation, zMin)
 			gl.Uniform1f(uZRangeLocation, zMax-zMin)
+
+			mSel, _ := cmd.SelectMatrix()
+			gl.UniformMatrix4fv(uSelectMatrixLocation, false, mSel)
+
 			gl.DrawArrays(gl.POINTS, 0, pc.Points-1)
 		}
 
 		if nRectPoints > 0 {
+			// Render select box
 			gl.Enable(gl.BLEND)
 			gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 			gl.UseProgram(programSel)
 			for i := 0; i < nRectPoints; i += 4 {
 				gl.BindBuffer(gl.ARRAY_BUFFER, toolBuf)
-				gl.VertexAttribPointer(aVertexPositionSel, 3, gl.FLOAT, false, 3*4, 3*4*i)
+				gl.VertexAttribPointer(aVertexPosition, 3, gl.FLOAT, false, 3*4, 3*4*i)
 				n := 4
 				if n > nRectPoints-i {
 					n = nRectPoints - i
@@ -561,12 +593,13 @@ func (pe *pcdeditor) Run() {
 			gl.Disable(gl.BLEND)
 		}
 
-		if hasPointCloud && show2D && has2D {
+		if show2D && has2D {
+			// Render 2D map
 			gl.Enable(gl.BLEND)
 			gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 			gl.UseProgram(programMap)
 			gl.BindBuffer(gl.ARRAY_BUFFER, mapBuf)
-			gl.VertexAttribPointer(aVertexPositionMap, 3, gl.FLOAT, false, mapRect.Stride(), 0)
+			gl.VertexAttribPointer(aVertexPosition, 3, gl.FLOAT, false, mapRect.Stride(), 0)
 			gl.VertexAttribPointer(aTextureCoordMap, 2, gl.FLOAT, false, mapRect.Stride(), 4*3)
 			gl.UniformMatrix4fv(uModelViewMatrixLocationMap, false, modelViewMatrix)
 			gl.Uniform1f(uAlphaLocationMap, cmd.MapAlpha())
@@ -574,6 +607,60 @@ func (pe *pcdeditor) Run() {
 			gl.Disable(gl.BLEND)
 		}
 
+		scanSelection := func(x, y int) ([]uint32, bool) {
+			if hasPointCloud {
+				origin, dir := perspectiveOriginDir(x, y, width, height, &projectionMatrix, &modelViewMatrix)
+
+				// Run GPGPU shader
+				gl.UseProgram(programComputeSelect)
+				gl.BindBuffer(gl.ARRAY_BUFFER, posBuf)
+				gl.VertexAttribPointer(aVertexPosition, 3, gl.FLOAT, false, pc.Stride(), 0)
+				gl.UniformMatrix4fv(uCropMatrixLocationComputeSelect, false, cmd.CropMatrix())
+
+				mSel, _ := cmd.SelectMatrix()
+				gl.UniformMatrix4fv(uSelectMatrixLocationComputeSelect, false, mSel)
+
+				gl.Uniform3fv(uOriginLocationComputeSelect, *origin)
+				gl.Uniform3fv(uDirLocationComputeSelect, *dir)
+
+				gl.BindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, selectResultBuf)
+				gl.Enable(gl.RASTERIZER_DISCARD)
+				gl.BeginTransformFeedback(gl.POINTS)
+				gl.DrawArrays(gl.POINTS, 0, pc.Points-1)
+				gl.EndTransformFeedback()
+				gl.Disable(gl.RASTERIZER_DISCARD)
+				gl.BindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, webgl.Buffer(js.Null()))
+
+				gl.BindBuffer(gl.ARRAY_BUFFER, webgl.Buffer(js.Null()))
+
+				gl.Flush()
+				gl.Finish()
+
+				// Get result from GPU
+				gl.BindBuffer(gl.ARRAY_BUFFER, selectResultBuf)
+				gl.GetBufferSubData(gl.ARRAY_BUFFER, 0, selectResultJS, 0, 0)
+				js.CopyBytesToGo(selectResultGo, selectResultJS)
+				return webgl.ByteArrayBuffer(selectResultGo).UInt32Slice(), true
+			}
+			return nil, false
+		}
+
+		// Check the cursor is on select box vertices
+		cursorOnSelect := func(e webgl.MouseEvent) (*mat.Vec3, bool) {
+			if nRectPoints == 0 || pcCursor == nil {
+				return nil, false
+			}
+			sel, ok := scanSelection(e.OffsetX*scale, e.OffsetY*scale)
+			if !ok {
+				return nil, false
+			}
+			return selectPoint(
+				pcCursor, sel, projectionType, &modelViewMatrix, &projectionMatrix,
+				e.OffsetX*scale, e.OffsetY*scale, width, height,
+			)
+		}
+
+		// Handle inputs
 		select {
 		case promise := <-pe.chLoadPCD:
 			pe.logPrint("loading pcd file")
@@ -610,7 +697,8 @@ func (pe *pcdeditor) Run() {
 			pe.logPrint("pcd file exported")
 			promise.resolved(blob)
 		case promise := <-pe.chCommand:
-			res, err := cs.Run(promise.data.(string))
+			sel, _ := scanSelection(0, 0)
+			res, err := cs.Run(promise.data.(string), sel)
 			if err != nil {
 				promise.rejected(err)
 				break
@@ -669,7 +757,7 @@ func (pe *pcdeditor) Run() {
 			if p, ok := cursorOnSelect(e); ok {
 				cmd.PushCursors()
 				moveStart = selectPointOrtho(
-					modelViewMatrix, projectionMatrix,
+					&modelViewMatrix, &projectionMatrix,
 					e.OffsetX*scale, e.OffsetY*scale, width, height, p,
 				)
 				continue
@@ -683,7 +771,7 @@ func (pe *pcdeditor) Run() {
 			if moveStart != nil {
 				cmd.PopCursors()
 				moveEnd := selectPointOrtho(
-					modelViewMatrix, projectionMatrix,
+					&modelViewMatrix, &projectionMatrix,
 					e.OffsetX*scale, e.OffsetY*scale, width, height, moveStart,
 				)
 				diff := moveEnd.Sub(*moveStart)
@@ -700,7 +788,7 @@ func (pe *pcdeditor) Run() {
 				cmd.PushCursors()
 
 				moveEnd := selectPointOrtho(
-					modelViewMatrix, projectionMatrix,
+					&modelViewMatrix, &projectionMatrix,
 					e.OffsetX*scale, e.OffsetY*scale, width, height, moveStart,
 				)
 				diff := moveEnd.Sub(*moveStart)
@@ -716,16 +804,16 @@ func (pe *pcdeditor) Run() {
 				pe.SetCursor(cursorAuto)
 			}
 		case e := <-pe.chClick:
-			if pc, _, ok := cmd.PointCloudCropped(); ok && e.Button == 0 && cg.Click() {
+			if sel, ok := scanSelection(e.OffsetX*scale, e.OffsetY*scale); ok && e.Button == 0 && cg.Click() {
 				var p *mat.Vec3
 				switch projectionType {
 				case ProjectionPerspective:
 					p, ok = selectPoint(
-						pc, projectionType, modelViewMatrix, projectionMatrix, e.OffsetX*scale, e.OffsetY*scale, width, height,
+						pc, sel, projectionType, &modelViewMatrix, &projectionMatrix, e.OffsetX*scale, e.OffsetY*scale, width, height,
 					)
 				case ProjectionOrthographic:
 					p = selectPointOrtho(
-						modelViewMatrix, projectionMatrix, e.OffsetX*scale, e.OffsetY*scale, width, height, nil,
+						&modelViewMatrix, &projectionMatrix, e.OffsetX*scale, e.OffsetY*scale, width, height, nil,
 					)
 				default:
 					ok = false
@@ -755,9 +843,11 @@ func (pe *pcdeditor) Run() {
 			case "Delete", "Backspace", "Digit0", "Digit1":
 				switch e.Code {
 				case "Delete", "Backspace":
-					cmd.Delete()
-					if !e.ShiftKey && !e.CtrlKey {
-						cmd.UnsetCursors()
+					if sel, ok := scanSelection(0, 0); ok {
+						cmd.Delete(sel)
+						if !e.ShiftKey && !e.CtrlKey {
+							cmd.UnsetCursors()
+						}
 					}
 				case "Digit0", "Digit1":
 					var l uint32

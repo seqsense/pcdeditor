@@ -28,12 +28,19 @@ type PixelFormat int
 type TextureParameter int
 type TextureNumber int
 type BlendFactor int
+type BufferMode int
+type BindTarget int
+type TransformFeedbackTarget int
+type SyncCondition int
+type SyncFlushCommandBit int
 
 type Shader js.Value
 type Program js.Value
 type Location js.Value
 type Buffer js.Value
 type Texture *js.Value
+type TransformFeedback js.Value
+type WebGLSync js.Value
 
 type WebGL struct {
 	gl js.Value
@@ -45,8 +52,8 @@ type WebGL struct {
 
 	VERTEX_SHADER, FRAGMENT_SHADER                                                ShaderType
 	ARRAY_BUFFER                                                                  BufferType
-	STATIC_DRAW                                                                   BufferUsage
-	DEPTH_TEST, BLEND                                                             Capacity
+	STATIC_DRAW, DYNAMIC_COPY, STREAM_READ                                        BufferUsage
+	DEPTH_TEST, BLEND, RASTERIZER_DISCARD                                         Capacity
 	LEQUAL                                                                        DepthFunc
 	FLOAT, UNSIGNED_BYTE, UNSIGNED_SHORT, UNSIGNED_INT                            Type
 	COLOR_BUFFER_BIT, DEPTH_BUFFER_BIT, STENCIL_BUFFER_BIT                        BufferMask
@@ -54,6 +61,11 @@ type WebGL struct {
 	COMPILE_STATUS                                                                ShaderParameter
 	LINK_STATUS, VALIDATE_STATUS                                                  ProgramParameter
 	TEXTURE_2D                                                                    TextureType
+	INTERLEAVED_ATTRIBS, SEPARATE_ATTRIBS                                         BufferMode
+	TRANSFORM_FEEDBACK_BUFFER, UNIFORM_BUFFER                                     BindTarget
+	TRANSFORM_FEEDBACK                                                            TransformFeedbackTarget
+	SYNC_GPU_COMMANDS_COMPLETE                                                    SyncCondition
+	SYNC_FLUSH_COMMANDS_BIT                                                       SyncFlushCommandBit
 
 	RGBA PixelFormat
 
@@ -88,10 +100,13 @@ func New(canvas js.Value) (*WebGL, error) {
 
 		ARRAY_BUFFER: BufferType(gl.Get("ARRAY_BUFFER").Int()),
 
-		STATIC_DRAW: BufferUsage(gl.Get("STATIC_DRAW").Int()),
+		STATIC_DRAW:  BufferUsage(gl.Get("STATIC_DRAW").Int()),
+		DYNAMIC_COPY: BufferUsage(gl.Get("DYNAMIC_COPY").Int()),
+		STREAM_READ:  BufferUsage(gl.Get("STREAM_READ").Int()),
 
-		DEPTH_TEST: Capacity(gl.Get("DEPTH_TEST").Int()),
-		BLEND:      Capacity(gl.Get("BLEND").Int()),
+		DEPTH_TEST:         Capacity(gl.Get("DEPTH_TEST").Int()),
+		BLEND:              Capacity(gl.Get("BLEND").Int()),
+		RASTERIZER_DISCARD: Capacity(gl.Get("RASTERIZER_DISCARD").Int()),
 
 		LEQUAL: DepthFunc(gl.Get("LEQUAL").Int()),
 
@@ -135,6 +150,18 @@ func New(canvas js.Value) (*WebGL, error) {
 		ONE:                 BlendFactor(gl.Get("ONE").Int()),
 		SRC_ALPHA:           BlendFactor(gl.Get("SRC_ALPHA").Int()),
 		ONE_MINUS_SRC_ALPHA: BlendFactor(gl.Get("ONE_MINUS_SRC_ALPHA").Int()),
+
+		INTERLEAVED_ATTRIBS: BufferMode(gl.Get("INTERLEAVED_ATTRIBS").Int()),
+		SEPARATE_ATTRIBS:    BufferMode(gl.Get("SEPARATE_ATTRIBS").Int()),
+
+		TRANSFORM_FEEDBACK_BUFFER: BindTarget(gl.Get("TRANSFORM_FEEDBACK_BUFFER").Int()),
+		UNIFORM_BUFFER:            BindTarget(gl.Get("UNIFORM_BUFFER").Int()),
+
+		TRANSFORM_FEEDBACK: TransformFeedbackTarget(gl.Get("TRANSFORM_FEEDBACK").Int()),
+
+		SYNC_GPU_COMMANDS_COMPLETE: SyncCondition(gl.Get("SYNC_GPU_COMMANDS_COMPLETE").Int()),
+
+		SYNC_FLUSH_COMMANDS_BIT: SyncFlushCommandBit(gl.Get("SYNC_FLUSH_COMMANDS_BIT").Int()),
 	}, nil
 }
 
@@ -215,11 +242,23 @@ func (gl *WebGL) BindBuffer(t BufferType, buf Buffer) {
 	gl.gl.Call("bindBuffer", int(t), js.Value(buf))
 }
 
+func (gl *WebGL) BindBufferBase(target BindTarget, index int, buf Buffer) {
+	gl.gl.Call("bindBufferBase", int(target), index, js.Value(buf))
+}
+
 func (gl *WebGL) BufferData(t BufferType, data BufferData, usage BufferUsage) {
 	bin := data.Bytes()
 	dataJS := uint8Array.New(len(bin))
 	js.CopyBytesToJS(dataJS, bin)
 	gl.gl.Call("bufferData", int(t), dataJS, int(usage))
+}
+
+func (gl *WebGL) BufferData_JS(t BufferType, data js.Value, usage BufferUsage) {
+	gl.gl.Call("bufferData", int(t), data, int(usage))
+}
+
+func (gl *WebGL) GetBufferSubData(t BufferType, srcOffset int, view js.Value, dstOffset, length int) {
+	gl.gl.Call("getBufferSubData", int(t), srcOffset, view)
 }
 
 func (gl *WebGL) ClearColor(r, g, b, a float32) {
@@ -316,4 +355,48 @@ func (gl *WebGL) ActiveTexture(i TextureNumber) {
 
 func (gl *WebGL) BlendFunc(s, d BlendFactor) {
 	gl.gl.Call("blendFunc", int(s), int(d))
+}
+
+func (gl *WebGL) TransformFeedbackVaryings(p Program, varyings []string, m BufferMode) {
+	var v []interface{}
+	for _, vs := range varyings {
+		v = append(v, vs)
+	}
+	gl.gl.Call("transformFeedbackVaryings", js.Value(p), js.ValueOf(v), int(m))
+}
+
+func (gl *WebGL) BeginTransformFeedback(mode DrawMode) {
+	gl.gl.Call("beginTransformFeedback", int(mode))
+}
+
+func (gl *WebGL) EndTransformFeedback() {
+	gl.gl.Call("endTransformFeedback")
+}
+
+func (gl *WebGL) CreateTransformFeedback() TransformFeedback {
+	return TransformFeedback(gl.gl.Call("createTransformFeedback"))
+}
+
+func (gl *WebGL) BindTransformFeedback(target TransformFeedbackTarget, fb TransformFeedback) {
+	gl.gl.Call("bindTransformFeedback", int(target), js.Value(fb))
+}
+
+func (gl *WebGL) FenceSync(c SyncCondition, flags int) WebGLSync {
+	return WebGLSync(gl.gl.Call("fenceSync", int(c), flags))
+}
+
+func (gl *WebGL) ClientWaitSync(sync WebGLSync, flags SyncFlushCommandBit, timeout int) {
+	gl.gl.Call("clientWaitSync", js.Value(sync), int(flags), timeout)
+}
+
+func (gl *WebGL) DeleteSync(sync WebGLSync) {
+	gl.gl.Call("deleteSync", js.Value(sync))
+}
+
+func (gl *WebGL) Flush() {
+	gl.gl.Call("flush")
+}
+
+func (gl *WebGL) Finish() {
+	gl.gl.Call("finish")
 }

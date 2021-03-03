@@ -5,8 +5,14 @@ import (
 	"github.com/seqsense/pcdeditor/pcd"
 )
 
-func selectPointOrtho(modelViewMatrix, projectionMatrix mat.Mat4, x, y, width, height int, depth *mat.Vec3) *mat.Vec3 {
-	a := projectionMatrix.Mul(modelViewMatrix)
+const (
+	selectBitmaskCropped    = 0x00000001
+	selectBitmaskSelected   = 0x00000002
+	selectBitmaskNearCursor = 0x00000004
+)
+
+func selectPointOrtho(modelViewMatrix, projectionMatrix *mat.Mat4, x, y, width, height int, depth *mat.Vec3) *mat.Vec3 {
+	a := projectionMatrix.Mul(*modelViewMatrix)
 
 	var d float32
 	if depth != nil {
@@ -22,13 +28,31 @@ func selectPointOrtho(modelViewMatrix, projectionMatrix mat.Mat4, x, y, width, h
 	return &target
 }
 
-func selectPoint(pc *pcd.PointCloud, projectionType ProjectionType, modelViewMatrix, projectionMatrix mat.Mat4, x, y, width, height int) (*mat.Vec3, bool) {
+func screenPosVec(x, y, width, height int, projectionMatrix, modelViewMatrix *mat.Mat4) (*mat.Vec3, *mat.Mat4) {
 	pos := mat.NewVec3(
 		float32(x)*2/float32(width)-1,
 		1-float32(y)*2/float32(height), -1)
 
-	a := projectionMatrix.Mul(modelViewMatrix).Inv()
-	target := a.Transform(pos)
+	a := projectionMatrix.Mul(*modelViewMatrix).Inv()
+
+	return &pos, &a
+}
+
+func perspectiveOriginDirFromPosVec(pos *mat.Vec3, a *mat.Mat4, modelViewMatrix *mat.Mat4) (*mat.Vec3, *mat.Vec3) {
+	target := a.Transform(*pos)
+	origin := modelViewMatrix.InvAffine().TransformAffine(mat.NewVec3(0, 0, 0))
+	dir := target.Sub(origin).Normalized()
+
+	return &origin, &dir
+}
+
+func perspectiveOriginDir(x, y, width, height int, projectionMatrix, modelViewMatrix *mat.Mat4) (*mat.Vec3, *mat.Vec3) {
+	pos, a := screenPosVec(x, y, width, height, projectionMatrix, modelViewMatrix)
+	return perspectiveOriginDirFromPosVec(pos, a, modelViewMatrix)
+}
+
+func selectPoint(pc *pcd.PointCloud, selMask []uint32, projectionType ProjectionType, modelViewMatrix, projectionMatrix *mat.Mat4, x, y, width, height int) (*mat.Vec3, bool) {
+	pos, a := screenPosVec(x, y, width, height, projectionMatrix, modelViewMatrix)
 
 	it, err := pc.Vec3Iterator()
 	if err != nil {
@@ -39,19 +63,26 @@ func selectPoint(pc *pcd.PointCloud, projectionType ProjectionType, modelViewMat
 
 	switch projectionType {
 	case ProjectionPerspective:
-		origin := modelViewMatrix.InvAffine().TransformAffine(mat.NewVec3(0, 0, 0))
-		dir := target.Sub(origin).Normalized()
-		dSqMin := float32(0.1 * 0.1)
+		origin, dir := perspectiveOriginDirFromPosVec(pos, a, modelViewMatrix)
 		vMin := float32(1000 * 1000)
-		for ; it.IsValid(); it.Incr() {
+		for i := 0; it.IsValid(); func() {
+			it.Incr()
+			i++
+		}() {
+			if selMask[i]&selectBitmaskCropped != 0 {
+				continue
+			}
+			if selMask[i]&selectBitmaskNearCursor == 0 {
+				continue
+			}
 			p := it.Vec3()
 			pRel := origin.Sub(p)
-			dot := pRel.Dot(dir)
+			dot := pRel.Dot(*dir)
 			if dot < 0 {
 				distSq := pRel.NormSq()
 				dSq := distSq - dot*dot
 				v := dSq + distSq/10000
-				if dSq < dSqMin && v < vMin && distSq > 1 {
+				if v < vMin {
 					vMin = v
 					selected = &p
 				}
@@ -64,7 +95,13 @@ func selectPoint(pc *pcd.PointCloud, projectionType ProjectionType, modelViewMat
 		oDiffNormSq := oDiff.NormSq()
 
 		dSqMin := float32(0.1 * 0.1)
-		for ; it.IsValid(); it.Incr() {
+		for i := 0; it.IsValid(); func() {
+			it.Incr()
+			i++
+		}() {
+			if selMask[i]&selectBitmaskCropped != 0 {
+				continue
+			}
 			p := it.Vec3()
 			dSq := oDiff.CrossNormSq(p.Sub(o1)) / oDiffNormSq
 			if dSq < dSqMin {
@@ -72,7 +109,6 @@ func selectPoint(pc *pcd.PointCloud, projectionType ProjectionType, modelViewMat
 				selected = &p
 			}
 		}
-
 	}
 
 	if selected != nil {

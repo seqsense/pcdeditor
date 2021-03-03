@@ -15,3 +15,7 @@ type ByteArrayBuffer []byte
 func (b ByteArrayBuffer) Bytes() []byte {
 	return b
 }
+
+func (b ByteArrayBuffer) UInt32Slice() []uint32 {
+	return byteSliceAsUInt32Slice(b)
+}

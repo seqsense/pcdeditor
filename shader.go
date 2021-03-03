@@ -6,25 +6,34 @@ const vsSource = `#version 300 es
 	uniform mat4 uModelViewMatrix;
 	uniform mat4 uProjectionMatrix;
 	uniform mat4 uSelectMatrix;
+	uniform mat4 uCropMatrix;
 	uniform float uZMin;
 	uniform float uZRange;
 	uniform float uPointSizeBase;
-	out lowp vec4 vColor;
 	vec4 viewPosition;
 	vec4 selectPosition;
+	vec4 cropPosition;
 	lowp float c;
 	lowp float cSelected;
+	out lowp vec4 vColor;
 
 	void main(void) {
+		cropPosition = uCropMatrix * aVertexPosition;
+		if (any(lessThan(vec3(cropPosition), vec3(0, 0, 0))) ||
+				any(lessThan(vec3(1.0, 1.0, 1.0), vec3(cropPosition)))) {
+			gl_Position = vec4(-1, -1, 0, 0);
+			gl_PointSize = 0.0;
+			return;
+		}
+
 		viewPosition = uModelViewMatrix * aVertexPosition;
 		gl_Position = uProjectionMatrix * viewPosition;
 		gl_PointSize = clamp(uPointSizeBase / length(viewPosition), 1.0, 5.0);
 
 		selectPosition = uSelectMatrix * aVertexPosition;
 		if (uSelectMatrix[3][3] == 1.0 &&
-				0.0 <= selectPosition[0] && selectPosition[0] <= 1.0 &&
-				0.0 <= selectPosition[1] && selectPosition[1] <= 1.0 &&
-				0.0 <= selectPosition[2] && selectPosition[2] <= 1.0) {
+				all(lessThanEqual(vec3(0, 0, 0), vec3(selectPosition))) &&
+				all(lessThanEqual(vec3(selectPosition), vec3(1.0, 1.0, 1.0)))) {
 			cSelected = 0.5;
 		} else {
 			cSelected = 0.0;
@@ -83,5 +92,53 @@ const fsMapSource = `#version 300 es
 	void main(void) {
 		vColor = texture(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
 		vColor[3] = uAlpha;
+	}
+`
+
+const csComputeSelectSource = `#version 300 es
+	layout (location = 0) in vec4 aVertexPosition;
+	uniform mat4 uSelectMatrix;
+	uniform mat4 uCropMatrix;
+	uniform vec3 uOrigin;
+	uniform vec3 uDir;
+	lowp vec4 selectPosition;
+	lowp vec4 cropPosition;
+	lowp vec3 rel;
+	lowp float dotDir;
+	lowp float distSq;
+	lowp float dSq;
+	flat out uint oResult;
+
+	void main(void) {
+		oResult = 0u;
+
+		cropPosition = uCropMatrix * aVertexPosition;
+		if (any(lessThan(vec3(cropPosition), vec3(0, 0, 0))) ||
+				any(lessThan(vec3(1.0, 1.0, 1.0), vec3(cropPosition)))) {
+			oResult |= 1u;
+		}
+
+		selectPosition = uSelectMatrix * aVertexPosition;
+		if (uSelectMatrix[3][3] == 1.0 &&
+				all(lessThanEqual(vec3(0, 0, 0), vec3(selectPosition))) &&
+				all(lessThanEqual(vec3(selectPosition), vec3(1.0, 1.0, 1.0)))) {
+			oResult |= 2u;
+		}
+
+		// Check distance from mouse cursor
+		rel = vec3(uOrigin) - vec3(aVertexPosition);
+		dotDir = dot(rel, vec3(uDir));
+		if (dotDir < 0.0) {
+			distSq = dot(rel, rel);
+			dSq = distSq - dotDir * dotDir;
+			if (dSq < 0.1 * 0.1 && distSq > 1.0) {
+				oResult |= 4u;
+			}
+		}
+	}
+`
+
+const fsComputeSelectSource = `#version 300 es
+	void main(void) {
 	}
 `
