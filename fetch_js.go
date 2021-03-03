@@ -12,6 +12,7 @@ func fetchGet(path string) ([]byte, error) {
 	chErr := make(chan error)
 	js.Global().Call("fetch", path, map[string]interface{}{
 		"credentials": "include",
+		"cache":       "no-cache",
 	}).Call("then",
 		js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			if !args[0].Get("ok").Bool() {

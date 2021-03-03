@@ -130,7 +130,7 @@ postmate を使って、sq-admin と iframe 間通信でデータを送受信す
         setupControls(pcdeditor, parentFrame);
       };
       const go = new Go();
-      const { instance } = await WebAssembly.instantiateStreaming(fetch('pcdeditor.wasm'), go.importObject)
+      const { instance } = await WebAssembly.instantiateStreaming(fetch('pcdeditor.wasm', {cache: "no-cache"}), go.importObject)
       go.run(instance);
     }
   </script>
