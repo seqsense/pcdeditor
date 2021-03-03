@@ -16,7 +16,14 @@ const (
 	vib3DXAmp = 0.002
 )
 
+var (
+	Version   = "unknown"
+	BuildDate = "unknown"
+)
+
 func main() {
+	println("pcdeditor", Version, BuildDate)
+
 	cb := js.Global().Get("document").Get("onPCDEditorLoaded")
 	if !cb.IsNull() {
 		cb.Invoke(
