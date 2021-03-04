@@ -552,7 +552,7 @@ func (pe *pcdeditor) runImpl() error {
 				selectResultGo = make([]byte, nBuf)
 			}
 			selectResultGo = selectResultGo[:nBuf:nBuf]
-			gl.BufferData_JS(gl.ARRAY_BUFFER, js.ValueOf(nBuf), gl.STREAM_READ)
+			gl.BufferData_JS(gl.ARRAY_BUFFER, js.ValueOf(selectResultJS), gl.STREAM_READ)
 		}
 
 		render := func() {
