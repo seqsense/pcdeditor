@@ -645,18 +645,26 @@ func (pe *pcdeditor) runImpl() error {
 				gl.Flush()
 				gl.Finish()
 
+				defer func() {
+					gl.DeleteSync(fence)
+				}()
+
 				// Wait GPU->CPU data transfer complete
 			L_SYNC:
-				for {
+				for failCnt := 0; ; {
+					// Switch execution frame first to ensure state update
+					time.Sleep(10 * time.Millisecond)
+
 					switch gl.ClientWaitSync(fence, 0, 0) {
 					case gl.ALREADY_SIGNALED, gl.CONDITION_SATISFIED:
 						break L_SYNC
 					case gl.WAIT_FAILED:
-						return nil, false
+						failCnt++
+						if failCnt > 10 {
+							return nil, false
+						}
 					}
-					time.Sleep(10 * time.Millisecond)
 				}
-				gl.DeleteSync(fence)
 
 				// Get result from GPU
 				gl.BindBuffer(gl.ARRAY_BUFFER, selectResultBuf)
