@@ -555,60 +555,63 @@ func (pe *pcdeditor) runImpl() error {
 			gl.BufferData_JS(gl.ARRAY_BUFFER, js.ValueOf(nBuf), gl.STREAM_READ)
 		}
 
-		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+		render := func() {
+			gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
-		if hasPointCloud && pc.Points > 0 {
-			// Render PointCloud
-			gl.UseProgram(program)
-			gl.BindBuffer(gl.ARRAY_BUFFER, posBuf)
-			gl.VertexAttribPointer(aVertexPosition, 3, gl.FLOAT, false, pc.Stride(), 0)
-			gl.VertexAttribIPointer(aVertexLabel, 1, gl.UNSIGNED_INT, pc.Stride(), 3*4)
-			gl.UniformMatrix4fv(uModelViewMatrixLocation, false, modelViewMatrix)
-			gl.UniformMatrix4fv(uCropMatrixLocation, false, pe.cmd.CropMatrix())
+			if hasPointCloud && pc.Points > 0 {
+				// Render PointCloud
+				gl.UseProgram(program)
+				gl.BindBuffer(gl.ARRAY_BUFFER, posBuf)
+				gl.VertexAttribPointer(aVertexPosition, 3, gl.FLOAT, false, pc.Stride(), 0)
+				gl.VertexAttribIPointer(aVertexLabel, 1, gl.UNSIGNED_INT, pc.Stride(), 3*4)
+				gl.UniformMatrix4fv(uModelViewMatrixLocation, false, modelViewMatrix)
+				gl.UniformMatrix4fv(uCropMatrixLocation, false, pe.cmd.CropMatrix())
 
-			zMin, zMax := pe.cmd.ZRange()
-			gl.Uniform1f(uZMinLocation, zMin)
-			gl.Uniform1f(uZRangeLocation, zMax-zMin)
+				zMin, zMax := pe.cmd.ZRange()
+				gl.Uniform1f(uZMinLocation, zMin)
+				gl.Uniform1f(uZRangeLocation, zMax-zMin)
 
-			mSel, _ := pe.cmd.SelectMatrix()
-			gl.UniformMatrix4fv(uSelectMatrixLocation, false, mSel)
+				mSel, _ := pe.cmd.SelectMatrix()
+				gl.UniformMatrix4fv(uSelectMatrixLocation, false, mSel)
 
-			gl.DrawArrays(gl.POINTS, 0, pc.Points-1)
-		}
-
-		if nRectPoints > 0 {
-			// Render select box
-			gl.Enable(gl.BLEND)
-			gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
-			gl.UseProgram(programSel)
-			for i := 0; i < nRectPoints; i += 4 {
-				gl.BindBuffer(gl.ARRAY_BUFFER, toolBuf)
-				gl.VertexAttribPointer(aVertexPosition, 3, gl.FLOAT, false, 3*4, 3*4*i)
-				n := 4
-				if n > nRectPoints-i {
-					n = nRectPoints - i
-				}
-
-				gl.UniformMatrix4fv(uModelViewMatrixLocationSel, false, modelViewMatrix)
-				gl.DrawArrays(gl.LINE_LOOP, 0, n)
-				gl.DrawArrays(gl.POINTS, 0, n)
+				gl.DrawArrays(gl.POINTS, 0, pc.Points-1)
 			}
-			gl.Disable(gl.BLEND)
-		}
 
-		if show2D && has2D {
-			// Render 2D map
-			gl.Enable(gl.BLEND)
-			gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
-			gl.UseProgram(programMap)
-			gl.BindBuffer(gl.ARRAY_BUFFER, mapBuf)
-			gl.VertexAttribPointer(aVertexPosition, 3, gl.FLOAT, false, mapRect.Stride(), 0)
-			gl.VertexAttribPointer(aTextureCoordMap, 2, gl.FLOAT, false, mapRect.Stride(), 4*3)
-			gl.UniformMatrix4fv(uModelViewMatrixLocationMap, false, modelViewMatrix)
-			gl.Uniform1f(uAlphaLocationMap, pe.cmd.MapAlpha())
-			gl.DrawArrays(gl.TRIANGLE_FAN, 0, 5)
-			gl.Disable(gl.BLEND)
+			if nRectPoints > 0 {
+				// Render select box
+				gl.Enable(gl.BLEND)
+				gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+				gl.UseProgram(programSel)
+				for i := 0; i < nRectPoints; i += 4 {
+					gl.BindBuffer(gl.ARRAY_BUFFER, toolBuf)
+					gl.VertexAttribPointer(aVertexPosition, 3, gl.FLOAT, false, 3*4, 3*4*i)
+					n := 4
+					if n > nRectPoints-i {
+						n = nRectPoints - i
+					}
+
+					gl.UniformMatrix4fv(uModelViewMatrixLocationSel, false, modelViewMatrix)
+					gl.DrawArrays(gl.LINE_LOOP, 0, n)
+					gl.DrawArrays(gl.POINTS, 0, n)
+				}
+				gl.Disable(gl.BLEND)
+			}
+
+			if show2D && has2D {
+				// Render 2D map
+				gl.Enable(gl.BLEND)
+				gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+				gl.UseProgram(programMap)
+				gl.BindBuffer(gl.ARRAY_BUFFER, mapBuf)
+				gl.VertexAttribPointer(aVertexPosition, 3, gl.FLOAT, false, mapRect.Stride(), 0)
+				gl.VertexAttribPointer(aTextureCoordMap, 2, gl.FLOAT, false, mapRect.Stride(), 4*3)
+				gl.UniformMatrix4fv(uModelViewMatrixLocationMap, false, modelViewMatrix)
+				gl.Uniform1f(uAlphaLocationMap, pe.cmd.MapAlpha())
+				gl.DrawArrays(gl.TRIANGLE_FAN, 0, 5)
+				gl.Disable(gl.BLEND)
+			}
 		}
+		render()
 
 		// Calculate condition of each point by GPU
 		// It checks that the point is
@@ -639,31 +642,29 @@ func (pe *pcdeditor) runImpl() error {
 				gl.Disable(gl.RASTERIZER_DISCARD)
 				gl.BindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, webgl.Buffer(js.Null()))
 
-				gl.BindBuffer(gl.ARRAY_BUFFER, webgl.Buffer(js.Null()))
-
 				fence := gl.FenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0)
-				gl.Flush()
-				gl.Finish()
-
 				defer func() {
 					gl.DeleteSync(fence)
 				}()
 
-				// Wait GPU->CPU data transfer complete
+				// Re-render to avoid blank screen on Firefox
+				render()
+
+				// Switch execution frame first to ensure state update
+				time.Sleep(time.Millisecond)
+
+				// Wait calculation on GPU
 			L_SYNC:
 				for failCnt := 0; ; {
-					// Switch execution frame first to ensure state update
-					time.Sleep(10 * time.Millisecond)
-
 					switch gl.ClientWaitSync(fence, 0, 0) {
 					case gl.ALREADY_SIGNALED, gl.CONDITION_SATISFIED:
 						break L_SYNC
 					case gl.WAIT_FAILED:
-						failCnt++
-						if failCnt > 10 {
+						if failCnt++; failCnt > 10 {
 							return nil, false
 						}
 					}
+					time.Sleep(10 * time.Millisecond)
 				}
 
 				// Get result from GPU
