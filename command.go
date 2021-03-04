@@ -277,13 +277,12 @@ func (c *commandContext) SelectMatrix() (mat.Mat4, bool) {
 	}
 }
 
-func (c *commandContext) filter() (func(p mat.Vec3) bool, bool) {
-	m, ok := c.SelectMatrix()
-	if !ok {
-		return nil, false
+func (c *commandContext) baseFilter(sel []uint32) func(int, mat.Vec3) bool {
+	return func(i int, p mat.Vec3) bool {
+		mask := sel[i]
+		return mask&selectBitmaskCropped != 0 ||
+			mask&selectBitmaskSelected == 0
 	}
-
-	return mat4Filter(m).Filter, true
 }
 
 func (c *commandContext) AddSurface(resolution float32) bool {
@@ -331,43 +330,22 @@ func (c *commandContext) AddSurface(resolution float32) bool {
 }
 
 func (c *commandContext) Delete(sel []uint32) bool {
-	i := 0
-	filter := func(p mat.Vec3) bool {
-		mask := sel[i]
-		i++
-		return mask&selectBitmaskCropped != 0 ||
-			mask&selectBitmaskSelected == 0
-	}
+	filter := c.baseFilter(sel)
 	c.editor.passThrough(filter)
 	c.pointCloudUpdated = true
 	return true
 }
 
-func (c *commandContext) VoxelFilter(resolution float32) error {
-	var filter, filterInv func(p mat.Vec3) bool
-	m, selected := c.SelectMatrix()
-	if selected {
-		filterInv = mat4Filter(m).FilterInv
-		filter = mat4Filter(m).Filter
-
-		cropMat := c.editor.cropMatrix
-		if cropMat[15] != 0.0 {
-			selectFilter := filter
-			cropFilter := mat4Filter(cropMat).Filter
-			filter = func(p mat.Vec3) bool {
-				if selectFilter(p) {
-					return true
-				}
-				return cropFilter(p)
-			}
-			filterInv = func(p mat.Vec3) bool {
-				return !filter(p)
-			}
-		}
-	}
-
+func (c *commandContext) VoxelFilter(sel []uint32, resolution float32) error {
+	var filter, filterInv func(int, mat.Vec3) bool
 	var pc *pcd.PointCloud
+
+	_, selected := c.SelectMatrix()
 	if selected {
+		filter = c.baseFilter(sel)
+		filterInv = func(i int, p mat.Vec3) bool {
+			return !filter(i, p)
+		}
 		var err error
 		if pc, err = passThrough(c.editor.pc, filterInv); err != nil {
 			return err
@@ -396,24 +374,10 @@ func (c *commandContext) VoxelFilter(resolution float32) error {
 	return nil
 }
 
-func (c *commandContext) Label(l uint32) bool {
-	filter, ok := c.filter()
-	if !ok {
-		return false
-	}
-	cropMat := c.editor.cropMatrix
-	if cropMat[15] != 0.0 {
-		selectFilter := filter
-		cropFilter := mat4Filter(cropMat).Filter
-		filter = func(p mat.Vec3) bool {
-			if selectFilter(p) {
-				return true
-			}
-			return cropFilter(p)
-		}
-	}
-	c.editor.label(func(p mat.Vec3) (uint32, bool) {
-		if filter(p) {
+func (c *commandContext) Label(sel []uint32, l uint32) bool {
+	filter := c.baseFilter(sel)
+	c.editor.label(func(i int, p mat.Vec3) (uint32, bool) {
+		if filter(i, p) {
 			return 0, false
 		}
 		return l, true

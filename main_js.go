@@ -546,9 +546,13 @@ func (pe *pcdeditor) runImpl() error {
 
 			// Register buffer to receive GPGPU processing result
 			gl.BindBuffer(gl.ARRAY_BUFFER, selectResultBuf)
-			selectResultJS = js.Global().Get("Uint8Array").New(pc.Points * 4)
-			selectResultGo = make([]byte, pc.Points*4)
-			gl.BufferData_JS(gl.ARRAY_BUFFER, js.ValueOf(pc.Points*4), gl.STREAM_READ)
+			nBuf := pc.Points * 4
+			selectResultJS = js.Global().Get("Uint8Array").New(nBuf)
+			if cap(selectResultGo) < nBuf {
+				selectResultGo = make([]byte, nBuf)
+			}
+			selectResultGo = selectResultGo[:nBuf:nBuf]
+			gl.BufferData_JS(gl.ARRAY_BUFFER, js.ValueOf(nBuf), gl.STREAM_READ)
 		}
 
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
@@ -606,6 +610,11 @@ func (pe *pcdeditor) runImpl() error {
 			gl.Disable(gl.BLEND)
 		}
 
+		// Calculate condition of each point by GPU
+		// It checks that the point is
+		//   - in the crop box
+		//   - in the select box
+		//   - close to the mouse cursor position given as (x, y)
 		scanSelection := func(x, y int) ([]uint32, bool) {
 			if hasPointCloud {
 				origin, dir := perspectiveOriginDir(x, y, width, height, &projectionMatrix, &modelViewMatrix)
@@ -855,7 +864,9 @@ func (pe *pcdeditor) runImpl() error {
 					if e.Code == "Digit1" {
 						l = 1
 					}
-					pe.cmd.Label(l)
+					if sel, ok := scanSelection(0, 0); ok {
+						pe.cmd.Label(sel, l)
+					}
 				}
 			case "KeyU":
 				pe.cmd.Undo()

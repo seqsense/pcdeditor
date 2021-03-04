@@ -113,7 +113,7 @@ var consoleCommands = map[string]func(c *console, sel []uint32, args []float32) 
 		if len(args) != 1 {
 			return nil, errArgumentNumber
 		}
-		c.cmd.Label(uint32(args[0]))
+		c.cmd.Label(sel, uint32(args[0]))
 		return nil, nil
 	},
 	"undo": func(c *console, sel []uint32, args []float32) ([][]float32, error) {
@@ -155,9 +155,9 @@ var consoleCommands = map[string]func(c *console, sel []uint32, args []float32) 
 	"voxel_grid": func(c *console, sel []uint32, args []float32) ([][]float32, error) {
 		switch len(args) {
 		case 0:
-			return [][]float32{}, c.cmd.VoxelFilter(defaultResolution)
+			return [][]float32{}, c.cmd.VoxelFilter(sel, defaultResolution)
 		case 1:
-			return [][]float32{}, c.cmd.VoxelFilter(args[0])
+			return [][]float32{}, c.cmd.VoxelFilter(sel, args[0])
 		default:
 			return nil, errArgumentNumber
 		}

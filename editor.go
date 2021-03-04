@@ -116,7 +116,7 @@ func (e *editor) SetPointCloud(pc *pcd.PointCloud) error {
 	return nil
 }
 
-func (e *editor) label(fn func(mat.Vec3) (uint32, bool)) error {
+func (e *editor) label(fn func(int, mat.Vec3) (uint32, bool)) error {
 	pcNew := &pcd.PointCloud{
 		PointCloudHeader: e.pc.PointCloudHeader.Clone(),
 		Points:           e.pc.Points,
@@ -133,19 +133,21 @@ func (e *editor) label(fn func(mat.Vec3) (uint32, bool)) error {
 		return err
 	}
 
+	i := 0
 	for it.IsValid() {
-		l, ok := fn(it.Vec3())
+		l, ok := fn(i, it.Vec3())
 		if ok {
 			itL.SetUint32(l)
 		}
 		it.Incr()
 		itL.Incr()
+		i++
 	}
 	e.push(pcNew)
 	return nil
 }
 
-func (e *editor) passThrough(fn func(mat.Vec3) bool) error {
+func (e *editor) passThrough(fn func(int, mat.Vec3) bool) error {
 	pc, err := passThrough(e.pc, fn)
 	if err != nil {
 		return err
@@ -154,32 +156,14 @@ func (e *editor) passThrough(fn func(mat.Vec3) bool) error {
 	return nil
 }
 
-func passThrough(pc *pcd.PointCloud, fn func(mat.Vec3) bool) (*pcd.PointCloud, error) {
-	it, err := pc.Vec3Iterator()
-	if err != nil {
-		return nil, err
-	}
-
-	indice := make([]int, 0, pc.Points)
-	for i := 0; it.IsValid(); {
-		if fn(it.Vec3()) {
-			indice = append(indice, i)
-		}
-		i++
-		it.Incr()
-	}
+func passThrough(pc *pcd.PointCloud, fn func(int, mat.Vec3) bool) (*pcd.PointCloud, error) {
 	pcNew := &pcd.PointCloud{
 		PointCloudHeader: pc.PointCloudHeader.Clone(),
-		Points:           len(indice),
-		Data:             make([]byte, len(indice)*pc.Stride()),
+		Data:             make([]byte, len(pc.Data)),
+		Points:           pc.Points,
 	}
-	pcNew.Width = len(indice)
-	pcNew.Height = 1
 
-	if len(indice) == 0 {
-		return pcNew, nil
-	}
-	it, err = pc.Vec3Iterator()
+	it, err := pc.Vec3Iterator()
 	if err != nil {
 		return nil, err
 	}
@@ -195,17 +179,34 @@ func passThrough(pc *pcd.PointCloud, fn func(mat.Vec3) bool) (*pcd.PointCloud, e
 	if err != nil {
 		return nil, err
 	}
-	iPrev := 0
-	for _, i := range indice {
-		for ; iPrev < i; iPrev++ {
+	i := 0
+	for {
+		var p mat.Vec3
+		for it.IsValid() {
+			p = it.Vec3()
+			if fn(i, p) {
+				break
+			}
+			i++
 			it.Incr()
 			itL.Incr()
 		}
-		jt.SetVec3(it.Vec3())
+		if !it.IsValid() {
+			break
+		}
+		jt.SetVec3(p)
 		jtL.SetUint32(itL.Uint32())
 		jt.Incr()
 		jtL.Incr()
+		it.Incr()
+		itL.Incr()
+		i++
 	}
+
+	pcNew.Points = i
+	pcNew.Width = i
+	pcNew.Height = 1
+	pcNew.Data = pcNew.Data[: i*pcNew.Stride() : i*pcNew.Stride()]
 	return pcNew, nil
 }
 
