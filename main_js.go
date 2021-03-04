@@ -658,12 +658,8 @@ func (pe *pcdeditor) runImpl() error {
 			if nRectPoints == 0 || pcCursor == nil {
 				return nil, false
 			}
-			sel, ok := scanSelection(e.OffsetX*scale, e.OffsetY*scale)
-			if !ok {
-				return nil, false
-			}
 			return selectPoint(
-				pcCursor, sel, projectionType, &modelViewMatrix, &projectionMatrix,
+				pcCursor, nil, projectionType, &modelViewMatrix, &projectionMatrix,
 				e.OffsetX*scale, e.OffsetY*scale, width, height,
 			)
 		}

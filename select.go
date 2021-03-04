@@ -65,26 +65,39 @@ func selectPoint(pc *pcd.PointCloud, selMask []uint32, projectionType Projection
 	case ProjectionPerspective:
 		origin, dir := perspectiveOriginDirFromPosVec(pos, a, modelViewMatrix)
 		vMin := float32(1000 * 1000)
-		for i := 0; it.IsValid(); func() {
-			it.Incr()
-			i++
-		}() {
-			if selMask[i]&selectBitmaskCropped != 0 {
-				continue
-			}
-			if selMask[i]&selectBitmaskNearCursor == 0 {
-				continue
-			}
-			p := it.Vec3()
-			pRel := origin.Sub(p)
-			dot := pRel.Dot(*dir)
-			if dot < 0 {
-				distSq := pRel.NormSq()
+		if selMask != nil {
+			for i := 0; it.IsValid(); func() {
+				it.Incr()
+				i++
+			}() {
+				if selMask[i]&selectBitmaskCropped != 0 {
+					continue
+				}
+				if selMask[i]&selectBitmaskNearCursor == 0 {
+					continue
+				}
+				p := it.Vec3()
+				pRel := origin.Sub(p)
+				dot, distSq := pRel.Dot(*dir), pRel.NormSq()
 				dSq := distSq - dot*dot
 				v := dSq + distSq/10000
 				if v < vMin {
-					vMin = v
-					selected = &p
+					vMin, selected = v, &p
+				}
+			}
+		} else {
+			// Full search for select box drag check
+			for ; it.IsValid(); it.Incr() {
+				p := it.Vec3()
+				pRel := origin.Sub(p)
+				dot := pRel.Dot(*dir)
+				if dot < 0 {
+					distSq := pRel.NormSq()
+					dSq := distSq - dot*dot
+					v := dSq + distSq/10000
+					if v < vMin && dSq < 0.1*0.1 && distSq > 1.0 {
+						vMin, selected = v, &p
+					}
 				}
 			}
 		}
@@ -99,8 +112,10 @@ func selectPoint(pc *pcd.PointCloud, selMask []uint32, projectionType Projection
 			it.Incr()
 			i++
 		}() {
-			if selMask[i]&selectBitmaskCropped != 0 {
-				continue
+			if selMask != nil {
+				if selMask[i]&selectBitmaskCropped != 0 {
+					continue
+				}
 			}
 			p := it.Vec3()
 			dSq := oDiff.CrossNormSq(p.Sub(o1)) / oDiffNormSq
