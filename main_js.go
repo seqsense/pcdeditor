@@ -42,21 +42,28 @@ type promiseCommand struct {
 }
 
 type pcdeditor struct {
-	canvas      js.Value
-	logPrint    func(msg interface{})
-	chLoadPCD   chan promiseCommand
-	chLoad2D    chan promiseCommand
-	chSavePCD   chan promiseCommand
-	chExportPCD chan promiseCommand
-	chCommand   chan promiseCommand
-	chWheel     chan webgl.WheelEvent
-	chClick     chan webgl.MouseEvent
-	chMouseDown chan webgl.MouseEvent
-	chMouseDrag chan webgl.MouseEvent
-	chMouseMove chan webgl.MouseEvent
-	chMouseUp   chan webgl.MouseEvent
-	chKey       chan webgl.KeyboardEvent
-	ch2D        chan promiseCommand
+	canvas            js.Value
+	logPrint          func(msg interface{})
+	chLoadPCD         chan promiseCommand
+	chLoad2D          chan promiseCommand
+	chSavePCD         chan promiseCommand
+	chExportPCD       chan promiseCommand
+	chCommand         chan promiseCommand
+	chWheel           chan webgl.WheelEvent
+	chClick           chan webgl.MouseEvent
+	chMouseDown       chan webgl.MouseEvent
+	chMouseDrag       chan webgl.MouseEvent
+	chMouseMove       chan webgl.MouseEvent
+	chMouseUp         chan webgl.MouseEvent
+	chKey             chan webgl.KeyboardEvent
+	ch2D              chan promiseCommand
+	chContextLost     chan webgl.WebGLContextEvent
+	chContextRestored chan webgl.WebGLContextEvent
+
+	vi  *viewImpl
+	cg  *clickGuard
+	cmd *commandContext
+	cs  *console
 }
 
 func newPCDEditor(this js.Value, args []js.Value) interface{} {
@@ -66,20 +73,28 @@ func newPCDEditor(this js.Value, args []js.Value) interface{} {
 		logPrint: func(msg interface{}) {
 			fmt.Println(msg)
 		},
-		chLoadPCD:   make(chan promiseCommand, 1),
-		chLoad2D:    make(chan promiseCommand, 1),
-		chSavePCD:   make(chan promiseCommand, 1),
-		chExportPCD: make(chan promiseCommand, 1),
-		chCommand:   make(chan promiseCommand, 1),
-		chWheel:     make(chan webgl.WheelEvent, 10),
-		chClick:     make(chan webgl.MouseEvent, 10),
-		chMouseDown: make(chan webgl.MouseEvent, 10),
-		chMouseDrag: make(chan webgl.MouseEvent, 10),
-		chMouseMove: make(chan webgl.MouseEvent, 10),
-		chMouseUp:   make(chan webgl.MouseEvent, 10),
-		chKey:       make(chan webgl.KeyboardEvent, 10),
-		ch2D:        make(chan promiseCommand, 1),
+		chLoadPCD:         make(chan promiseCommand, 1),
+		chLoad2D:          make(chan promiseCommand, 1),
+		chSavePCD:         make(chan promiseCommand, 1),
+		chExportPCD:       make(chan promiseCommand, 1),
+		chCommand:         make(chan promiseCommand, 1),
+		chWheel:           make(chan webgl.WheelEvent, 10),
+		chClick:           make(chan webgl.MouseEvent, 10),
+		chMouseDown:       make(chan webgl.MouseEvent, 10),
+		chMouseDrag:       make(chan webgl.MouseEvent, 10),
+		chMouseMove:       make(chan webgl.MouseEvent, 10),
+		chMouseUp:         make(chan webgl.MouseEvent, 10),
+		chKey:             make(chan webgl.KeyboardEvent, 10),
+		ch2D:              make(chan promiseCommand, 1),
+		chContextLost:     make(chan webgl.WebGLContextEvent, 1),
+		chContextRestored: make(chan webgl.WebGLContextEvent, 1),
+
+		vi:  newView(),
+		cg:  &clickGuard{},
+		cmd: newCommandContext(&pcdIOImpl{}, &mapIOImpl{}),
 	}
+	pe.cs = &console{cmd: pe.cmd, view: pe.vi}
+
 	if len(args) > 1 {
 		init := args[1]
 		if logger := init.Get("logger"); !logger.IsNull() {
@@ -132,97 +147,147 @@ func newCommandPromise(ch chan promiseCommand, data interface{}) js.Value {
 }
 
 func (pe *pcdeditor) Run() {
+	canvas := webgl.Canvas(pe.canvas)
+
+	canvas.OnClick(func(e webgl.MouseEvent) {
+		e.PreventDefault()
+		e.StopPropagation()
+		select {
+		case pe.chClick <- e:
+		default:
+		}
+	})
+	canvas.OnContextMenu(func(e webgl.MouseEvent) {
+		e.PreventDefault()
+		e.StopPropagation()
+	})
+	canvas.OnKeyDown(func(e webgl.KeyboardEvent) {
+		e.PreventDefault()
+		e.StopPropagation()
+		select {
+		case pe.chKey <- e:
+		default:
+		}
+	})
+
+	wheelHandler := func(e webgl.WheelEvent) {
+		e.PreventDefault()
+		e.StopPropagation()
+		select {
+		case pe.chWheel <- e:
+		default:
+		}
+	}
+	canvas.OnWheel(wheelHandler)
+	gesture := &gesture{
+		pointers: make(map[int]webgl.PointerEvent),
+		onMouseDown: func(e webgl.MouseEvent) {
+			select {
+			case pe.chMouseDown <- e:
+			default:
+			}
+		},
+		onMouseDrag: func(e webgl.MouseEvent) {
+			select {
+			case pe.chMouseDrag <- e:
+			default:
+			}
+		},
+		onMouseUp: func(e webgl.MouseEvent) {
+			select {
+			case pe.chMouseUp <- e:
+			default:
+			}
+		},
+		onWheel: wheelHandler,
+	}
+	canvas.OnPointerDown(gesture.pointerDown)
+	canvas.OnPointerMove(gesture.pointerMove)
+	canvas.OnPointerUp(gesture.pointerUp)
+	canvas.OnPointerOut(gesture.pointerUp)
+	canvas.OnMouseMove(func(e webgl.MouseEvent) {
+		select {
+		case pe.chMouseMove <- e:
+		default:
+		}
+	})
+
+	canvas.OnWebGLContextLost(func(e webgl.WebGLContextEvent) {
+		e.PreventDefault()
+		e.StopPropagation()
+		pe.chContextLost <- e
+	})
+	canvas.OnWebGLContextRestored(func(e webgl.WebGLContextEvent) {
+		pe.chContextRestored <- e
+	})
+
+	for {
+		err := pe.runImpl()
+		switch {
+		case err == errContextLost:
+			time.Sleep(time.Second)
+			pe.logPrint("Retrying")
+			continue
+		case err != nil:
+			pe.logPrint("Fatal: " + err.Error())
+			return
+		}
+		pe.logPrint("Waiting WebGL context restore")
+		<-pe.chContextRestored
+		pe.logPrint("WebGL context restored")
+	}
+}
+
+func (pe *pcdeditor) runImpl() error {
 	gl, err := webgl.New(pe.canvas)
 	if err != nil {
-		pe.logPrint(err)
-		return
+		return err
 	}
 
-	vs := gl.CreateShader(gl.VERTEX_SHADER)
-	gl.ShaderSource(vs, vsSource)
-	gl.CompileShader(vs)
-	if !gl.GetShaderParameter(vs, gl.COMPILE_STATUS).(bool) {
-		pe.logPrint("Compile failed (VERTEX_SHADER)")
-		return
+	vs, err := initVertexShader(gl, vsSource)
+	if err != nil {
+		return err
 	}
-	vsSel := gl.CreateShader(gl.VERTEX_SHADER)
-	gl.ShaderSource(vsSel, vsSelectSource)
-	gl.CompileShader(vsSel)
-	if !gl.GetShaderParameter(vsSel, gl.COMPILE_STATUS).(bool) {
-		pe.logPrint("Compile failed (VERTEX_SHADER)")
-		return
+	vsSel, err := initVertexShader(gl, vsSelectSource)
+	if err != nil {
+		return err
 	}
-	vsMap := gl.CreateShader(gl.VERTEX_SHADER)
-	gl.ShaderSource(vsMap, vsMapSource)
-	gl.CompileShader(vsMap)
-	if !gl.GetShaderParameter(vsMap, gl.COMPILE_STATUS).(bool) {
-		pe.logPrint("Compile failed (VERTEX_SHADER)")
-		return
+	vsMap, err := initVertexShader(gl, vsMapSource)
+	if err != nil {
+		return err
 	}
-	fs := gl.CreateShader(gl.FRAGMENT_SHADER)
-	gl.ShaderSource(fs, fsSource)
-	gl.CompileShader(fs)
-	if !gl.GetShaderParameter(fs, gl.COMPILE_STATUS).(bool) {
-		pe.logPrint("Compile failed (FRAGMENT_SHADER)")
-		return
+	csComputeSelect, err := initVertexShader(gl, csComputeSelectSource)
+	if err != nil {
+		return err
 	}
-	fsMap := gl.CreateShader(gl.FRAGMENT_SHADER)
-	gl.ShaderSource(fsMap, fsMapSource)
-	gl.CompileShader(fsMap)
-	if !gl.GetShaderParameter(fsMap, gl.COMPILE_STATUS).(bool) {
-		pe.logPrint("Compile failed (FRAGMENT_SHADER)")
-		return
+	fs, err := initFragmentShader(gl, fsSource)
+	if err != nil {
+		return err
 	}
-	csComputeSelect := gl.CreateShader(gl.VERTEX_SHADER)
-	gl.ShaderSource(csComputeSelect, csComputeSelectSource)
-	gl.CompileShader(csComputeSelect)
-	if !gl.GetShaderParameter(csComputeSelect, gl.COMPILE_STATUS).(bool) {
-		pe.logPrint("Compile failed (VERTEX_SHADER)")
-		return
+	fsMap, err := initFragmentShader(gl, fsMapSource)
+	if err != nil {
+		return err
 	}
-	fsComputeSelect := gl.CreateShader(gl.FRAGMENT_SHADER)
-	gl.ShaderSource(fsComputeSelect, fsComputeSelectSource)
-	gl.CompileShader(fsComputeSelect)
-	if !gl.GetShaderParameter(fsComputeSelect, gl.COMPILE_STATUS).(bool) {
-		pe.logPrint("Compile failed (FRAGMENT_SHADER)")
-		return
+	fsComputeSelect, err := initFragmentShader(gl, fsComputeSelectSource)
+	if err != nil {
+		return err
 	}
 
-	program := gl.CreateProgram()
-	gl.AttachShader(program, vs)
-	gl.AttachShader(program, fs)
-	gl.LinkProgram(program)
-	if !gl.GetProgramParameter(program, gl.LINK_STATUS).(bool) {
-		pe.logPrint("Link failed: " + gl.GetProgramInfoLog(program))
-		return
+	program, err := linkShaders(gl, nil, vs, fs)
+	if err != nil {
+		return err
 	}
-
-	programSel := gl.CreateProgram()
-	gl.AttachShader(programSel, vsSel)
-	gl.AttachShader(programSel, fs)
-	gl.LinkProgram(programSel)
-	if !gl.GetProgramParameter(programSel, gl.LINK_STATUS).(bool) {
-		pe.logPrint("Link failed: " + gl.GetProgramInfoLog(programSel))
-		return
+	programSel, err := linkShaders(gl, nil, vsSel, fs)
+	if err != nil {
+		return err
 	}
-
-	programMap := gl.CreateProgram()
-	gl.AttachShader(programMap, vsMap)
-	gl.AttachShader(programMap, fsMap)
-	gl.LinkProgram(programMap)
-	if !gl.GetProgramParameter(programMap, gl.LINK_STATUS).(bool) {
-		pe.logPrint("Link failed: " + gl.GetProgramInfoLog(programMap))
-		return
+	programMap, err := linkShaders(gl, nil, vsMap, fsMap)
+	if err != nil {
+		return err
 	}
-
-	programComputeSelect := gl.CreateProgram()
-	gl.AttachShader(programComputeSelect, csComputeSelect)
-	gl.AttachShader(programComputeSelect, fsComputeSelect)
-	gl.TransformFeedbackVaryings(programComputeSelect, []string{"oResult"}, gl.SEPARATE_ATTRIBS)
-	gl.LinkProgram(programComputeSelect)
-	if !gl.GetProgramParameter(programComputeSelect, gl.LINK_STATUS).(bool) {
-		pe.logPrint("Link failed: " + gl.GetProgramInfoLog(programComputeSelect))
-		return
+	programComputeSelect, err := linkShaders(gl, []string{"oResult"}, csComputeSelect, fsComputeSelect)
+	if err != nil {
+		return err
 	}
 
 	tf := gl.CreateTransformFeedback()
@@ -255,76 +320,12 @@ func (pe *pcdeditor) Run() {
 	posBuf := gl.CreateBuffer()
 	mapBuf := gl.CreateBuffer()
 	selectResultBuf := gl.CreateBuffer()
+	toolBuf := gl.CreateBuffer()
 	var selectResultJS js.Value
 	var selectResultGo []byte
 
 	tick := time.NewTicker(time.Second / 8)
 	defer tick.Stop()
-
-	gl.Canvas.OnClick(func(e webgl.MouseEvent) {
-		e.PreventDefault()
-		e.StopPropagation()
-		select {
-		case pe.chClick <- e:
-		default:
-		}
-	})
-	gl.Canvas.OnContextMenu(func(e webgl.MouseEvent) {
-		e.PreventDefault()
-		e.StopPropagation()
-	})
-	gl.Canvas.OnKeyDown(func(e webgl.KeyboardEvent) {
-		e.PreventDefault()
-		e.StopPropagation()
-		select {
-		case pe.chKey <- e:
-		default:
-		}
-	})
-
-	wheelHandler := func(e webgl.WheelEvent) {
-		e.PreventDefault()
-		e.StopPropagation()
-		select {
-		case pe.chWheel <- e:
-		default:
-		}
-	}
-	gl.Canvas.OnWheel(wheelHandler)
-	gesture := &gesture{
-		pointers: make(map[int]webgl.PointerEvent),
-		onMouseDown: func(e webgl.MouseEvent) {
-			select {
-			case pe.chMouseDown <- e:
-			default:
-			}
-		},
-		onMouseDrag: func(e webgl.MouseEvent) {
-			select {
-			case pe.chMouseDrag <- e:
-			default:
-			}
-		},
-		onMouseUp: func(e webgl.MouseEvent) {
-			select {
-			case pe.chMouseUp <- e:
-			default:
-			}
-		},
-		onWheel: wheelHandler,
-	}
-	gl.Canvas.OnPointerDown(gesture.pointerDown)
-	gl.Canvas.OnPointerMove(gesture.pointerMove)
-	gl.Canvas.OnPointerUp(gesture.pointerUp)
-	gl.Canvas.OnPointerOut(gesture.pointerUp)
-	gl.Canvas.OnMouseMove(func(e webgl.MouseEvent) {
-		select {
-		case pe.chMouseMove <- e:
-		default:
-		}
-	})
-
-	toolBuf := gl.CreateBuffer()
 
 	fov := math.Pi / 3
 	var prevFov float64
@@ -360,11 +361,6 @@ func (pe *pcdeditor) Run() {
 	gl.UseProgram(programComputeSelect)
 	gl.EnableVertexAttribArray(aVertexPosition)
 
-	vi := newView()
-	cg := &clickGuard{}
-	cmd := newCommandContext(&pcdIOImpl{}, &mapIOImpl{})
-	cs := &console{cmd: cmd, view: vi}
-
 	devicePixelRatioJS := js.Global().Get("window").Get("devicePixelRatio")
 	wheelNormalizer := &wheelNormalizer{}
 
@@ -378,7 +374,6 @@ func (pe *pcdeditor) Run() {
 		Points: 5,
 		Data:   make([]byte, 5*4*5),
 	}
-	var scale int
 	var pcCursor *pcd.PointCloud
 	var moveStart *mat.Vec3
 	var show2D bool = true
@@ -396,11 +391,11 @@ func (pe *pcdeditor) Run() {
 				fmt.Printf("%s:%d: %s\n", file, line, f.Name())
 			}
 			pe.logPrint(r)
-			if pc, _, ok := cmd.PointCloud(); ok {
+			if pc, _, ok := pe.cmd.PointCloud(); ok {
 				pe.logPrint("CRASHED (export command is available)")
 				pe.logPrint("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 				for promise := range pe.chExportPCD {
-					blob, err := cmd.pcdIO.exportPCD(pc)
+					blob, err := pe.cmd.pcdIO.exportPCD(pc)
 					if err != nil {
 						promise.rejected(err)
 						continue
@@ -414,13 +409,17 @@ func (pe *pcdeditor) Run() {
 		}
 	}()
 
+	forceReload := true
+
+	pe.logPrint("WebGL context initialized")
+
 	for {
-		scale = devicePixelRatioJS.Int()
+		scale := devicePixelRatioJS.Int()
 		newWidth := gl.Canvas.ClientWidth() * scale
 		newHeight := gl.Canvas.ClientHeight() * scale
-		newProjectionType := cmd.ProjectionType()
-		newDistance := vi.distance
-		if newWidth != width || newHeight != height || fov != prevFov || projectionType != newProjectionType || (newProjectionType == ProjectionOrthographic && newDistance != distance) {
+		newProjectionType := pe.cmd.ProjectionType()
+		newDistance := pe.vi.distance
+		if forceReload || newWidth != width || newHeight != height || fov != prevFov || projectionType != newProjectionType || (newProjectionType == ProjectionOrthographic && newDistance != distance) {
 			width, height = newWidth, newHeight
 			projectionType = newProjectionType
 			distance = newDistance
@@ -455,15 +454,15 @@ func (pe *pcdeditor) Run() {
 		}
 		prevFov = fov
 
-		modelViewMatrix = mat.Rotate(1, 0, 0, float32(vi.pitch)).
-			MulAffine(mat.Rotate(0, 0, 1, float32(vi.yaw))).
-			MulAffine(mat.Translate(float32(vi.x), float32(vi.y), -1.5))
+		modelViewMatrix = mat.Rotate(1, 0, 0, float32(pe.vi.pitch)).
+			MulAffine(mat.Rotate(0, 0, 1, float32(pe.vi.yaw))).
+			MulAffine(mat.Translate(float32(pe.vi.x), float32(pe.vi.y), -1.5))
 		if projectionType == ProjectionPerspective {
 			modelViewMatrix =
-				mat.Translate(vib3DX, 0, -float32(vi.distance)).MulAffine(modelViewMatrix)
+				mat.Translate(vib3DX, 0, -float32(pe.vi.distance)).MulAffine(modelViewMatrix)
 		}
 
-		if rect, updated := cmd.Rect(); updated {
+		if rect, updated := pe.cmd.Rect(); updated || forceReload {
 			// Send select box vertices to GPU
 			buf := make([]float32, 0, len(rect)*3)
 			for _, p := range rect {
@@ -494,8 +493,8 @@ func (pe *pcdeditor) Run() {
 			}
 		}
 
-		mi, img, mapUpdated, has2D := cmd.Map()
-		if has2D && mapUpdated {
+		mi, img, mapUpdated, has2D := pe.cmd.Map()
+		if has2D && (mapUpdated || forceReload) {
 			// Send 2D map texture to GPU
 			err0 := gl.GetError()
 			gl.BindTexture(gl.TEXTURE_2D, texture)
@@ -539,8 +538,8 @@ func (pe *pcdeditor) Run() {
 			gl.BufferData(gl.ARRAY_BUFFER, webgl.ByteArrayBuffer(mapRect.Data), gl.STATIC_DRAW)
 		}
 
-		pc, updatedPointCloud, hasPointCloud := cmd.PointCloud()
-		if hasPointCloud && updatedPointCloud && pc.Points > 0 {
+		pc, updatedPointCloud, hasPointCloud := pe.cmd.PointCloud()
+		if hasPointCloud && (updatedPointCloud || forceReload) && pc.Points > 0 {
 			// Send PointCloud vertices to GPU
 			gl.BindBuffer(gl.ARRAY_BUFFER, posBuf)
 			gl.BufferData(gl.ARRAY_BUFFER, webgl.ByteArrayBuffer(pc.Data), gl.STATIC_DRAW)
@@ -561,13 +560,13 @@ func (pe *pcdeditor) Run() {
 			gl.VertexAttribPointer(aVertexPosition, 3, gl.FLOAT, false, pc.Stride(), 0)
 			gl.VertexAttribIPointer(aVertexLabel, 1, gl.UNSIGNED_INT, pc.Stride(), 3*4)
 			gl.UniformMatrix4fv(uModelViewMatrixLocation, false, modelViewMatrix)
-			gl.UniformMatrix4fv(uCropMatrixLocation, false, cmd.CropMatrix())
+			gl.UniformMatrix4fv(uCropMatrixLocation, false, pe.cmd.CropMatrix())
 
-			zMin, zMax := cmd.ZRange()
+			zMin, zMax := pe.cmd.ZRange()
 			gl.Uniform1f(uZMinLocation, zMin)
 			gl.Uniform1f(uZRangeLocation, zMax-zMin)
 
-			mSel, _ := cmd.SelectMatrix()
+			mSel, _ := pe.cmd.SelectMatrix()
 			gl.UniformMatrix4fv(uSelectMatrixLocation, false, mSel)
 
 			gl.DrawArrays(gl.POINTS, 0, pc.Points-1)
@@ -602,7 +601,7 @@ func (pe *pcdeditor) Run() {
 			gl.VertexAttribPointer(aVertexPosition, 3, gl.FLOAT, false, mapRect.Stride(), 0)
 			gl.VertexAttribPointer(aTextureCoordMap, 2, gl.FLOAT, false, mapRect.Stride(), 4*3)
 			gl.UniformMatrix4fv(uModelViewMatrixLocationMap, false, modelViewMatrix)
-			gl.Uniform1f(uAlphaLocationMap, cmd.MapAlpha())
+			gl.Uniform1f(uAlphaLocationMap, pe.cmd.MapAlpha())
 			gl.DrawArrays(gl.TRIANGLE_FAN, 0, 5)
 			gl.Disable(gl.BLEND)
 		}
@@ -615,9 +614,9 @@ func (pe *pcdeditor) Run() {
 				gl.UseProgram(programComputeSelect)
 				gl.BindBuffer(gl.ARRAY_BUFFER, posBuf)
 				gl.VertexAttribPointer(aVertexPosition, 3, gl.FLOAT, false, pc.Stride(), 0)
-				gl.UniformMatrix4fv(uCropMatrixLocationComputeSelect, false, cmd.CropMatrix())
+				gl.UniformMatrix4fv(uCropMatrixLocationComputeSelect, false, pe.cmd.CropMatrix())
 
-				mSel, _ := cmd.SelectMatrix()
+				mSel, _ := pe.cmd.SelectMatrix()
 				gl.UniformMatrix4fv(uSelectMatrixLocationComputeSelect, false, mSel)
 
 				gl.Uniform3fv(uOriginLocationComputeSelect, *origin)
@@ -660,11 +659,13 @@ func (pe *pcdeditor) Run() {
 			)
 		}
 
+		forceReload = false
+
 		// Handle inputs
 		select {
 		case promise := <-pe.chLoadPCD:
 			pe.logPrint("loading pcd file")
-			if err := cmd.LoadPCD(promise.data.(string)); err != nil {
+			if err := pe.cmd.LoadPCD(promise.data.(string)); err != nil {
 				promise.rejected(err)
 				break
 			}
@@ -673,7 +674,7 @@ func (pe *pcdeditor) Run() {
 		case promise := <-pe.chLoad2D:
 			pe.logPrint("loading 2D map file")
 			paths := promise.data.([2]string)
-			if err := cmd.Load2D(paths[0], paths[1]); err != nil {
+			if err := pe.cmd.Load2D(paths[0], paths[1]); err != nil {
 				promise.rejected(err)
 				break
 			}
@@ -681,7 +682,7 @@ func (pe *pcdeditor) Run() {
 			promise.resolved("loaded")
 		case promise := <-pe.chSavePCD:
 			pe.logPrint("saving pcd file")
-			if err := cmd.SavePCD(promise.data.(string)); err != nil {
+			if err := pe.cmd.SavePCD(promise.data.(string)); err != nil {
 				promise.rejected(err)
 				break
 			}
@@ -689,7 +690,7 @@ func (pe *pcdeditor) Run() {
 			promise.resolved("saved")
 		case promise := <-pe.chExportPCD:
 			pe.logPrint("exporting pcd file")
-			blob, err := cmd.ExportPCD()
+			blob, err := pe.cmd.ExportPCD()
 			if err != nil {
 				promise.rejected(err)
 				break
@@ -698,7 +699,7 @@ func (pe *pcdeditor) Run() {
 			promise.resolved(blob)
 		case promise := <-pe.chCommand:
 			sel, _ := scanSelection(0, 0)
-			res, err := cs.Run(promise.data.(string), sel)
+			res, err := pe.cs.Run(promise.data.(string), sel)
 			if err != nil {
 				promise.rejected(err)
 				break
@@ -719,13 +720,13 @@ func (pe *pcdeditor) Run() {
 				if e.ShiftKey {
 					rate = 0.1
 				}
-				if len(cmd.Cursors()) < 4 {
-					cmd.SetSelectRange(cmd.SelectRange() + float32(e.DeltaY*rate))
+				if len(pe.cmd.Cursors()) < 4 {
+					pe.cmd.SetSelectRange(pe.cmd.SelectRange() + float32(e.DeltaY*rate))
 					break
 				}
 				r := 1.0 + float32(e.DeltaY*rate)
-				m, _ := cmd.SelectMatrix()
-				cmd.TransformCursors(
+				m, _ := pe.cmd.SelectMatrix()
+				pe.cmd.TransformCursors(
 					m.InvAffine().
 						MulAffine(mat.Translate(0, 0, 0.5)).
 						MulAffine(mat.Scale(1, 1, r)).
@@ -733,7 +734,7 @@ func (pe *pcdeditor) Run() {
 						MulAffine(m),
 				)
 			case e.ShiftKey:
-				rect, _ := cmd.Rect()
+				rect, _ := pe.cmd.Rect()
 				if len(rect) > 0 {
 					var c mat.Vec3
 					for _, p := range rect {
@@ -741,21 +742,21 @@ func (pe *pcdeditor) Run() {
 					}
 					c = c.Mul(1.0 / float32(len(rect)))
 					r := 1.0 + float32(e.DeltaY)*0.01
-					cmd.TransformCursors(
+					pe.cmd.TransformCursors(
 						mat.Translate(c[0], c[1], c[2]).
 							MulAffine(mat.Scale(r, r, r)).
 							MulAffine(mat.Translate(-c[0], -c[1], -c[2])),
 					)
 				}
 			default:
-				vi.wheel(&e)
+				pe.vi.wheel(&e)
 			}
 		case e := <-pe.chMouseDown:
 			if e.Button == 0 {
-				cg.DragStart()
+				pe.cg.DragStart()
 			}
 			if p, ok := cursorOnSelect(e); ok {
-				cmd.PushCursors()
+				pe.cmd.PushCursors()
 				moveStart = selectPointOrtho(
 					&modelViewMatrix, &projectionMatrix,
 					e.OffsetX*scale, e.OffsetY*scale, width, height, p,
@@ -763,40 +764,40 @@ func (pe *pcdeditor) Run() {
 				continue
 			}
 			moveStart = nil
-			vi.mouseDragStart(&e)
+			pe.vi.mouseDragStart(&e)
 		case e := <-pe.chMouseUp:
 			if e.Button == 0 {
-				cg.DragEnd()
+				pe.cg.DragEnd()
 			}
 			if moveStart != nil {
-				cmd.PopCursors()
+				pe.cmd.PopCursors()
 				moveEnd := selectPointOrtho(
 					&modelViewMatrix, &projectionMatrix,
 					e.OffsetX*scale, e.OffsetY*scale, width, height, moveStart,
 				)
 				diff := moveEnd.Sub(*moveStart)
-				cmd.TransformCursors(mat.Translate(diff[0], diff[1], diff[2]))
+				pe.cmd.TransformCursors(mat.Translate(diff[0], diff[1], diff[2]))
 
 				moveStart = nil
 				continue
 			}
-			vi.mouseDragEnd(&e)
+			pe.vi.mouseDragEnd(&e)
 		case e := <-pe.chMouseDrag:
-			cg.Move()
+			pe.cg.Move()
 			if moveStart != nil {
-				cmd.PopCursors()
-				cmd.PushCursors()
+				pe.cmd.PopCursors()
+				pe.cmd.PushCursors()
 
 				moveEnd := selectPointOrtho(
 					&modelViewMatrix, &projectionMatrix,
 					e.OffsetX*scale, e.OffsetY*scale, width, height, moveStart,
 				)
 				diff := moveEnd.Sub(*moveStart)
-				cmd.TransformCursors(mat.Translate(diff[0], diff[1], diff[2]))
+				pe.cmd.TransformCursors(mat.Translate(diff[0], diff[1], diff[2]))
 
 				continue
 			}
-			vi.mouseDrag(&e)
+			pe.vi.mouseDrag(&e)
 		case e := <-pe.chMouseMove:
 			if _, ok := cursorOnSelect(e); ok {
 				pe.SetCursor(cursorMove)
@@ -804,7 +805,7 @@ func (pe *pcdeditor) Run() {
 				pe.SetCursor(cursorAuto)
 			}
 		case e := <-pe.chClick:
-			if sel, ok := scanSelection(e.OffsetX*scale, e.OffsetY*scale); ok && e.Button == 0 && cg.Click() {
+			if sel, ok := scanSelection(e.OffsetX*scale, e.OffsetY*scale); ok && e.Button == 0 && pe.cg.Click() {
 				var p *mat.Vec3
 				switch projectionType {
 				case ProjectionPerspective:
@@ -821,16 +822,16 @@ func (pe *pcdeditor) Run() {
 				if ok {
 					switch {
 					case e.ShiftKey:
-						if len(cmd.Cursors()) < 3 {
-							cmd.SetCursor(1, *p)
+						if len(pe.cmd.Cursors()) < 3 {
+							pe.cmd.SetCursor(1, *p)
 						} else {
-							cmd.SetCursor(3, *p)
+							pe.cmd.SetCursor(3, *p)
 						}
 					default:
-						if len(cmd.Cursors()) < 2 {
-							cmd.SetCursor(0, *p)
+						if len(pe.cmd.Cursors()) < 2 {
+							pe.cmd.SetCursor(0, *p)
 						} else {
-							cmd.SetCursor(2, *p)
+							pe.cmd.SetCursor(2, *p)
 						}
 					}
 				}
@@ -839,14 +840,14 @@ func (pe *pcdeditor) Run() {
 		case e := <-pe.chKey:
 			switch e.Code {
 			case "Escape":
-				cmd.UnsetCursors()
+				pe.cmd.UnsetCursors()
 			case "Delete", "Backspace", "Digit0", "Digit1":
 				switch e.Code {
 				case "Delete", "Backspace":
 					if sel, ok := scanSelection(0, 0); ok {
-						cmd.Delete(sel)
+						pe.cmd.Delete(sel)
 						if !e.ShiftKey && !e.CtrlKey {
-							cmd.UnsetCursors()
+							pe.cmd.UnsetCursors()
 						}
 					}
 				case "Digit0", "Digit1":
@@ -854,18 +855,18 @@ func (pe *pcdeditor) Run() {
 					if e.Code == "Digit1" {
 						l = 1
 					}
-					cmd.Label(l)
+					pe.cmd.Label(l)
 				}
 			case "KeyU":
-				cmd.Undo()
+				pe.cmd.Undo()
 			case "KeyF":
-				cmd.AddSurface(defaultResolution)
+				pe.cmd.AddSurface(defaultResolution)
 			case "KeyV", "KeyH":
 				switch e.Code {
 				case "KeyV":
-					cmd.SnapVertical()
+					pe.cmd.SnapVertical()
 				case "KeyH":
-					cmd.SnapHorizontal()
+					pe.cmd.SnapHorizontal()
 				}
 			case "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "PageUp", "PageDown":
 				var dx, dy, dz float32
@@ -883,8 +884,8 @@ func (pe *pcdeditor) Run() {
 				case "PageDown":
 					dz = -0.05
 				}
-				s, c := math.Sincos(vi.yaw)
-				cmd.TransformCursors(mat.Translate(
+				s, c := math.Sincos(pe.vi.yaw)
+				pe.cmd.TransformCursors(mat.Translate(
 					float32(c)*dx-float32(s)*dy,
 					float32(s)*dx+float32(c)*dy,
 					dz,
@@ -892,17 +893,17 @@ func (pe *pcdeditor) Run() {
 			case "KeyW", "KeyA", "KeyS", "KeyD", "KeyQ", "KeyE":
 				switch e.Code {
 				case "KeyW":
-					vi.Move(0.05, 0, 0)
+					pe.vi.Move(0.05, 0, 0)
 				case "KeyA":
-					vi.Move(0, 0.05, 0)
+					pe.vi.Move(0, 0.05, 0)
 				case "KeyS":
-					vi.Move(-0.05, 0, 0)
+					pe.vi.Move(-0.05, 0, 0)
 				case "KeyD":
-					vi.Move(0, -0.05, 0)
+					pe.vi.Move(0, -0.05, 0)
 				case "KeyQ":
-					vi.Move(0, 0, 0.02)
+					pe.vi.Move(0, 0, 0.02)
 				case "KeyE":
-					vi.Move(0, 0, -0.02)
+					pe.vi.Move(0, 0, -0.02)
 				}
 			case "BracketRight", "Backslash":
 				switch e.Code {
@@ -918,22 +919,24 @@ func (pe *pcdeditor) Run() {
 					}
 				}
 			case "F1":
-				vi.Reset()
+				pe.vi.Reset()
 			case "F2":
-				vi.Fps()
+				pe.vi.Fps()
 			case "F3":
-				cmd.SetProjectionType(ProjectionPerspective)
+				pe.cmd.SetProjectionType(ProjectionPerspective)
 			case "F4":
-				cmd.SetProjectionType(ProjectionOrthographic)
+				pe.cmd.SetProjectionType(ProjectionOrthographic)
 			case "F10":
-				cmd.Crop()
+				pe.cmd.Crop()
 			case "F11":
-				vi.SnapYaw()
+				pe.vi.SnapYaw()
 			case "F12":
-				vi.SnapPitch()
+				pe.vi.SnapPitch()
 			case "KeyP":
 				vib3D = !vib3D
 			}
+		case <-pe.chContextLost:
+			return nil
 		case <-tick.C:
 			if vib3D {
 				if vib3DX < 0 {

@@ -24,6 +24,7 @@
           <span id="side" style="cursor: pointer;">↪</span>
           <span id="top" style="cursor: pointer;">🔝</span></span>
         <a href="https://github.com/seqsense/pcdeditor#%E6%93%8D%E4%BD%9C" style="text-decoration: none; color: black; padding: 2px 0.5em; background-color: rgba(255, 255, 255, 0.8); border-radius: 0.3em; margin-left: 0.5em;" target="_blank">❓</a>
+        <button id="resetContext">reset</button>
       </div>
       <div id="log" style="font-size: 0.6em; max-height: 20em; position: absolute; bottom: 1em; left: 1em; z-index: 2; color: white; pointer-events: none; overflow: hidden;"></div>
     </div>
@@ -33,8 +34,10 @@
     const query = new URLSearchParams(window.location.search);
     document.onPCDEditorLoaded = e => {
       const logger = msg => {
-        const log = document.getElementById('log');
-        log.innerHTML = msg.toString().replace(/\n/g, '<br/>') + '<br/>' + log.innerHTML;
+        if (msg.toString != undefined) {
+          const log = document.getElementById('log');
+          log.innerHTML = msg.toString().replace(/\n/g, '<br/>') + '<br/>' + log.innerHTML;
+        }
       };
 
       let pcdPath = '/fixture/map.pcd';
@@ -105,7 +108,22 @@
         }).catch(logger);
       }
 
-      const pcdeditor = e.attach(document.getElementById('mapCanvas'), {logger: logger});
+      const canvas = document.getElementById('mapCanvas');
+      const pcdeditor = e.attach(canvas, {logger: logger});
+      document.getElementById('resetContext').onclick =
+        () => {
+          const gl = canvas.getContext('webgl2');
+          const glex = gl.getExtension('WEBGL_lose_context');
+          glex.loseContext();
+          const retryRestore = setInterval(() => {
+            try {
+              glex.restoreContext();
+            } catch (error) {
+              return;
+            }
+            clearInterval(retryRestore);
+          }, 1000);
+        };
       document.getElementById('loadPCD').onclick =
         () => {
           pcdeditor.loadPCD(pcdPath).catch(logger);

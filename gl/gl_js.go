@@ -400,3 +400,7 @@ func (gl *WebGL) Flush() {
 func (gl *WebGL) Finish() {
 	gl.gl.Call("finish")
 }
+
+func (gl *WebGL) IsContextLost() bool {
+	return gl.gl.Call("isContextLost").Bool()
+}

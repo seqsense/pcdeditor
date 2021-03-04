@@ -38,8 +38,10 @@ postmate を使って、sq-admin と iframe 間通信でデータを送受信す
     /** Shorthand for document.querySelector */
     const qs = (q) => document.querySelector(q);
     const logger = msg => {
-      const log = qs('#log');
-      log.innerHTML = msg.toString().replace(/\n/g, '<br/>') + '<br/>' + log.innerHTML;
+      if (msg.toString != undefined) {
+        const log = qs('#log');
+        log.innerHTML = msg.toString().replace(/\n/g, '<br/>') + '<br/>' + log.innerHTML;
+      }
     };
     /** Sets up the control's event handlers */
     const setupControls = async (pcdeditor, parentFrame) => {

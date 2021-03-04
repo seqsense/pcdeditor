@@ -124,3 +124,20 @@ func (c Canvas) onPointer(name string, cb func(PointerEvent)) {
 		}),
 	)
 }
+
+func (c Canvas) OnWebGLContextLost(cb func(WebGLContextEvent)) {
+	c.onWebGLContext("webglcontextlost", cb)
+}
+
+func (c Canvas) OnWebGLContextRestored(cb func(WebGLContextEvent)) {
+	c.onWebGLContext("webglcontextrestored", cb)
+}
+
+func (c Canvas) onWebGLContext(name string, cb func(WebGLContextEvent)) {
+	js.Value(c).Call("addEventListener", name,
+		js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			cb(parseWebGLContextEvent(args[0]))
+			return nil
+		}),
+	)
+}
