@@ -641,8 +641,22 @@ func (pe *pcdeditor) runImpl() error {
 
 				gl.BindBuffer(gl.ARRAY_BUFFER, webgl.Buffer(js.Null()))
 
+				fence := gl.FenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0)
 				gl.Flush()
 				gl.Finish()
+
+				// Wait GPU->CPU data transfer complete
+			L_SYNC:
+				for {
+					switch gl.ClientWaitSync(fence, 0, 0) {
+					case gl.ALREADY_SIGNALED, gl.CONDITION_SATISFIED:
+						break L_SYNC
+					case gl.WAIT_FAILED:
+						return nil, false
+					}
+					time.Sleep(10 * time.Millisecond)
+				}
+				gl.DeleteSync(fence)
 
 				// Get result from GPU
 				gl.BindBuffer(gl.ARRAY_BUFFER, selectResultBuf)

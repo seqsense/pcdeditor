@@ -33,6 +33,7 @@ type BindTarget int
 type TransformFeedbackTarget int
 type SyncCondition int
 type SyncFlushCommandBit int
+type WaitSyncResult int
 
 type Shader js.Value
 type Program js.Value
@@ -66,6 +67,8 @@ type WebGL struct {
 	TRANSFORM_FEEDBACK                                                            TransformFeedbackTarget
 	SYNC_GPU_COMMANDS_COMPLETE                                                    SyncCondition
 	SYNC_FLUSH_COMMANDS_BIT                                                       SyncFlushCommandBit
+	MAX_CLIENT_WAIT_TIMEOUT_WEBGL                                                 int
+	ALREADY_SIGNALED, TIMEOUT_EXPIRED, CONDITION_SATISFIED, WAIT_FAILED           WaitSyncResult
 
 	RGBA PixelFormat
 
@@ -162,6 +165,13 @@ func New(canvas js.Value) (*WebGL, error) {
 		SYNC_GPU_COMMANDS_COMPLETE: SyncCondition(gl.Get("SYNC_GPU_COMMANDS_COMPLETE").Int()),
 
 		SYNC_FLUSH_COMMANDS_BIT: SyncFlushCommandBit(gl.Get("SYNC_FLUSH_COMMANDS_BIT").Int()),
+
+		MAX_CLIENT_WAIT_TIMEOUT_WEBGL: gl.Get("MAX_CLIENT_WAIT_TIMEOUT_WEBGL").Int(),
+
+		ALREADY_SIGNALED:    WaitSyncResult(gl.Get("ALREADY_SIGNALED").Int()),
+		TIMEOUT_EXPIRED:     WaitSyncResult(gl.Get("TIMEOUT_EXPIRED").Int()),
+		CONDITION_SATISFIED: WaitSyncResult(gl.Get("CONDITION_SATISFIED").Int()),
+		WAIT_FAILED:         WaitSyncResult(gl.Get("WAIT_FAILED").Int()),
 	}, nil
 }
 
@@ -385,8 +395,8 @@ func (gl *WebGL) FenceSync(c SyncCondition, flags int) WebGLSync {
 	return WebGLSync(gl.gl.Call("fenceSync", int(c), flags))
 }
 
-func (gl *WebGL) ClientWaitSync(sync WebGLSync, flags SyncFlushCommandBit, timeout int) {
-	gl.gl.Call("clientWaitSync", js.Value(sync), int(flags), timeout)
+func (gl *WebGL) ClientWaitSync(sync WebGLSync, flags SyncFlushCommandBit, timeout int) WaitSyncResult {
+	return WaitSyncResult(gl.gl.Call("clientWaitSync", js.Value(sync), int(flags), timeout).Int())
 }
 
 func (gl *WebGL) DeleteSync(sync WebGLSync) {
