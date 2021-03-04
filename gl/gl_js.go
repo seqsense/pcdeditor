@@ -29,7 +29,6 @@ type TextureParameter int
 type TextureNumber int
 type BlendFactor int
 type BufferMode int
-type BindTarget int
 type TransformFeedbackTarget int
 type SyncCondition int
 type SyncFlushCommandBit int
@@ -52,7 +51,7 @@ type WebGL struct {
 	INVALID_FRAMEBUFFER_OPERATION, OUT_OF_MEMORY, CONTEXT_LOST_WEBGL ErrorNumber
 
 	VERTEX_SHADER, FRAGMENT_SHADER                                                ShaderType
-	ARRAY_BUFFER                                                                  BufferType
+	ARRAY_BUFFER, TRANSFORM_FEEDBACK_BUFFER, UNIFORM_BUFFER                       BufferType
 	STATIC_DRAW, DYNAMIC_COPY, STREAM_READ                                        BufferUsage
 	DEPTH_TEST, BLEND, RASTERIZER_DISCARD                                         Capacity
 	LEQUAL                                                                        DepthFunc
@@ -63,7 +62,6 @@ type WebGL struct {
 	LINK_STATUS, VALIDATE_STATUS                                                  ProgramParameter
 	TEXTURE_2D                                                                    TextureType
 	INTERLEAVED_ATTRIBS, SEPARATE_ATTRIBS                                         BufferMode
-	TRANSFORM_FEEDBACK_BUFFER, UNIFORM_BUFFER                                     BindTarget
 	TRANSFORM_FEEDBACK                                                            TransformFeedbackTarget
 	SYNC_GPU_COMMANDS_COMPLETE                                                    SyncCondition
 	SYNC_FLUSH_COMMANDS_BIT                                                       SyncFlushCommandBit
@@ -101,7 +99,9 @@ func New(canvas js.Value) (*WebGL, error) {
 		VERTEX_SHADER:   ShaderType(gl.Get("VERTEX_SHADER").Int()),
 		FRAGMENT_SHADER: ShaderType(gl.Get("FRAGMENT_SHADER").Int()),
 
-		ARRAY_BUFFER: BufferType(gl.Get("ARRAY_BUFFER").Int()),
+		ARRAY_BUFFER:              BufferType(gl.Get("ARRAY_BUFFER").Int()),
+		TRANSFORM_FEEDBACK_BUFFER: BufferType(gl.Get("TRANSFORM_FEEDBACK_BUFFER").Int()),
+		UNIFORM_BUFFER:            BufferType(gl.Get("UNIFORM_BUFFER").Int()),
 
 		STATIC_DRAW:  BufferUsage(gl.Get("STATIC_DRAW").Int()),
 		DYNAMIC_COPY: BufferUsage(gl.Get("DYNAMIC_COPY").Int()),
@@ -156,9 +156,6 @@ func New(canvas js.Value) (*WebGL, error) {
 
 		INTERLEAVED_ATTRIBS: BufferMode(gl.Get("INTERLEAVED_ATTRIBS").Int()),
 		SEPARATE_ATTRIBS:    BufferMode(gl.Get("SEPARATE_ATTRIBS").Int()),
-
-		TRANSFORM_FEEDBACK_BUFFER: BindTarget(gl.Get("TRANSFORM_FEEDBACK_BUFFER").Int()),
-		UNIFORM_BUFFER:            BindTarget(gl.Get("UNIFORM_BUFFER").Int()),
 
 		TRANSFORM_FEEDBACK: TransformFeedbackTarget(gl.Get("TRANSFORM_FEEDBACK").Int()),
 
@@ -252,7 +249,7 @@ func (gl *WebGL) BindBuffer(t BufferType, buf Buffer) {
 	gl.gl.Call("bindBuffer", int(t), js.Value(buf))
 }
 
-func (gl *WebGL) BindBufferBase(target BindTarget, index int, buf Buffer) {
+func (gl *WebGL) BindBufferBase(target BufferType, index int, buf Buffer) {
 	gl.gl.Call("bindBufferBase", int(target), index, js.Value(buf))
 }
 
@@ -268,7 +265,7 @@ func (gl *WebGL) BufferData_JS(t BufferType, data js.Value, usage BufferUsage) {
 }
 
 func (gl *WebGL) GetBufferSubData(t BufferType, srcOffset int, view js.Value, dstOffset, length int) {
-	gl.gl.Call("getBufferSubData", int(t), srcOffset, view)
+	gl.gl.Call("getBufferSubData", int(t), srcOffset, view, dstOffset, length)
 }
 
 func (gl *WebGL) ClearColor(r, g, b, a float32) {
@@ -285,6 +282,10 @@ func (gl *WebGL) Enable(c Capacity) {
 
 func (gl *WebGL) Disable(c Capacity) {
 	gl.gl.Call("disable", int(c))
+}
+
+func (gl *WebGL) IsEnabled(c Capacity) bool {
+	return gl.gl.Call("isEnabled", int(c)).Bool()
 }
 
 func (gl *WebGL) DepthFunc(f DepthFunc) {
