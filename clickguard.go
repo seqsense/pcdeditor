@@ -5,7 +5,7 @@ import (
 )
 
 const (
-	clickGuardDuration = 100 * time.Millisecond
+	clickGuardDuration = 500 * time.Millisecond
 )
 
 // clickGuard filters misdetection of click event fired after dragging.
