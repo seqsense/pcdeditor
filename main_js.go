@@ -303,6 +303,7 @@ func (pe *pcdeditor) runImpl() error {
 
 	uProjectionMatrixLocationSel := gl.GetUniformLocation(programSel, "uProjectionMatrix")
 	uModelViewMatrixLocationSel := gl.GetUniformLocation(programSel, "uModelViewMatrix")
+	uPointSizeBaseSel := gl.GetUniformLocation(programSel, "uPointSizeBase")
 
 	uProjectionMatrixLocationMap := gl.GetUniformLocation(programMap, "uProjectionMatrix")
 	uModelViewMatrixLocationMap := gl.GetUniformLocation(programMap, "uModelViewMatrix")
@@ -434,7 +435,6 @@ func (pe *pcdeditor) runImpl() error {
 					float32(width)/float32(height),
 					1.0, 1000.0,
 				)
-				gl.Uniform1f(uPointSizeBase, 20.0)
 			case ProjectionOrthographic:
 				projectionMatrix = mat.Orthographic(
 					-float32(width/2)*float32(distance)/1000,
@@ -443,7 +443,6 @@ func (pe *pcdeditor) runImpl() error {
 					-float32(height/2)*float32(distance)/1000,
 					-1000, 1000.0,
 				)
-				gl.Uniform1f(uPointSizeBase, 1.0)
 			}
 			gl.UniformMatrix4fv(uProjectionMatrixLocation, false, projectionMatrix)
 			gl.UseProgram(programSel)
@@ -558,6 +557,11 @@ func (pe *pcdeditor) runImpl() error {
 		render := func() {
 			gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
+			pointSize := pe.cmd.PointSize()
+			if projectionType == ProjectionOrthographic {
+				pointSize /= 20
+			}
+
 			if hasPointCloud && pc.Points > 0 {
 				// Render PointCloud
 				gl.UseProgram(program)
@@ -573,6 +577,8 @@ func (pe *pcdeditor) runImpl() error {
 
 				mSel, _ := pe.cmd.SelectMatrix()
 				gl.UniformMatrix4fv(uSelectMatrixLocation, false, mSel)
+
+				gl.Uniform1f(uPointSizeBase, pointSize)
 
 				gl.DrawArrays(gl.POINTS, 0, pc.Points-1)
 			}
@@ -591,6 +597,7 @@ func (pe *pcdeditor) runImpl() error {
 					}
 
 					gl.UniformMatrix4fv(uModelViewMatrixLocationSel, false, modelViewMatrix)
+					gl.Uniform1f(uPointSizeBaseSel, pointSize)
 					gl.DrawArrays(gl.LINE_LOOP, 0, n)
 					gl.DrawArrays(gl.POINTS, 0, n)
 				}

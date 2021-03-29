@@ -28,7 +28,7 @@ const vsSource = `#version 300 es
 
 		viewPosition = uModelViewMatrix * aVertexPosition;
 		gl_Position = uProjectionMatrix * viewPosition;
-		gl_PointSize = clamp(uPointSizeBase / length(viewPosition), 1.0, 5.0);
+		gl_PointSize = clamp(uPointSizeBase / length(viewPosition), 1.0, uPointSizeBase/4.0);
 
 		selectPosition = uSelectMatrix * aVertexPosition;
 		if (uSelectMatrix[3][3] == 1.0 &&
@@ -51,11 +51,12 @@ const vsSelectSource = `#version 300 es
 	layout (location = 0) in vec4 aVertexPosition;
 	uniform mat4 uModelViewMatrix;
 	uniform mat4 uProjectionMatrix;
+	uniform float uPointSizeBase;
 	out lowp vec4 vColor;
 
 	void main(void) {
 		gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
-		gl_PointSize = 5.5;
+		gl_PointSize = uPointSizeBase * 0.3;
 
 		vColor = vec4(1.0, 1.0, 1.0, 0.8);
 	}

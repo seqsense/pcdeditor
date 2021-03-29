@@ -152,6 +152,16 @@ var consoleCommands = map[string]func(c *console, sel []uint32, args []float32) 
 			return nil, errArgumentNumber
 		}
 	},
+	"point_size": func(c *console, sel []uint32, args []float32) ([][]float32, error) {
+		switch len(args) {
+		case 0:
+			return [][]float32{{c.cmd.PointSize()}}, nil
+		case 1:
+			return nil, c.cmd.SetPointSize(args[0])
+		default:
+			return nil, errArgumentNumber
+		}
+	},
 	"voxel_grid": func(c *console, sel []uint32, args []float32) ([][]float32, error) {
 		switch len(args) {
 		case 0:

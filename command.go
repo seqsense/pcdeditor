@@ -15,6 +15,7 @@ const (
 	defaultMapAlpha               = 0.3
 	defaultZMin                   = -5.0
 	defaultZMax                   = 5.0
+	defaultPointSize              = 20.0
 )
 
 type pcdIO interface {
@@ -52,6 +53,8 @@ type commandContext struct {
 
 	zMin, zMax     float32
 	projectionType ProjectionType
+
+	pointSize float32
 }
 
 func newCommandContext(pcdio pcdIO, mapio mapIO) *commandContext {
@@ -65,6 +68,7 @@ func newCommandContext(pcdio pcdIO, mapio mapIO) *commandContext {
 		zMin:                   defaultZMin,
 		zMax:                   defaultZMax,
 		projectionType:         ProjectionPerspective,
+		pointSize:              defaultPointSize,
 	}
 	c.selectRange = &c.selectRangePerspective
 	return c
@@ -90,6 +94,18 @@ func (c *commandContext) ZRange() (float32, float32) {
 
 func (c *commandContext) SetZRange(zMin, zMax float32) {
 	c.zMin, c.zMax = zMin, zMax
+}
+
+func (c *commandContext) PointSize() float32 {
+	return c.pointSize
+}
+
+func (c *commandContext) SetPointSize(ps float32) error {
+	if ps < 0 {
+		return errors.New("point size must be >0")
+	}
+	c.pointSize = ps
+	return nil
 }
 
 func (c *commandContext) PointCloud() (*pcd.PointCloud, bool, bool) {
