@@ -58,7 +58,7 @@ func newCommandContext(pcdio pcdIO, mapio mapIO) *commandContext {
 	c := &commandContext{
 		selectRangeOrtho:       defaultSelectRangeOrtho,
 		selectRangePerspective: defaultSelectRangePerspective,
-		editor:                 &editor{},
+		editor:                 newEditor(),
 		pcdIO:                  pcdio,
 		mapIO:                  mapio,
 		mapAlpha:               defaultMapAlpha,

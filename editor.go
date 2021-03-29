@@ -12,65 +12,40 @@ const (
 )
 
 type editor struct {
-	pc         *pcd.PointCloud
-	history    []*pcd.PointCloud
-	maxHistory *int
+	history
+	pc *pcd.PointCloud
 
 	cropMatrix mat.Mat4
 }
 
-func (e *editor) MaxHistory() int {
-	if e.maxHistory == nil {
-		return maxHistoryDefault
+func newEditor() *editor {
+	return &editor{
+		history: newHistory(maxHistoryDefault),
 	}
-	return *e.maxHistory
 }
 
-func (e *editor) SetMaxHistory(m int) {
-	if m < 0 {
-		m = 0
-	}
-	e.maxHistory = &m
+type history interface {
+	MaxHistory() int
+	SetMaxHistory(m int)
+	push(pc *pcd.PointCloud) *pcd.PointCloud
+	pop() *pcd.PointCloud
+	undo() (*pcd.PointCloud, bool)
 }
 
-func (e *editor) push(pc *pcd.PointCloud) {
-	shallowCopy := &pcd.PointCloud{
-		PointCloudHeader: pc.PointCloudHeader.Clone(),
-		Points:           pc.Points,
-		Data:             pc.Data,
-	}
-	e.history = append(e.history, shallowCopy)
-	if len(e.history) > e.MaxHistory()+1 {
-		e.history[0] = nil
-		e.history = e.history[1:]
-		runtime.GC()
-	}
-	e.pc = pc
-}
-
-func (e *editor) pop() *pcd.PointCloud {
-	back := e.history[len(e.history)-1]
-	e.history = e.history[:len(e.history)-1]
-	return back
+func (e *editor) Undo() bool {
+	var ok bool
+	e.pc, ok = e.history.undo()
+	return ok
 }
 
 func (e *editor) Crop(origin mat.Mat4) {
 	e.cropMatrix = origin
 }
 
-func (e *editor) Undo() bool {
-	if n := len(e.history); n > 1 {
-		e.history[n-1] = nil
-		e.history = e.history[:n-1]
-		e.pc = e.history[n-2]
-		return true
-	}
-	return false
-}
-
 func (e *editor) SetPointCloud(pc *pcd.PointCloud) error {
 	if len(pc.Fields) == 4 && pc.Fields[0] == "x" && pc.Fields[1] == "y" && pc.Fields[2] == "z" && pc.Fields[3] == "label" {
-		e.push(pc)
+		e.pc = e.push(pc)
+		runtime.GC()
 		return nil
 	}
 	i, err := pc.Vec3Iterator()
@@ -112,7 +87,8 @@ func (e *editor) SetPointCloud(pc *pcd.PointCloud) error {
 			iL.Incr()
 		}
 	}
-	e.push(pcNew)
+	e.pc = e.push(pcNew)
+	runtime.GC()
 	return nil
 }
 
@@ -143,7 +119,8 @@ func (e *editor) label(fn func(int, mat.Vec3) (uint32, bool)) error {
 		itL.Incr()
 		i++
 	}
-	e.push(pcNew)
+	e.pc = e.push(pcNew)
+	runtime.GC()
 	return nil
 }
 
@@ -152,7 +129,8 @@ func (e *editor) passThrough(fn func(int, mat.Vec3) bool) error {
 	if err != nil {
 		return err
 	}
-	e.push(pc)
+	e.pc = e.push(pc)
+	runtime.GC()
 	return nil
 }
 
@@ -219,5 +197,6 @@ func (e *editor) merge(pc *pcd.PointCloud) {
 	pcNew.Width = pcNew.Points
 	pcNew.Height = 1
 
-	e.push(pcNew)
+	e.pc = e.push(pcNew)
+	runtime.GC()
 }
