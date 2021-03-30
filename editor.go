@@ -134,7 +134,75 @@ func (e *editor) passThrough(fn func(int, mat.Vec3) bool) error {
 	return nil
 }
 
+func (e *editor) passThroughByMask(sel []uint32, mask, val uint32) error {
+	pc, err := passThroughByMask(e.pc, sel, mask, val)
+	if err != nil {
+		return err
+	}
+	e.pc = e.push(pc)
+	runtime.GC()
+	return nil
+}
+
 func passThrough(pc *pcd.PointCloud, fn func(int, mat.Vec3) bool) (*pcd.PointCloud, error) {
+	return passThroughImpl(pc, func(it, jt pcd.Vec3Iterator, itL, jtL pcd.Uint32Iterator) int {
+		i := 0
+		n := pc.Points
+		for {
+			var p mat.Vec3
+			for i < n {
+				p = it.Vec3()
+				if fn(i, p) {
+					break
+				}
+				i++
+				it.Incr()
+				itL.Incr()
+			}
+			if i >= n {
+				break
+			}
+			jt.SetVec3(p)
+			jtL.SetUint32(itL.Uint32())
+			jt.Incr()
+			jtL.Incr()
+			it.Incr()
+			itL.Incr()
+			i++
+		}
+		return i
+	})
+}
+
+func passThroughByMask(pc *pcd.PointCloud, sel []uint32, mask, val uint32) (*pcd.PointCloud, error) {
+	return passThroughImpl(pc, func(it, jt pcd.Vec3Iterator, itL, jtL pcd.Uint32Iterator) int {
+		i := 0
+		n := pc.Points
+		for {
+			for i < n {
+				if sel[i]&mask == val {
+					break
+				}
+				i++
+				it.Incr()
+				itL.Incr()
+			}
+			if i >= n {
+				break
+			}
+			jt.SetVec3(it.Vec3())
+			jtL.SetUint32(itL.Uint32())
+			jt.Incr()
+			jtL.Incr()
+			it.Incr()
+			itL.Incr()
+			i++
+		}
+		return i
+	})
+}
+
+func passThroughImpl(pc *pcd.PointCloud, core func(_, _ pcd.Vec3Iterator, _, _ pcd.Uint32Iterator) int) (*pcd.PointCloud, error) {
 	pcNew := &pcd.PointCloud{
 		PointCloudHeader: pc.PointCloudHeader.Clone(),
 		Data:             make([]byte, len(pc.Data)),
@@ -157,29 +225,7 @@ func passThrough(pc *pcd.PointCloud, fn func(int, mat.Vec3) bool) (*pcd.PointClo
 	if err != nil {
 		return nil, err
 	}
-	i := 0
-	for {
-		var p mat.Vec3
-		for it.IsValid() {
-			p = it.Vec3()
-			if fn(i, p) {
-				break
-			}
-			i++
-			it.Incr()
-			itL.Incr()
-		}
-		if !it.IsValid() {
-			break
-		}
-		jt.SetVec3(p)
-		jtL.SetUint32(itL.Uint32())
-		jt.Incr()
-		jtL.Incr()
-		it.Incr()
-		itL.Incr()
-		i++
-	}
+	i := core(it, jt, itL, jtL)
 
 	pcNew.Points = i
 	pcNew.Width = i

@@ -3,6 +3,7 @@ package main
 const vsSource = `#version 300 es
 	layout (location = 0) in vec4 aVertexPosition;
 	layout (location = 1) in uint aVertexLabel;
+	layout (location = 2) in uint aSelectMask;
 	uniform mat4 uModelViewMatrix;
 	uniform mat4 uProjectionMatrix;
 	uniform mat4 uSelectMatrix;
@@ -10,6 +11,7 @@ const vsSource = `#version 300 es
 	uniform float uZMin;
 	uniform float uZRange;
 	uniform float uPointSizeBase;
+	uniform int uUseSelectMask;
 	vec4 viewPosition;
 	vec4 selectPosition;
 	vec4 cropPosition;
@@ -30,13 +32,21 @@ const vsSource = `#version 300 es
 		gl_Position = uProjectionMatrix * viewPosition;
 		gl_PointSize = clamp(uPointSizeBase / length(viewPosition), 1.0, uPointSizeBase/4.0);
 
-		selectPosition = uSelectMatrix * aVertexPosition;
-		if (uSelectMatrix[3][3] == 1.0 &&
-				all(lessThanEqual(vec3(0, 0, 0), vec3(selectPosition))) &&
-				all(lessThanEqual(vec3(selectPosition), vec3(1.0, 1.0, 1.0)))) {
-			cSelected = 0.5;
+		if (uUseSelectMask == 0) {
+			selectPosition = uSelectMatrix * aVertexPosition;
+			if (uSelectMatrix[3][3] == 1.0 &&
+					all(lessThanEqual(vec3(0, 0, 0), vec3(selectPosition))) &&
+					all(lessThanEqual(vec3(selectPosition), vec3(1.0, 1.0, 1.0)))) {
+				cSelected = 0.5;
+			} else {
+				cSelected = 0.0;
+			}
 		} else {
-			cSelected = 0.0;
+			if ((aSelectMask << 30u) >> 31u == 1u) {
+				cSelected = 0.5;
+			} else {
+				cSelected = 0.0;
+			}
 		}
 		c = (aVertexPosition[2] - uZMin) / uZRange;
 		if (aVertexLabel == 0u) {
@@ -98,6 +108,8 @@ const fsMapSource = `#version 300 es
 
 const csComputeSelectSource = `#version 300 es
 	layout (location = 0) in vec4 aVertexPosition;
+	uniform mat4 uModelViewMatrix;
+	uniform mat4 uProjectionMatrix;
 	uniform mat4 uSelectMatrix;
 	uniform mat4 uCropMatrix;
 	uniform vec3 uOrigin;
@@ -108,6 +120,7 @@ const csComputeSelectSource = `#version 300 es
 	lowp float dotDir;
 	lowp float distSq;
 	lowp float dSq;
+	vec4 screenPosition;
 	flat out uint oResult;
 
 	void main(void) {
@@ -117,6 +130,12 @@ const csComputeSelectSource = `#version 300 es
 		if (any(lessThan(vec3(cropPosition), vec3(0, 0, 0))) ||
 				any(lessThan(vec3(1.0, 1.0, 1.0), vec3(cropPosition)))) {
 			oResult |= 1u;
+		} else {
+			screenPosition = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
+			if (any(lessThan(vec3(screenPosition), vec3(0, 0, 0))) ||
+					any(lessThan(vec3(1.0, 1.0, 1.0), vec3(screenPosition)))) {
+				oResult |= 8u;
+			}
 		}
 
 		selectPosition = uSelectMatrix * aVertexPosition;

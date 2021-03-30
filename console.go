@@ -226,6 +226,17 @@ var consoleCommands = map[string]func(c *console, sel []uint32, args []float32) 
 		c.view.SnapYaw()
 		return nil, nil
 	},
+	"segmentation_param": func(c *console, sel []uint32, args []float32) ([][]float32, error) {
+		switch len(args) {
+		case 0:
+			p0, p1 := c.cmd.SegmentationParam()
+			return [][]float32{{p0, p1}}, nil
+		case 2:
+			return nil, c.cmd.SetSegmentationParam(args[0], args[1])
+		default:
+			return nil, errArgumentNumber
+		}
+	},
 }
 
 func (c *console) Run(line string, sel []uint32) (string, error) {

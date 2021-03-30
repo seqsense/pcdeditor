@@ -300,6 +300,7 @@ func (pe *pcdeditor) runImpl() error {
 	uZMinLocation := gl.GetUniformLocation(program, "uZMin")
 	uZRangeLocation := gl.GetUniformLocation(program, "uZRange")
 	uPointSizeBase := gl.GetUniformLocation(program, "uPointSizeBase")
+	uUseSelectMask := gl.GetUniformLocation(program, "uUseSelectMask")
 
 	uProjectionMatrixLocationSel := gl.GetUniformLocation(programSel, "uProjectionMatrix")
 	uModelViewMatrixLocationSel := gl.GetUniformLocation(programSel, "uModelViewMatrix")
@@ -312,6 +313,8 @@ func (pe *pcdeditor) runImpl() error {
 
 	uCropMatrixLocationComputeSelect := gl.GetUniformLocation(programComputeSelect, "uCropMatrix")
 	uSelectMatrixLocationComputeSelect := gl.GetUniformLocation(programComputeSelect, "uSelectMatrix")
+	uProjectionMatrixLocationComputeSelect := gl.GetUniformLocation(programComputeSelect, "uProjectionMatrix")
+	uModelViewMatrixLocationComputeSelect := gl.GetUniformLocation(programComputeSelect, "uModelViewMatrix")
 	uOriginLocationComputeSelect := gl.GetUniformLocation(programComputeSelect, "uOrigin")
 	uDirLocationComputeSelect := gl.GetUniformLocation(programComputeSelect, "uDir")
 
@@ -321,6 +324,7 @@ func (pe *pcdeditor) runImpl() error {
 	posBuf := gl.CreateBuffer()
 	mapBuf := gl.CreateBuffer()
 	selectResultBuf := gl.CreateBuffer()
+	selectMaskBuf := gl.CreateBuffer()
 	toolBuf := gl.CreateBuffer()
 	var selectResultJS js.Value
 	var selectResultGo []byte
@@ -347,10 +351,12 @@ func (pe *pcdeditor) runImpl() error {
 		aVertexPosition  = 0
 		aVertexLabel     = 1
 		aTextureCoordMap = 1
+		aSelectMask      = 2
 	)
 	gl.UseProgram(program)
 	gl.EnableVertexAttribArray(aVertexPosition)
 	gl.EnableVertexAttribArray(aVertexLabel)
+	gl.EnableVertexAttribArray(aSelectMask)
 
 	gl.UseProgram(programSel)
 	gl.EnableVertexAttribArray(aVertexPosition)
@@ -375,6 +381,7 @@ func (pe *pcdeditor) runImpl() error {
 		Points: 5,
 		Data:   make([]byte, 5*4*5),
 	}
+	var selectMaskData webgl.ByteArrayBuffer
 	var pcCursor *pcd.PointCloud
 	var moveStart *mat.Vec3
 	var show2D bool = true
@@ -449,6 +456,8 @@ func (pe *pcdeditor) runImpl() error {
 			gl.UniformMatrix4fv(uProjectionMatrixLocationSel, false, projectionMatrix)
 			gl.UseProgram(programMap)
 			gl.UniformMatrix4fv(uProjectionMatrixLocationMap, false, projectionMatrix)
+			gl.UseProgram(programComputeSelect)
+			gl.UniformMatrix4fv(uProjectionMatrixLocationComputeSelect, false, projectionMatrix)
 			gl.Viewport(0, 0, width, height)
 		}
 		prevFov = fov
@@ -537,6 +546,12 @@ func (pe *pcdeditor) runImpl() error {
 			gl.BufferData(gl.ARRAY_BUFFER, webgl.ByteArrayBuffer(mapRect.Data), gl.STATIC_DRAW)
 		}
 
+		updateSelectMask := func() {
+			gl.UseProgram(program)
+			gl.BindBuffer(gl.ARRAY_BUFFER, selectMaskBuf)
+			gl.BufferData(gl.ARRAY_BUFFER, selectMaskData, gl.STATIC_DRAW)
+		}
+
 		pc, updatedPointCloud, hasPointCloud := pe.cmd.PointCloud()
 		if hasPointCloud && (updatedPointCloud || forceReload) && pc.Points > 0 {
 			// Send PointCloud vertices to GPU
@@ -552,6 +567,9 @@ func (pe *pcdeditor) runImpl() error {
 			}
 			selectResultGo = selectResultGo[:nBuf:nBuf]
 			gl.BufferData_JS(gl.ARRAY_BUFFER, js.ValueOf(selectResultJS), gl.STREAM_READ)
+			selectMaskData = webgl.ByteArrayBuffer(selectResultGo)
+
+			updateSelectMask()
 		}
 
 		render := func() {
@@ -562,14 +580,27 @@ func (pe *pcdeditor) runImpl() error {
 				pointSize /= 20
 			}
 
+			selectMode := pe.cmd.SelectMode()
+
 			if hasPointCloud && pc.Points > 0 {
 				// Render PointCloud
 				gl.UseProgram(program)
+
+				switch selectMode {
+				case selectModeRect:
+					gl.Uniform1i(uUseSelectMask, 0)
+				case selectModeMask:
+					gl.Uniform1i(uUseSelectMask, 1)
+				}
+
 				gl.BindBuffer(gl.ARRAY_BUFFER, posBuf)
 				gl.VertexAttribPointer(aVertexPosition, 3, gl.FLOAT, false, pc.Stride(), 0)
 				gl.VertexAttribIPointer(aVertexLabel, 1, gl.UNSIGNED_INT, pc.Stride(), 3*4)
 				gl.UniformMatrix4fv(uModelViewMatrixLocation, false, modelViewMatrix)
 				gl.UniformMatrix4fv(uCropMatrixLocation, false, pe.cmd.CropMatrix())
+
+				gl.BindBuffer(gl.ARRAY_BUFFER, selectMaskBuf)
+				gl.VertexAttribIPointer(aSelectMask, 1, gl.UNSIGNED_INT, 4, 0)
 
 				zMin, zMax := pe.cmd.ZRange()
 				gl.Uniform1f(uZMinLocation, zMin)
@@ -583,7 +614,7 @@ func (pe *pcdeditor) runImpl() error {
 				gl.DrawArrays(gl.POINTS, 0, pc.Points-1)
 			}
 
-			if nRectPoints > 0 {
+			if nRectPoints > 0 && selectMode == selectModeRect {
 				// Render select box
 				gl.Enable(gl.BLEND)
 				gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
@@ -634,6 +665,7 @@ func (pe *pcdeditor) runImpl() error {
 				gl.BindBuffer(gl.ARRAY_BUFFER, posBuf)
 				gl.VertexAttribPointer(aVertexPosition, 3, gl.FLOAT, false, pc.Stride(), 0)
 				gl.UniformMatrix4fv(uCropMatrixLocationComputeSelect, false, pe.cmd.CropMatrix())
+				gl.UniformMatrix4fv(uModelViewMatrixLocationComputeSelect, false, modelViewMatrix)
 
 				mSel, _ := pe.cmd.SelectMatrix()
 				gl.UniformMatrix4fv(uSelectMatrixLocationComputeSelect, false, mSel)
@@ -862,6 +894,14 @@ func (pe *pcdeditor) runImpl() error {
 						} else {
 							pe.cmd.SetCursor(3, *p)
 						}
+					case e.AltKey:
+						if projectionType != ProjectionPerspective {
+							break
+						}
+						if sel, ok := scanSelection(e.OffsetX*scale, e.OffsetY*scale); ok {
+							pe.cmd.SelectSegment(*p, sel)
+							updateSelectMask()
+						}
 					default:
 						if len(pe.cmd.Cursors()) < 2 {
 							pe.cmd.SetCursor(0, *p)
@@ -879,11 +919,17 @@ func (pe *pcdeditor) runImpl() error {
 			case "Delete", "Backspace", "Digit0", "Digit1":
 				switch e.Code {
 				case "Delete", "Backspace":
-					if sel, ok := scanSelection(0, 0); ok {
-						pe.cmd.Delete(sel)
-						if !e.ShiftKey && !e.CtrlKey {
-							pe.cmd.UnsetCursors()
+					switch pe.cmd.SelectMode() {
+					case selectModeRect:
+						if sel, ok := scanSelection(0, 0); ok {
+							pe.cmd.Delete(sel)
+							if !e.ShiftKey && !e.CtrlKey {
+								pe.cmd.UnsetCursors()
+							}
 						}
+					case selectModeMask:
+						pe.cmd.DeleteByMask(selectMaskData.UInt32Slice())
+						pe.cmd.UnsetCursors()
 					}
 				case "Digit0", "Digit1":
 					var l uint32

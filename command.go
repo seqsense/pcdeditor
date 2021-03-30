@@ -6,6 +6,7 @@ import (
 	"github.com/seqsense/pcdeditor/mat"
 	"github.com/seqsense/pcdeditor/pcd"
 	"github.com/seqsense/pcdeditor/pcd/filter/voxelgrid"
+	vgs "github.com/seqsense/pcdeditor/pcd/segmentation/voxelgrid"
 )
 
 const (
@@ -16,6 +17,8 @@ const (
 	defaultZMin                   = -5.0
 	defaultZMax                   = 5.0
 	defaultPointSize              = 20.0
+	defaultSegmentationDistance   = 0.08
+	defaultSegmentationRange      = 5.0
 )
 
 type pcdIO interface {
@@ -27,6 +30,13 @@ type pcdIO interface {
 type mapIO interface {
 	readMap(yamlPath, imgPath string) (*occupancyGrid, mapImage, error)
 }
+
+type selectMode int
+
+const (
+	selectModeRect selectMode = iota
+	selectModeMask
+)
 
 type commandContext struct {
 	*editor
@@ -55,6 +65,10 @@ type commandContext struct {
 	projectionType ProjectionType
 
 	pointSize float32
+
+	selectMode selectMode
+
+	segmentationDistance, segmentationRange float32
 }
 
 func newCommandContext(pcdio pcdIO, mapio mapIO) *commandContext {
@@ -69,6 +83,8 @@ func newCommandContext(pcdio pcdIO, mapio mapIO) *commandContext {
 		zMax:                   defaultZMax,
 		projectionType:         ProjectionPerspective,
 		pointSize:              defaultPointSize,
+		segmentationDistance:   defaultSegmentationDistance,
+		segmentationRange:      defaultSegmentationRange,
 	}
 	c.selectRange = &c.selectRangePerspective
 	return c
@@ -101,15 +117,33 @@ func (c *commandContext) PointSize() float32 {
 }
 
 func (c *commandContext) SetPointSize(ps float32) error {
-	if ps < 0 {
+	if ps <= 0 {
 		return errors.New("point size must be >0")
 	}
 	c.pointSize = ps
 	return nil
 }
 
+func (c *commandContext) SegmentationParam() (float32, float32) {
+	return c.segmentationDistance, c.segmentationRange
+}
+
+func (c *commandContext) SetSegmentationParam(dist, r float32) error {
+	if dist <= 0 || r <= 0 {
+		return errors.New("invalid segmentation param (D and R must be >0)")
+	}
+	if v := int(c.segmentationRange / c.segmentationDistance); v < 1 || 256 < v {
+		return errors.New("invalid segmentation param (R/D must be 1-256)")
+	}
+	c.segmentationDistance, c.segmentationRange = dist, r
+	return nil
+}
+
 func (c *commandContext) PointCloud() (*pcd.PointCloud, bool, bool) {
 	updated := c.pointCloudUpdated
+	if updated {
+		c.selectMode = selectModeRect
+	}
 	c.pointCloudUpdated = false
 	return c.editor.pc, updated, c.editor.pc != nil
 }
@@ -177,7 +211,12 @@ func (c *commandContext) SelectRange() float32 {
 	return *c.selectRange
 }
 
+func (c *commandContext) SelectMode() selectMode {
+	return c.selectMode
+}
+
 func (c *commandContext) SetCursor(i int, p mat.Vec3) bool {
+	c.selectMode = selectModeRect
 	if i < len(c.selected) {
 		c.selected[i] = p
 		c.updateRect()
@@ -212,6 +251,7 @@ func (c *commandContext) Cursors() []mat.Vec3 {
 }
 
 func (c *commandContext) UnsetCursors() {
+	c.selectMode = selectModeRect
 	c.selected = nil
 	c.updateRect()
 }
@@ -352,6 +392,12 @@ func (c *commandContext) Delete(sel []uint32) bool {
 	return true
 }
 
+func (c *commandContext) DeleteByMask(sel []uint32) bool {
+	c.editor.passThroughByMask(sel, selectBitmaskSelected, 0)
+	c.pointCloudUpdated = true
+	return true
+}
+
 func (c *commandContext) VoxelFilter(sel []uint32, resolution float32) error {
 	var filter, filterInv func(int, mat.Vec3) bool
 	var pc *pcd.PointCloud
@@ -464,4 +510,28 @@ func (c *commandContext) ExportPCD() (interface{}, error) {
 		return nil, err
 	}
 	return blob, nil
+}
+
+func (c *commandContext) SelectSegment(p mat.Vec3, sel []uint32) {
+	res := float32(c.segmentationDistance)
+	w := int(c.segmentationRange / c.segmentationDistance)
+	half := float32(w) * res / 2
+	v := vgs.New(res, [3]int{w, w, w}, p.Sub(mat.Vec3{half, half, half}))
+
+	it, err := c.editor.pc.Vec3Iterator()
+	if err != nil {
+		return
+	}
+	n := c.editor.pc.Points
+	for i := 0; i < n; i++ {
+		if sel[i]&(selectBitmaskCropped|selectBitmaskOnScreen) == selectBitmaskOnScreen {
+			v.Add(it.Vec3(), i)
+		}
+		it.Incr()
+	}
+	for _, i := range v.Segment(p) {
+		sel[i] |= selectBitmaskSelected
+	}
+	c.UnsetCursors()
+	c.selectMode = selectModeMask
 }

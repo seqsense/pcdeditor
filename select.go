@@ -9,6 +9,7 @@ const (
 	selectBitmaskCropped    = 0x00000001
 	selectBitmaskSelected   = 0x00000002
 	selectBitmaskNearCursor = 0x00000004
+	selectBitmaskOnScreen   = 0x00000008
 )
 
 func selectPointOrtho(modelViewMatrix, projectionMatrix *mat.Mat4, x, y, width, height int, depth *mat.Vec3) *mat.Vec3 {
@@ -66,21 +67,18 @@ func selectPoint(pc *pcd.PointCloud, selMask []uint32, projectionType Projection
 		origin, dir := perspectiveOriginDirFromPosVec(pos, a, modelViewMatrix)
 		vMin := float32(1000 * 1000)
 		if selMask != nil {
-			for i := 0; it.IsValid(); func() {
+			n := pc.Points
+			for i := 0; i < n; func() {
 				it.Incr()
 				i++
 			}() {
-				if selMask[i]&selectBitmaskCropped != 0 {
-					continue
-				}
-				if selMask[i]&selectBitmaskNearCursor == 0 {
+				if selMask[i]&(selectBitmaskCropped|selectBitmaskNearCursor|selectBitmaskOnScreen) != selectBitmaskNearCursor|selectBitmaskOnScreen {
 					continue
 				}
 				p := it.Vec3()
 				pRel := origin.Sub(p)
 				dot, distSq := pRel.Dot(*dir), pRel.NormSq()
-				dSq := distSq - dot*dot
-				v := dSq + distSq/10000
+				v := (distSq - dot*dot) + distSq/10000
 				if v < vMin {
 					vMin, selected = v, &p
 				}

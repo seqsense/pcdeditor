@@ -95,6 +95,9 @@ func (pc *PointCloud) Vec3Iterator() (Vec3Iterator, error) {
 			xyz = 2
 		} else if name == "z" && xyz == 2 {
 			xyz = 3
+			break
+		} else {
+			xyz = 0
 		}
 	}
 	if xyz != 3 {
