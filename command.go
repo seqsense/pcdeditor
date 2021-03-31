@@ -6,6 +6,7 @@ import (
 	"github.com/seqsense/pcdeditor/mat"
 	"github.com/seqsense/pcdeditor/pcd"
 	"github.com/seqsense/pcdeditor/pcd/filter/voxelgrid"
+	"github.com/seqsense/pcdeditor/pcd/sac"
 	vgs "github.com/seqsense/pcdeditor/pcd/segmentation/voxelgrid"
 )
 
@@ -19,6 +20,9 @@ const (
 	defaultPointSize              = 20.0
 	defaultSegmentationDistance   = 0.08
 	defaultSegmentationRange      = 5.0
+
+	sacIterationCnt     = 20
+	sacSurfacePointsMin = 50
 )
 
 type pcdIO interface {
@@ -131,7 +135,7 @@ func (c *commandContext) SetSegmentationParam(dist, r float32) error {
 	if dist <= 0 || r <= 0 {
 		return errors.New("invalid segmentation param (D and R must be >0)")
 	}
-	if v := int(c.segmentationRange / c.segmentationDistance); v < 1 || 256 < v {
+	if v := int(r / dist); v < 1 || 256 < v {
 		return errors.New("invalid segmentation param (R/D must be 1-256)")
 	}
 	c.segmentationDistance, c.segmentationRange = dist, r
@@ -511,6 +515,8 @@ func (c *commandContext) SelectSegment(p mat.Vec3, sel []uint32) {
 	if err != nil {
 		return
 	}
+
+	// Detect surface and exclude from selection.
 	n := c.editor.pc.Points
 	for i := 0; i < n; i++ {
 		if sel[i]&(selectBitmaskCropped|selectBitmaskOnScreen) == selectBitmaskOnScreen {
@@ -518,8 +524,50 @@ func (c *commandContext) SelectSegment(p mat.Vec3, sel []uint32) {
 		}
 		it.Incr()
 	}
+	if it, err = c.editor.pc.Vec3Iterator(); err != nil {
+		return
+	}
+	vIndice := v.Storage().Indice()
+	raIn := pcd.NewIndiceVec3RandomAccessor(it, vIndice)
+	sacSurface := sac.New(
+		sac.NewRandomSampler(raIn.Len()),
+		sac.NewVoxelGridSurfaceModel(v.Storage(), raIn),
+	)
+	var surfRealIndice []int
+	if ok := sacSurface.Compute(sacIterationCnt); ok {
+		if coeff := sacSurface.Coefficients(); coeff.Evaluate() > sacSurfacePointsMin {
+			if !coeff.IsIn(p, c.segmentationDistance) {
+				// Excude points only if the selected point is not on the surface.
+				surfIndice := coeff.Inliers(c.segmentationDistance)
+				surfRealIndice := make([]int, len(surfIndice))
+				for j, i := range surfIndice {
+					ri := vIndice[i]
+					sel[ri] |= selectBitmaskExclude
+					surfRealIndice[j] = ri
+				}
+			}
+		}
+	}
+	v.Reset()
+
+	// Select segment start from clicked point.
+	if it, err = c.editor.pc.Vec3Iterator(); err != nil {
+		return
+	}
+	for _, i := range vIndice {
+		if sel[i]&(selectBitmaskCropped|selectBitmaskOnScreen|selectBitmaskExclude) == selectBitmaskOnScreen {
+			v.Add(it.Vec3At(i), i)
+		}
+	}
+
 	for _, i := range v.Segment(p) {
-		sel[i] |= selectBitmaskSelected
+		if sel[i]&selectBitmaskExclude == 0 {
+			sel[i] |= selectBitmaskSelected
+		}
+	}
+	for _, i := range surfRealIndice {
+		// Clear selectBitmaskExclude bit.
+		sel[i] &= 0xFFFFFFFF ^ uint32(selectBitmaskExclude)
 	}
 	c.UnsetCursors()
 	c.selectMode = selectModeMask

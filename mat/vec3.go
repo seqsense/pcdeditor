@@ -1,6 +1,7 @@
 package mat
 
 import (
+	"fmt"
 	"math"
 )
 
@@ -24,6 +25,10 @@ func (v Vec3) Normalized() Vec3 {
 
 func (v Vec3) Mul(a float32) Vec3 {
 	return Vec3{v[0] * a, v[1] * a, v[2] * a}
+}
+
+func (v Vec3) ElementMul(a Vec3) Vec3 {
+	return Vec3{v[0] * a[0], v[1] * a[1], v[2] * a[2]}
 }
 
 func (v Vec3) Sub(a Vec3) Vec3 {
@@ -53,4 +58,8 @@ func (v Vec3) Cross(a Vec3) Vec3 {
 
 func (v Vec3) Equal(a Vec3) bool {
 	return a[0] == v[0] && a[1] == v[1] && a[2] == v[2]
+}
+
+func (v Vec3) String() string {
+	return fmt.Sprintf("{%0.3f, %0.3f, %0.3f}", v[0], v[1], v[2])
 }

@@ -22,6 +22,18 @@ func New(resolution float32, size [3]int, origin mat.Vec3) *VoxelGrid {
 	}
 }
 
+func (v *VoxelGrid) MinMax() (min, max mat.Vec3) {
+	return v.origin, v.origin.Add(mat.Vec3{
+		float32(v.size[0]) * v.resolution,
+		float32(v.size[1]) * v.resolution,
+		float32(v.size[2]) * v.resolution,
+	})
+}
+
+func (v *VoxelGrid) Resolution() float32 {
+	return v.resolution
+}
+
 func (v *VoxelGrid) Add(p mat.Vec3, index int) bool {
 	addr, ok := v.Addr(p)
 	if !ok {
@@ -46,15 +58,15 @@ func (v *VoxelGrid) GetByAddr(a int) []int {
 
 func (v *VoxelGrid) Addr(p mat.Vec3) (int, bool) {
 	pos := p.Sub(v.origin)
-	x := int(pos[0] * v.resolutionInv)
+	x := int(pos[0]*v.resolutionInv + 0.5)
 	if x < 0 || x >= v.size[0] {
 		return 0, false
 	}
-	y := int(pos[1] * v.resolutionInv)
+	y := int(pos[1]*v.resolutionInv + 0.5)
 	if y < 0 || y >= v.size[1] {
 		return 0, false
 	}
-	z := int(pos[2] * v.resolutionInv)
+	z := int(pos[2]*v.resolutionInv + 0.5)
 	if z < 0 || z >= v.size[2] {
 		return 0, false
 	}
@@ -71,10 +83,16 @@ func (v *VoxelGrid) AddrByPosInt(p [3]int) (int, bool) {
 
 func (v *VoxelGrid) PosInt(p mat.Vec3) ([3]int, bool) {
 	pos := p.Sub(v.origin)
-	x := int(pos[0] * v.resolutionInv)
-	y := int(pos[1] * v.resolutionInv)
-	z := int(pos[2] * v.resolutionInv)
-	if x < 0 || y < 0 || z < 0 || x >= v.size[0] || y >= v.size[1] || z >= v.size[2] {
+	x := int(pos[0]*v.resolutionInv + 0.5)
+	if x < 0 || x >= v.size[0] {
+		return [3]int{}, false
+	}
+	y := int(pos[1]*v.resolutionInv + 0.5)
+	if y < 0 || y >= v.size[1] {
+		return [3]int{}, false
+	}
+	z := int(pos[2]*v.resolutionInv + 0.5)
+	if z < 0 || z >= v.size[2] {
 		return [3]int{}, false
 	}
 	return [3]int{x, y, z}, true
@@ -82,4 +100,18 @@ func (v *VoxelGrid) PosInt(p mat.Vec3) ([3]int, bool) {
 
 func (v *VoxelGrid) Len() int {
 	return v.size[0] * v.size[1] * v.size[2]
+}
+
+func (v *VoxelGrid) Indice() []int {
+	out := make([]int, 0, 1024)
+	for _, g := range v.voxel {
+		out = append(out, g...)
+	}
+	return out
+}
+
+func (v *VoxelGrid) Reset() {
+	for i := range v.voxel {
+		v.voxel[i] = nil
+	}
 }

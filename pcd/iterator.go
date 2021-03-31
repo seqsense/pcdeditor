@@ -21,11 +21,17 @@ func (i *binaryIterator) IsValid() bool {
 	return i.pos+i.stride <= len(i.data)
 }
 
+func (i *binaryIterator) Len() int {
+	return len(i.data) / i.stride
+}
+
 type Float32Iterator interface {
 	Incr()
 	IsValid() bool
 	Float32() float32
 	SetFloat32(float32)
+	Float32At(int) float32
+	Len() int
 }
 
 type Vec3Iterator interface {
@@ -33,6 +39,8 @@ type Vec3Iterator interface {
 	IsValid() bool
 	Vec3() mat.Vec3
 	SetVec3(mat.Vec3)
+	Vec3At(int) mat.Vec3
+	Len() int
 }
 
 type binaryFloat32Iterator struct {
@@ -42,6 +50,13 @@ type binaryFloat32Iterator struct {
 func (i *binaryFloat32Iterator) Float32() float32 {
 	return math.Float32frombits(
 		binary.LittleEndian.Uint32(i.binaryIterator.data[i.binaryIterator.pos : i.binaryIterator.pos+4]),
+	)
+}
+
+func (i *binaryFloat32Iterator) Float32At(j int) float32 {
+	pos := i.binaryIterator.pos + i.stride*j
+	return math.Float32frombits(
+		binary.LittleEndian.Uint32(i.binaryIterator.data[pos : pos+4]),
 	)
 }
 
@@ -66,8 +81,16 @@ func (i *float32Iterator) IsValid() bool {
 	return i.pos+i.stride <= len(i.data)
 }
 
+func (i *float32Iterator) Len() int {
+	return len(i.data) / i.stride
+}
+
 func (i *float32Iterator) Float32() float32 {
 	return i.data[i.pos]
+}
+
+func (i *float32Iterator) Float32At(j int) float32 {
+	return i.data[i.pos+i.stride*j]
 }
 
 func (i *float32Iterator) SetFloat32(v float32) {
@@ -76,6 +99,11 @@ func (i *float32Iterator) SetFloat32(v float32) {
 
 func (i *float32Iterator) Vec3() mat.Vec3 {
 	return mat.Vec3{i.data[i.pos], i.data[i.pos+1], i.data[i.pos+2]}
+}
+
+func (i *float32Iterator) Vec3At(j int) mat.Vec3 {
+	pos := i.pos + i.stride*j
+	return mat.Vec3{i.data[pos], i.data[pos+1], i.data[pos+2]}
 }
 
 func (i *float32Iterator) SetVec3(v mat.Vec3) {
@@ -90,6 +118,10 @@ func (i naiveVec3Iterator) IsValid() bool {
 	return i[0].IsValid()
 }
 
+func (i naiveVec3Iterator) Len() int {
+	return i[0].Len()
+}
+
 func (i naiveVec3Iterator) Incr() {
 	i[0].Incr()
 	i[1].Incr()
@@ -98,6 +130,10 @@ func (i naiveVec3Iterator) Incr() {
 
 func (i naiveVec3Iterator) Vec3() mat.Vec3 {
 	return mat.Vec3{i[0].Float32(), i[1].Float32(), i[2].Float32()}
+}
+
+func (i naiveVec3Iterator) Vec3At(j int) mat.Vec3 {
+	return mat.Vec3{i[0].Float32At(j), i[1].Float32At(j), i[2].Float32At(j)}
 }
 
 func (i naiveVec3Iterator) SetVec3(v mat.Vec3) {
@@ -111,6 +147,8 @@ type Uint32Iterator interface {
 	IsValid() bool
 	Uint32() uint32
 	SetUint32(uint32)
+	Uint32At(int) uint32
+	Len() int
 }
 
 type binaryUint32Iterator struct {
@@ -119,6 +157,11 @@ type binaryUint32Iterator struct {
 
 func (i *binaryUint32Iterator) Uint32() uint32 {
 	return binary.LittleEndian.Uint32(i.binaryIterator.data[i.binaryIterator.pos : i.binaryIterator.pos+4])
+}
+
+func (i *binaryUint32Iterator) Uint32At(j int) uint32 {
+	pos := i.binaryIterator.pos + i.binaryIterator.stride*j
+	return binary.LittleEndian.Uint32(i.binaryIterator.data[pos : pos+4])
 }
 
 func (i *binaryUint32Iterator) SetUint32(v uint32) {

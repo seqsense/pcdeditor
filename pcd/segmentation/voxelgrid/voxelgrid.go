@@ -32,6 +32,10 @@ func New(resolution float32, size [3]int, origin mat.Vec3) *VoxelGrid {
 	}
 }
 
+func (v *VoxelGrid) Storage() *storage.VoxelGrid {
+	return v.VoxelGrid
+}
+
 func (v *VoxelGrid) Segment(p mat.Vec3) []int {
 	searched := make([]bool, v.Len())
 	pos, ok := v.PosInt(p)
