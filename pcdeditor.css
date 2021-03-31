@@ -1,0 +1,71 @@
+html {
+  height: 100%;
+  width: 100%;
+}
+body {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+#container {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  position: relative;
+  margin: 0;
+  padding: 0;
+  background-color: black;
+}
+#mapCanvas {
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  touch-action: none;
+}
+#menubox {
+  z-index: 2;
+  position: absolute;
+  top: 0;
+  left: 0;
+  padding: 2px;
+  box-sizing: border-box;
+}
+#command {
+  opacity: 0.8;
+}
+#menubox>span {
+  background-color: rgba(255, 255, 255, 0.8);
+  padding: 2px;
+  border-radius: 0.3em;
+  margin-left: 0.5em;
+}
+#menubox>label {
+  padding-left: 0.5em;
+  padding-right: 0.2em;
+  margin-left: -0.5em;
+}
+#menubox>a {
+  text-decoration: none;
+  color: black;
+  padding: 2px 0.5em;
+  background-color: rgba(255, 255, 255, 0.8);
+  border-radius: 0.3em;
+  margin-left: 0.5em;
+}
+#log {
+  font-size: 0.6em;
+  max-height: 20em;
+  position: absolute;
+  bottom: 1em;
+  left: 1em;
+  z-index: 2;
+  color: white;
+  pointer-events: none;
+  overflow: hidden;
+}
+.viewpointButton {
+  cursor: pointer;
+}

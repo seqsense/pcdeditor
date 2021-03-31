@@ -1,185 +1,47 @@
 <!DOCTYPE html>
-<html style="height: 100%; width: 100%;">
+<html>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+    <link rel="stylesheet" type="text/css" href="pcdeditor.css" />
   </head>
-  <body style="box-sizing: border-box; width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden;">
-    <div id="container" style="box-sizing: border-box; width: 100%; height: 100%; position: relative; margin: 0; padding: 0; background-color: black;">
-      <canvas id="mapCanvas" tabindex="0" style="width: 100%; height: 100%; z-index: 1; touch-action: none;"></canvas>
-      <div style="z-index: 2; position: absolute; top: 0; left: 0; padding: 2px; box-sizing: border-box;">
+  <body>
+    <div id="container">
+      <canvas id="mapCanvas" tabindex="0"></canvas>
+      <div id="menubox">
         <button id="loadPCD">load</button>
-        <button id="savePCD">save</button>
         <button id="exportPCD">export</button>
-        <input type="text" id="command" style="opacity: 0.8;" />
-        <span style="background-color: rgba(255, 255, 255, 0.8); padding: 2px; border-radius: 0.3em;">
+        <input type="text" id="command" />
+        <span>
           <input type="checkbox" checked id="show2D" />
-          <label for="show2D" style="padding-left: 0.5em; padding-right: 0.2em; margin-left: -0.5em;">2D</label>
+          <label for="show2D">2D</label>
         </span>
-        <span style="background-color: rgba(255, 255, 255, 0.8); padding: 2px; border-radius: 0.3em; margin-left: 0.5em;">
+        <span>
           <input type="checkbox" checked id="ortho" />
-          <label for="ortho" style="padding-left: 0.5em; padding-right: 0.2em; margin-left: -0.5em;">Ortho</label>
+          <label for="ortho">Ortho</label>
         </span>
-        <span style="background-color: rgba(255, 255, 255, 0.8); padding: 2px 8px; border-radius: 0.3em; margin-left: 0.5em;">
-          <span id="side" style="cursor: pointer;">↪</span>
-          <span id="top" style="cursor: pointer;">🔝</span></span>
-        <a href="https://github.com/seqsense/pcdeditor#%E6%93%8D%E4%BD%9C" style="text-decoration: none; color: black; padding: 2px 0.5em; background-color: rgba(255, 255, 255, 0.8); border-radius: 0.3em; margin-left: 0.5em;" target="_blank">❓</a>
+        <span>
+          <span id="side" class="viewpointButton">↪</span>
+          <span id="top" class="viewpointButton">🔝</span>
+        </span>
+        <a href="https://github.com/seqsense/pcdeditor#%E6%93%8D%E4%BD%9C" target="_blank">❓</a>
         <button id="resetContext">reset</button>
       </div>
-      <div id="log" style="font-size: 0.6em; max-height: 20em; position: absolute; bottom: 1em; left: 1em; z-index: 2; color: white; pointer-events: none; overflow: hidden;"></div>
+      <div id="log"></div>
     </div>
   </body>
   <script src="wasm_exec.js"></script>
+  <script src="pcdeditor.js"></script>
   <script>
-    const query = new URLSearchParams(window.location.search);
-    document.onPCDEditorLoaded = e => {
-      const logger = msg => {
-        if (msg.toString != undefined) {
-          const log = document.getElementById('log');
-          log.innerHTML = msg.toString().replace(/\n/g, '<br/>') + '<br/>' + log.innerHTML;
-        }
+    const editor = new PCDEditor();
+    editor.attach().then(() => {
+      const pcdPath = '/fixture/map.pcd';
+      const yamlPath = '/fixture/map.yaml';
+      const imgPath = '/fixture/map.png';
+      document.querySelector('#loadPCD').onclick = () => {
+        editor.pcdeditor.loadPCD(pcdPath).catch(editor.logger);
+        editor.pcdeditor.load2D(yamlPath, imgPath).catch(editor.logger);
       };
-
-      let pcdPath = '/fixture/map.pcd';
-      let yamlPath = '/fixture/map.yaml';
-      let imgPath = '/fixture/map.png';
-      let pcdSpecified = false;
-      let yamlSpecified = false;
-      let imgSpecified = false;
-      if (query.has('source')) {
-        pcdPath = query.get('source');
-        pcdSpecified = true;
-        document.getElementById('loadPCD').style.display = 'none';
-      }
-      if (query.has('yaml')) {
-        yamlPath = query.get('yaml');
-        yamlSpecified = true;
-      }
-      if (query.has('2d')) {
-        imgPath = query.get('2d');
-        imgSpecified = true;
-      }
-      if (query.has('mapID') && query.has('gql')) {
-        pcdSpecified = false;
-        yamlSpecified = false;
-        imgSpecified = false;
-        document.getElementById('loadPCD').style.display = 'none';
-
-        fetch(query.get('gql'), {
-          method: 'POST',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-          },
-          body: JSON.stringify({query: `
-            query Map($id: ID!) {
-              map(id: $id) {
-                name
-                mapFiles {
-                  name
-                  currentMapFile {
-                    mapFileVersion {
-                      fileURL
-                    }
-                  }
-                }
-              }
-            }`, variables: {id: query.get('mapID')}})
-        }).then(r => r.json()).then(res => {
-          let yamlPath = null;
-          let imgPath = null;
-          for (const file of res.data.map.mapFiles) {
-            switch (file.name) {
-            case 'map.pcd':
-              pcdeditor.loadPCD(file.currentMapFile.mapFileVersion.fileURL).catch(logger);
-              break;
-            case 'map.yaml':
-              yamlPath = file.currentMapFile.mapFileVersion.fileURL;
-              break;
-            case 'map.png':
-              imgPath = file.currentMapFile.mapFileVersion.fileURL;
-              break;
-            }
-          }
-          if (yamlPath != null && imgPath != null) {
-            pcdeditor.load2D(yamlPath, imgPath).catch(logger);
-          }
-        }).catch(logger);
-      }
-
-      const canvas = document.getElementById('mapCanvas');
-      const pcdeditor = e.attach(canvas, {logger: logger});
-      document.getElementById('resetContext').onclick =
-        () => {
-          const gl = canvas.getContext('webgl2');
-          const glex = gl.getExtension('WEBGL_lose_context');
-          glex.loseContext();
-          const retryRestore = setInterval(() => {
-            try {
-              glex.restoreContext();
-            } catch (error) {
-              return;
-            }
-            clearInterval(retryRestore);
-          }, 1000);
-        };
-      document.getElementById('loadPCD').onclick =
-        () => {
-          pcdeditor.loadPCD(pcdPath).catch(logger);
-          pcdeditor.load2D(yamlPath, imgPath).catch(logger);
-        };
-      document.getElementById('savePCD').onclick =
-        () => pcdeditor.savePCD('/upload/map.pcd').catch(logger);
-      document.getElementById('exportPCD').onclick =
-        () => pcdeditor.exportPCD().then(blob => {
-            const a = document.createElement('a');
-            a.download = 'exported.pcd';
-            a.href = URL.createObjectURL(blob);
-            a.dataset.downloadurl = ['application/octet-stream', a.download, a.href];
-            a.click();
-          }).catch(logger);
-      document.getElementById('command').onkeydown =
-        e => {
-          if (e.keyCode == 13) {
-            pcdeditor.command(e.target.value).then(msg => {
-              if (msg != '') {
-                logger(msg)
-              }
-            }).catch(logger);
-            e.target.value = '';
-          }
-          if (e.keyCode == 27) {
-            document.getElementById('mapCanvas').focus();
-          }
-        };
-      if (pcdSpecified) {
-        pcdeditor.loadPCD(pcdPath).catch(logger);
-      }
-      if (yamlSpecified && imgSpecified) {
-        pcdeditor.load2D(yamlPath, imgPath).catch(logger);
-      }
-
-      document.getElementById('show2D').onchange =
-        e => pcdeditor.show2D(e.target.checked).catch(logger);
-      pcdeditor.show2D(document.getElementById('show2D').checked).catch(logger);
-
-      const projectionMode =
-        target => pcdeditor.command(target.checked ? 'ortho' : 'perspective').catch(logger);
-      document.getElementById('ortho').onchange = e => projectionMode(e.target);
-      projectionMode(document.getElementById('ortho'));
-
-      document.getElementById('top').onclick =
-        e => pcdeditor.command('pitch 0').catch(logger);
-      document.getElementById('side').onclick =
-        e => pcdeditor.command('snap_yaw')
-                      .then(pcdeditor.command('pitch 1.570796327'))
-                      .then(pcdeditor.command('rotate_yaw 1.570796327'))
-                      .catch(logger);
-    }
-    const go = new Go();
-    WebAssembly.instantiateStreaming(fetch('pcdeditor.wasm', {cache: "no-cache"}), go.importObject).then((result) => {
-      go.run(result.instance);
     });
   </script>
 </html>

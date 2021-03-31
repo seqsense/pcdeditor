@@ -1,4 +1,11 @@
 GOROOT := $(shell go env GOROOT)
+RELEASE_FILES := \
+	iframe.html \
+	index.html \
+	pcdeditor.css \
+	pcdeditor.js \
+	pcdeditor.wasm \
+	wasm_exec.js
 
 .PHONY: serve
 serve: pcdeditor.wasm wasm_exec.js fixture/map.pcd vendor_js/postmate.min.js
@@ -16,20 +23,8 @@ wasm_exec.js: $(GOROOT)/misc/wasm/wasm_exec.js
 	cp $< $@
 
 .PHONY: release
-release: release/pcdeditor.wasm release/wasm_exec.js release/index.html release/iframe.html
+release: $(addprefix release/,$(RELEASE_FILES))
 
-release/pcdeditor.wasm: pcdeditor.wasm
-	mkdir -p release
-	cp $< $@
-
-release/wasm_exec.js: wasm_exec.js
-	mkdir -p release
-	cp $< $@
-
-release/index.html: index.html
-	mkdir -p release
-	cp $< $@
-
-release/iframe.html: iframe.html
+release/%: %
 	mkdir -p release
 	cp $< $@

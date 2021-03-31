@@ -46,7 +46,6 @@ type pcdeditor struct {
 	logPrint          func(msg interface{})
 	chLoadPCD         chan promiseCommand
 	chLoad2D          chan promiseCommand
-	chSavePCD         chan promiseCommand
 	chExportPCD       chan promiseCommand
 	chCommand         chan promiseCommand
 	chWheel           chan webgl.WheelEvent
@@ -75,7 +74,6 @@ func newPCDEditor(this js.Value, args []js.Value) interface{} {
 		},
 		chLoadPCD:         make(chan promiseCommand, 1),
 		chLoad2D:          make(chan promiseCommand, 1),
-		chSavePCD:         make(chan promiseCommand, 1),
 		chExportPCD:       make(chan promiseCommand, 1),
 		chCommand:         make(chan promiseCommand, 1),
 		chWheel:           make(chan webgl.WheelEvent, 10),
@@ -111,9 +109,6 @@ func newPCDEditor(this js.Value, args []js.Value) interface{} {
 		}),
 		"load2D": js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			return newCommandPromise(pe.chLoad2D, [2]string{args[0].String(), args[1].String()})
-		}),
-		"savePCD": js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			return newCommandPromise(pe.chSavePCD, args[0].String())
 		}),
 		"exportPCD": js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			return newCommandPromise(pe.chExportPCD, nil)
@@ -748,14 +743,6 @@ func (pe *pcdeditor) runImpl() error {
 			}
 			pe.logPrint("2D map file loaded")
 			promise.resolved("loaded")
-		case promise := <-pe.chSavePCD:
-			pe.logPrint("saving pcd file")
-			if err := pe.cmd.SavePCD(promise.data.(string)); err != nil {
-				promise.rejected(err)
-				break
-			}
-			pe.logPrint("pcd file saved")
-			promise.resolved("saved")
 		case promise := <-pe.chExportPCD:
 			pe.logPrint("exporting pcd file")
 			blob, err := pe.cmd.ExportPCD()

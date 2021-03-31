@@ -3,3 +3,4 @@ wasm_exec.js
 release
 cover.out
 vendor_js
+node_modules

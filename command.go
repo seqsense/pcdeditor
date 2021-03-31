@@ -23,7 +23,6 @@ const (
 
 type pcdIO interface {
 	readPCD(path string) (*pcd.PointCloud, error)
-	writePCD(path string, pc *pcd.PointCloud) error
 	exportPCD(pc *pcd.PointCloud) (interface{}, error)
 }
 
@@ -488,16 +487,6 @@ func (c *commandContext) Load2D(yamlPath, imgPath string) error {
 	c.mapImg = img
 
 	c.mapUpdated = true
-	return nil
-}
-
-func (c *commandContext) SavePCD(path string) error {
-	if c.editor.pc == nil {
-		return errors.New("no pointcloud")
-	}
-	if err := c.pcdIO.writePCD(path, c.editor.pc); err != nil {
-		return err
-	}
 	return nil
 }
 

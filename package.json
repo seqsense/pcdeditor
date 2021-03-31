@@ -1,0 +1,25 @@
+{
+  "name": "pcdeditor",
+  "version": "0.0.0",
+  "description": "PCD editor",
+  "main": "pcdeditor.js",
+  "directories": {
+    "example": "examples"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/seqsense/pcdeditor.git"
+  },
+  "author": "",
+  "license": "SEQSENSE Proprietary",
+  "bugs": {
+    "url": "https://github.com/seqsense/pcdeditor/issues"
+  },
+  "homepage": "https://github.com/seqsense/pcdeditor#readme",
+  "dependencies": {
+    "eslint": "^7.23.0"
+  }
+}

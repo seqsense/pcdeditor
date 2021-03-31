@@ -4,137 +4,45 @@ sq-admin に iframe として pcdeditor を組み込むための HTML ファイ�
 
 postmate を使って、sq-admin と iframe 間通信でデータを送受信する。
 -->
-<html style="height: 100%; width: 100%;">
+<html>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+    <link rel="stylesheet" type="text/css" href="pcdeditor.css" />
   </head>
-  <body style="box-sizing: border-box; width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden;">
-    <div id="container" style="box-sizing: border-box; width: 100%; height: 100%; position: relative; margin: 0; padding: 0; background-color: black;">
-      <canvas id="mapCanvas" tabindex="0" style="width: 100%; height: 100%; z-index: 1; touch-action: none;"></canvas>
-      <div style="z-index: 2; position: absolute; top: 0; left: 0; padding: 2px; box-sizing: border-box;">
+  <body>
+    <div id="container">
+      <canvas id="mapCanvas" tabindex="0"></canvas>
+      <div id="menubox">
         <button id="savePCD">save</button>
         <button id="exportPCD">export</button>
-        <input type="text" id="command" style="opacity: 0.8;" />
-        <span style="background-color: rgba(255, 255, 255, 0.8); padding: 2px; border-radius: 0.3em;">
+        <input type="text" id="command" />
+        <span>
           <input type="checkbox" checked id="show2D" />
-          <label for="show2D" style="padding-left: 0.5em; padding-right: 0.2em; margin-left: -0.5em;">2D</label>
+          <label for="show2D">2D</label>
         </span>
-        <span style="background-color: rgba(255, 255, 255, 0.8); padding: 2px; border-radius: 0.3em; margin-left: 0.5em;">
+        <span>
           <input type="checkbox" checked id="ortho" />
-          <label for="ortho" style="padding-left: 0.5em; padding-right: 0.2em; margin-left: -0.5em;">Ortho</label>
+          <label for="ortho">Ortho</label>
         </span>
-        <span style="background-color: rgba(255, 255, 255, 0.8); padding: 2px 8px; border-radius: 0.3em; margin-left: 0.5em;">
-          <span id="side" style="cursor: pointer;">↪</span>
-          <span id="top" style="cursor: pointer;">🔝</span></span>
-        <a href="https://github.com/seqsense/pcdeditor#%E6%93%8D%E4%BD%9C" style="text-decoration: none; color: black; padding: 2px 0.5em; background-color: rgba(255, 255, 255, 0.8); border-radius: 0.3em; margin-left: 0.5em;" target="_blank">❓</a>
+        <span>
+          <span id="side">↪</span>
+          <span id="top">🔝</span>
+        </span>
+        <a href="https://github.com/seqsense/pcdeditor#%E6%93%8D%E4%BD%9C" target="_blank">❓</a>
+        <button id="resetContext">reset</button>
       </div>
-      <div id="log" style="font-size: 0.6em; max-height: 20em; position: absolute; bottom: 1em; left: 1em; z-index: 2; color: white; pointer-events: none; overflow: hidden;"></div>
+      <div id="log"></div>
     </div>
   </body>
   <script src="wasm_exec.js"></script>
   <script src="../vendor_js/postmate.min.js"></script>
+  <script src="pcdeditor.js"></script>
   <script>
-    /** Shorthand for document.querySelector */
-    const qs = (q) => document.querySelector(q);
-    const logger = msg => {
-      if (msg.toString != undefined) {
-        const log = qs('#log');
-        log.innerHTML = msg.toString().replace(/\n/g, '<br/>') + '<br/>' + log.innerHTML;
-      }
-    };
-    /** Sets up the control's event handlers */
-    const setupControls = async (pcdeditor, parentFrame) => {
-      const saveBtn = qs('#savePCD')
-      saveBtn.onclick = async () => {
-        try {
-          const blob = await pcdeditor.exportPCD();
-          const objectURL = URL.createObjectURL(blob);
-          parentFrame.emit('save-pcd', objectURL);
-          saveBtn.disabled = true;
-        } catch (e) {
-          logger(e);
-        }
-      };
-      qs('#exportPCD').onclick = async () => {
-        try {
-          const blob = await pcdeditor.exportPCD()
-          const a = document.createElement('a');
-          a.download = 'exported.pcd';
-          a.href = URL.createObjectURL(blob);
-          a.dataset.downloadurl = ['application/octet-stream', a.download, a.href];
-          a.click();
-        } catch (e) {
-          logger(e);
-        }
-      };
-      qs('#command').onkeydown = (e) => {
-        if (e.keyCode == 13) {
-          pcdeditor.command(e.target.value).then(msg => {
-            if (msg != '') {
-              logger(msg)
-            }
-          }).catch(logger);
-          e.target.value = '';
-        }
-        if (e.keyCode == 27) {
-          qs('#mapCanvas').focus();
-        }
-      };
-      qs('#show2D').onchange =
-        (e) => pcdeditor.show2D(e.target.checked).catch(logger);
-      pcdeditor.show2D(qs('#show2D').checked).catch(logger);
-
-      const projectionMode =
-        (target) =>
-          pcdeditor.command(target.checked ? 'ortho' : 'perspective').catch(logger);
-      qs('#ortho').onchange = e => projectionMode(e.target);
-      projectionMode(qs('#ortho'));
-
-      qs('#top').onclick = (e) => pcdeditor.command('pitch 0').catch(logger);
-      qs('#side').onclick = async (e) => {
-        try {
-          await pcdeditor.command('snap_yaw');
-          await pcdeditor.command('pitch 1.570796327');
-          await pcdeditor.command('rotate_yaw 1.570796327');
-        } catch (e) {
-          logger(e);
-        }
-      };
-    };
-    /** Sets up the postmate (iframe communication library) */
-    const setupPostmate = (pcdeditor) => new Postmate.Model({
-      load: async ({ mapPcd, mapYaml, mapPng }) => {
-        if (!mapPcd) {
-          logger('map.pcd is not given');
-          return;
-        }
-        pcdeditor.loadPCD(mapPcd).catch(logger);
-        if (!mapYaml) {
-          logger('map.yaml is not given');
-          return;
-        }
-        if (!mapPng) {
-          logger('map.png is not given');
-          return;
-        }
-        pcdeditor.load2D(mapYaml, mapPng).catch(logger);
-      },
-      enableSaveBtn: () => {
-        qs('#savePCD').disabled = false
-      }
+    const editor = new PCDEditor();
+    editor.attach().then(() => {
+      editor.initSavePCD();
     });
-    /** main */
-    window.onload = async () => {
-      document.onPCDEditorLoaded = async (e) => {
-        const pcdeditor = e.attach(qs('#mapCanvas'), { logger });
-        const parentFrame = await setupPostmate(pcdeditor);
-        setupControls(pcdeditor, parentFrame);
-      };
-      const go = new Go();
-      const { instance } = await WebAssembly.instantiateStreaming(fetch('pcdeditor.wasm', {cache: "no-cache"}), go.importObject)
-      go.run(instance);
-    }
   </script>
 </html>
 
