@@ -30,7 +30,14 @@ const vsSource = `#version 300 es
 
 		viewPosition = uModelViewMatrix * aVertexPosition;
 		gl_Position = uProjectionMatrix * viewPosition;
-		gl_PointSize = clamp(uPointSizeBase / length(viewPosition), 1.0, uPointSizeBase/4.0);
+
+		if (uProjectionMatrix[3][3] == 0.0) {
+			// Perspective mode
+			gl_PointSize = clamp(uPointSizeBase / length(viewPosition), 1.0, uPointSizeBase);
+		} else {
+			// Orthographic mode
+			gl_PointSize = uPointSizeBase / 20.0;
+		}
 
 		if (uUseSelectMask == 0) {
 			selectPosition = uSelectMatrix * aVertexPosition;

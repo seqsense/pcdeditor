@@ -17,7 +17,7 @@ const (
 	defaultMapAlpha               = 0.3
 	defaultZMin                   = -5.0
 	defaultZMax                   = 5.0
-	defaultPointSize              = 20.0
+	defaultPointSize              = 40.0
 	defaultSegmentationDistance   = 0.08
 	defaultSegmentationRange      = 5.0
 

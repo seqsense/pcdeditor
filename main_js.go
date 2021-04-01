@@ -571,11 +571,6 @@ func (pe *pcdeditor) runImpl() error {
 			gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
 			pointSize := pe.cmd.PointSize()
-			pointSizeSel := pointSize
-			if projectionType == ProjectionOrthographic {
-				pointSize /= 10
-			}
-
 			selectMode := pe.cmd.SelectMode()
 
 			if hasPointCloud && pc.Points > 0 {
@@ -624,7 +619,7 @@ func (pe *pcdeditor) runImpl() error {
 					}
 
 					gl.UniformMatrix4fv(uModelViewMatrixLocationSel, false, modelViewMatrix)
-					gl.Uniform1f(uPointSizeBaseSel, pointSizeSel)
+					gl.Uniform1f(uPointSizeBaseSel, pointSize)
 					gl.DrawArrays(gl.LINE_LOOP, 0, n)
 					gl.DrawArrays(gl.POINTS, 0, n)
 				}
