@@ -37,15 +37,75 @@ body {
   opacity: 0.8;
 }
 #menubox>span {
-  background-color: rgba(255, 255, 255, 0.8);
+  background-color: #CCC;
   padding: 2px;
   border-radius: 0.3em;
   margin-left: 0.5em;
+  position: relative;
 }
-#menubox>label {
+#menubox label {
   padding-left: 0.5em;
   padding-right: 0.2em;
   margin-left: -0.5em;
+}
+#menubox>span.foldMenu:after {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  content: "";
+}
+#menubox>span.foldMenu>div {
+  padding: 0;
+  margin: 0;
+  display: inline-block;
+  width: 1em;
+  height: 100%;
+  overflow: hidden;
+  position: absolute;
+  top: 0;
+  background-color: rgba(204, 204, 204, 0.9);
+  border-radius: 0.3em;
+  color: #666;
+}
+#menubox>span.foldMenu>div:hover {
+  width: 8em;
+  height: auto;
+  min-width: 5em;
+}
+#menubox>span.foldMenu>div:after {
+  content: "";
+  display: block;
+  clear: both;
+}
+#menubox>span.foldMenu>div>span {
+  cursor: pointer;
+  color: #000;
+  line-height: 100%;
+}
+#menubox>span.foldMenu>div>span.foldMenuHeader {
+  cursor: default;
+  font-size: 0.75em;
+  color: #333;
+}
+#menubox>span.foldMenu>div>.foldMenuElem {
+  color: #000;
+  margin: 0 2px;
+  width: calc(100% - 4px);
+  position: relative;
+}
+#menubox>span.foldMenu>div>.foldMenuElem:after {
+  height: 2px;
+  content: "";
+}
+.twoButtons {
+  margin: 0;
+  width: 50%;
+}
+.rangeLabel{
+  font-size: 0.75em;
+}
+.foldMenuFill{
+  width: calc(100% - 4px);
 }
 #menubox>a {
   text-decoration: none;
@@ -65,7 +125,4 @@ body {
   color: white;
   pointer-events: none;
   overflow: hidden;
-}
-.viewpointButton {
-  cursor: pointer;
 }

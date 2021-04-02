@@ -59,10 +59,16 @@
             try {
               await pcdeditor.command('snap_yaw');
               await pcdeditor.command('pitch 1.570796327');
-              await pcdeditor.command('rotate_yaw 1.570796327');
             } catch (e) {
               that.logger(e);
             }
+          };
+          qs('#yaw90cw').onclick = () => pcdeditor.command('rotate_yaw 1.570796327').catch(that.logger);
+          qs('#yaw90ccw').onclick = () => pcdeditor.command('rotate_yaw -1.570796327').catch(that.logger);
+          qs('#crop').onclick = () => pcdeditor.command('crop').catch(that.logger);
+          qs('#pointSize').onchange = () => {
+            const val = qs('#pointSize').value;
+            pcdeditor.command(`point_size ${val}`).catch(that.logger);
           };
 
           qs('#resetContext').onclick = () => {

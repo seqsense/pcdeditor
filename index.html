@@ -20,9 +20,20 @@
           <input type="checkbox" checked id="ortho" />
           <label for="ortho">Ortho</label>
         </span>
-        <span>
-          <span id="side" class="viewpointButton">↪</span>
-          <span id="top" class="viewpointButton">🔝</span>
+        <span class="foldMenu">
+          <div>
+            <span>👁</span> <span class="foldMenuHeader">View</span>
+            <button id="side" class="foldMenuElem">Side view</button>
+            <button id="top" class="foldMenuElem">Top view</button>
+            <div class="foldMenuElem">
+              <button id="yaw90ccw" class="twoButtons">←90°</button><button id="yaw90cw" class="twoButtons">90°→</button>
+            </div>
+            <div class="foldMenuElem">
+              <label for="pointSize" class="rangeLabel">Point size</label>
+              <input type="range" id="pointSize" class="foldMenuFill" min="20" max="100" value="40" />
+            </div>
+            <button id="crop" class="foldMenuElem">Crop/Uncrop</button>
+          </div>
         </span>
         <a href="https://github.com/seqsense/pcdeditor#%E6%93%8D%E4%BD%9C" target="_blank">❓</a>
         <button id="resetContext">reset</button>
