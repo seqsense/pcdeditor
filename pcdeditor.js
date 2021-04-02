@@ -54,7 +54,14 @@
           qs('#ortho').onchange = e => projectionMode(e.target);
           projectionMode(qs('#ortho'));
 
-          qs('#top').onclick = () => pcdeditor.command('pitch 0').catch(that.logger);
+          qs('#top').onclick = async () => {
+            try {
+              await pcdeditor.command('snap_yaw');
+              await pcdeditor.command('pitch 0');
+            } catch (e) {
+              that.logger(e);
+            }
+          };
           qs('#side').onclick = async () => {
             try {
               await pcdeditor.command('snap_yaw');
