@@ -856,46 +856,54 @@ func (pe *pcdeditor) runImpl() error {
 				pe.SetCursor(cursorAuto)
 			}
 		case e := <-pe.chClick:
-			if sel, ok := scanSelection(e.OffsetX*scale, e.OffsetY*scale); ok && e.Button == 0 && pe.cg.Click() {
-				var p *mat.Vec3
-				switch projectionType {
-				case ProjectionPerspective:
-					p, ok = selectPoint(
-						pc, sel, projectionType, &modelViewMatrix, &projectionMatrix, e.OffsetX*scale, e.OffsetY*scale, width, height,
-					)
-				case ProjectionOrthographic:
-					p = selectPointOrtho(
-						&modelViewMatrix, &projectionMatrix, e.OffsetX*scale, e.OffsetY*scale, width, height, nil,
-					)
-				default:
-					ok = false
+			gl.Canvas.Focus()
+			if e.Button != 0 || !pe.cg.Click() {
+				continue
+			}
+			sel, ok := scanSelection(e.OffsetX*scale, e.OffsetY*scale)
+			if !ok {
+				updateSelectMask()
+				continue
+			}
+			var p *mat.Vec3
+			switch projectionType {
+			case ProjectionPerspective:
+				p, ok = selectPoint(
+					pc, sel, projectionType, &modelViewMatrix, &projectionMatrix, e.OffsetX*scale, e.OffsetY*scale, width, height,
+				)
+			case ProjectionOrthographic:
+				p = selectPointOrtho(
+					&modelViewMatrix, &projectionMatrix, e.OffsetX*scale, e.OffsetY*scale, width, height, nil,
+				)
+			default:
+				ok = false
+			}
+			if !ok {
+				updateSelectMask()
+				continue
+			}
+			switch {
+			case e.ShiftKey:
+				if len(pe.cmd.Cursors()) < 3 {
+					pe.cmd.SetCursor(1, *p)
+				} else {
+					pe.cmd.SetCursor(3, *p)
 				}
-				if ok {
-					switch {
-					case e.ShiftKey:
-						if len(pe.cmd.Cursors()) < 3 {
-							pe.cmd.SetCursor(1, *p)
-						} else {
-							pe.cmd.SetCursor(3, *p)
-						}
-					case e.AltKey:
-						if projectionType != ProjectionPerspective {
-							break
-						}
-						if sel, ok := scanSelection(e.OffsetX*scale, e.OffsetY*scale); ok {
-							pe.cmd.SelectSegment(*p, sel)
-							updateSelectMask()
-						}
-					default:
-						if len(pe.cmd.Cursors()) < 2 {
-							pe.cmd.SetCursor(0, *p)
-						} else {
-							pe.cmd.SetCursor(2, *p)
-						}
-					}
+			case e.AltKey:
+				if projectionType != ProjectionPerspective {
+					break
+				}
+				if sel, ok := scanSelection(e.OffsetX*scale, e.OffsetY*scale); ok {
+					pe.cmd.SelectSegment(*p, sel)
+					updateSelectMask()
+				}
+			default:
+				if len(pe.cmd.Cursors()) < 2 {
+					pe.cmd.SetCursor(0, *p)
+				} else {
+					pe.cmd.SetCursor(2, *p)
 				}
 			}
-			gl.Canvas.Focus()
 		case e := <-pe.chKey:
 			switch e.Code {
 			case "Escape":
