@@ -70,8 +70,8 @@ type WebGL struct {
 
 	RGBA PixelFormat
 
-	TEXTURE_MIN_FILTER, TEXTURE_WRAP_S, TEXTURE_WRAP_T TextureParameter
-	LINEAR, NEAREST, CLAMP_TO_EDGE                     int
+	TEXTURE_MIN_FILTER, TEXTURE_MAG_FILTER, TEXTURE_WRAP_S, TEXTURE_WRAP_T TextureParameter
+	LINEAR, NEAREST, CLAMP_TO_EDGE                                         int
 
 	TEXTURE0 TextureNumber
 
@@ -140,6 +140,7 @@ func New(canvas js.Value) (*WebGL, error) {
 		RGBA: PixelFormat(gl.Get("RGBA").Int()),
 
 		TEXTURE_MIN_FILTER: TextureParameter(gl.Get("TEXTURE_MIN_FILTER").Int()),
+		TEXTURE_MAG_FILTER: TextureParameter(gl.Get("TEXTURE_MAG_FILTER").Int()),
 		TEXTURE_WRAP_S:     TextureParameter(gl.Get("TEXTURE_WRAP_S").Int()),
 		TEXTURE_WRAP_T:     TextureParameter(gl.Get("TEXTURE_WRAP_T").Int()),
 
