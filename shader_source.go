@@ -69,11 +69,19 @@ const vsSelectSource = `#version 300 es
 	uniform mat4 uModelViewMatrix;
 	uniform mat4 uProjectionMatrix;
 	uniform float uPointSizeBase;
+	vec4 viewPosition;
 	out lowp vec4 vColor;
 
 	void main(void) {
-		gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
-		gl_PointSize = uPointSizeBase * 0.3;
+		viewPosition = uModelViewMatrix * aVertexPosition;
+		gl_Position = uProjectionMatrix * viewPosition;
+		if (uProjectionMatrix[3][3] == 0.0) {
+			// Perspective mode
+			gl_PointSize = clamp(1.5 * uPointSizeBase / length(viewPosition), 6.0, uPointSizeBase);
+		} else {
+			// Orthographic mode
+			gl_PointSize = 1.5 * uPointSizeBase / 20.0;
+		}
 
 		vColor = vec4(1.0, 1.0, 1.0, 0.8);
 	}
