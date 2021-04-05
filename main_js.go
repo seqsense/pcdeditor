@@ -127,8 +127,23 @@ func newCommandPromise(ch chan promiseCommand, data interface{}) js.Value {
 	return promise.New(js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		resolve, reject := args[0], args[1]
 		cmd := promiseCommand{
-			data:     data,
-			resolved: func(res interface{}) { resolve.Invoke(res) },
+			data: data,
+			resolved: func(res interface{}) {
+				switch r := res.(type) {
+				case [][]float32:
+					jm := js.Global().Get("Array").New(len(r))
+					for i, vec := range r {
+						jv := js.Global().Get("Array").New(len(vec))
+						for j, val := range vec {
+							jv.SetIndex(j, js.ValueOf(val))
+						}
+						jm.SetIndex(i, jv)
+					}
+					resolve.Invoke(jm)
+				default:
+					resolve.Invoke(res)
+				}
+			},
 			rejected: func(err error) { reject.Invoke(errorToJS(err)) },
 		}
 		select {

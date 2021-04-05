@@ -33,9 +33,16 @@
           };
           qs('#command').onkeydown = (e) => {
             if (e.keyCode == 13) {
-              pcdeditor.command(e.target.value).then(msg => {
-                if (msg != '') {
-                  that.logger(msg)
+              pcdeditor.command(e.target.value).then(res => {
+                let str = '';
+                for (const vec of res) {
+                  for (const val of vec) {
+                    str += val.toFixed(3) + ' ';
+                  }
+                  str += '\n';
+                }
+                if (str != '') {
+                  that.logger(str.trim())
                 }
               }).catch(that.logger);
               e.target.value = '';

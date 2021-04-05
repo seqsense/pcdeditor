@@ -239,34 +239,26 @@ var consoleCommands = map[string]func(c *console, sel []uint32, args []float32) 
 	},
 }
 
-func (c *console) Run(line string, sel []uint32) (string, error) {
+func (c *console) Run(line string, sel []uint32) ([][]float32, error) {
 	args := strings.Fields(line)
 	if len(args) == 0 {
-		return "", nil
+		return nil, nil
 	}
 	fn, ok := consoleCommands[args[0]]
 	if !ok {
-		return "", errInvalidCommand
+		return nil, errInvalidCommand
 	}
 	var argsFloat []float32
 	for i := 1; i < len(args); i++ {
 		f, err := strconv.ParseFloat(args[i], 32)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 		argsFloat = append(argsFloat, float32(f))
 	}
 	res, err := fn(c, sel, argsFloat)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	var resStr []string
-	for _, vv := range res {
-		var resLine []string
-		for _, v := range vv {
-			resLine = append(resLine, strconv.FormatFloat(float64(v), 'f', 3, 32))
-		}
-		resStr = append(resStr, strings.Join(resLine, " "))
-	}
-	return strings.Join(resStr, "\n"), nil
+	return res, nil
 }
