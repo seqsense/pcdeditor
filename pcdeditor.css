@@ -68,9 +68,9 @@ body {
   color: #666;
 }
 #menubox>span.foldMenu>div:hover {
-  width: 8em;
+  width: 10em;
   height: auto;
-  min-width: 5em;
+  padding-bottom: 0.5em;
 }
 #menubox>span.foldMenu>div:after {
   content: "";
@@ -101,8 +101,39 @@ body {
   margin: 0;
   width: 50%;
 }
-.rangeLabel{
+.incDec>.twoButtons {
+  width: auto;
+}
+.incDec {
+  width: 100%;
+  text-align: center;
+  line-height: 100%;
+}
+.incDec>.twoButtons:first-child {
+  float: left;
+}
+.incDec>.twoButtons:last-child {
+  float: right;
+}
+.incDec>.twoButtons:disabled>svg {
+  fill: #666;
+}
+.incDec>.twoButtons:disabled + span.inputLabel {
+  color: #666;
+}
+.inputLabel{
   font-size: 0.75em;
+}
+label.inputLabel{
+  display: block;
+  padding: 0 2px !important;
+  margin: 0 !important;
+}
+#menubox>span.foldMenu>div>hr {
+  background-color: #AAA;
+  height: 2px;
+  border: none;
+  margin: 8px 2px 4px 2px;
 }
 .foldMenuFill{
   width: calc(100% - 4px);

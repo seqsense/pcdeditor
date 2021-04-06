@@ -55,11 +55,33 @@
             (e) => pcdeditor.show2D(e.target.checked).catch(that.logger);
           pcdeditor.show2D(qs('#show2D').checked).catch(that.logger);
 
-          const projectionMode =
-            (target) =>
-            pcdeditor.command(target.checked ? 'ortho' : 'perspective').catch(that.logger);
+          const fovIncButton = qs('#fovInc');
+          const fovDecButton = qs('#fovDec');
+          const pointSizeInput = qs('#pointSize');
+
+          const projectionMode = (target) => {
+            if (target.checked) {
+              fovDecButton.disabled = true;
+              fovIncButton.disabled = true;
+              pcdeditor.command('ortho').catch(that.logger);
+            } else {
+              fovDecButton.disabled = false;
+              fovIncButton.disabled = false;
+              pcdeditor.command('perspective').catch(that.logger);
+            }
+          };
           qs('#ortho').onchange = e => projectionMode(e.target);
           projectionMode(qs('#ortho'));
+
+          const onPointSizeChange = (target) => {
+            const val = target.value;
+            pcdeditor.command(`point_size ${val}`).catch(that.logger);
+          };
+          pointSizeInput.onchange = e => onPointSizeChange(e.target);
+          onPointSizeChange(pointSizeInput);
+
+          fovDecButton.onclick = () => pcdeditor.command('fov -1').catch(that.logger);
+          fovIncButton.onclick = () => pcdeditor.command('fov 1').catch(that.logger);
 
           qs('#top').onclick = async () => {
             try {
@@ -80,10 +102,8 @@
           qs('#yaw90cw').onclick = () => pcdeditor.command('rotate_yaw 1.570796327').catch(that.logger);
           qs('#yaw90ccw').onclick = () => pcdeditor.command('rotate_yaw -1.570796327').catch(that.logger);
           qs('#crop').onclick = () => pcdeditor.command('crop').catch(that.logger);
-          qs('#pointSize').onchange = () => {
-            const val = qs('#pointSize').value;
-            pcdeditor.command(`point_size ${val}`).catch(that.logger);
-          };
+          qs('#viewPresetReset').onclick = () => pcdeditor.command('view_reset').catch(that.logger);
+          qs('#viewPresetFPS').onclick = () => pcdeditor.command('view_fps').catch(that.logger);
 
           qs('#resetContext').onclick = () => {
             const gl = qs('#mapCanvas').getContext('webgl2');

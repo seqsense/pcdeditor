@@ -342,8 +342,7 @@ func (pe *pcdeditor) runImpl() error {
 	tick := time.NewTicker(time.Second / 8)
 	defer tick.Stop()
 
-	fov := math.Pi / 3
-	var prevFov float64
+	var fov float32
 	var projectionMatrix, modelViewMatrix mat.Mat4
 	var width, height int
 	var distance float64
@@ -437,10 +436,12 @@ func (pe *pcdeditor) runImpl() error {
 		newHeight := gl.Canvas.ClientHeight() * scale
 		newProjectionType := pe.cmd.ProjectionType()
 		newDistance := pe.vi.distance
-		if forceReload || newWidth != width || newHeight != height || fov != prevFov || projectionType != newProjectionType || (newProjectionType == ProjectionOrthographic && newDistance != distance) {
+		newFOV := pe.vi.fov
+		if forceReload || newWidth != width || newHeight != height || newFOV != fov || projectionType != newProjectionType || (newProjectionType == ProjectionOrthographic && newDistance != distance) {
 			width, height = newWidth, newHeight
 			projectionType = newProjectionType
 			distance = newDistance
+			fov = newFOV
 
 			gl.Canvas.SetWidth(width)
 			gl.Canvas.SetHeight(height)
@@ -448,7 +449,7 @@ func (pe *pcdeditor) runImpl() error {
 			switch projectionType {
 			case ProjectionPerspective:
 				projectionMatrix = mat.Perspective(
-					float32(fov),
+					fov,
 					float32(width)/float32(height),
 					1.0, 1000.0,
 				)
@@ -470,7 +471,6 @@ func (pe *pcdeditor) runImpl() error {
 			gl.UniformMatrix4fv(uProjectionMatrixLocationComputeSelect, false, projectionMatrix)
 			gl.Viewport(0, 0, width, height)
 		}
-		prevFov = fov
 
 		modelViewMatrix = mat.Rotate(1, 0, 0, float32(pe.vi.pitch)).
 			MulAffine(mat.Rotate(0, 0, 1, float32(pe.vi.yaw))).
@@ -999,24 +999,10 @@ func (pe *pcdeditor) runImpl() error {
 			case "BracketRight", "Backslash":
 				switch e.Code {
 				case "BracketRight":
-					fov += math.Pi / 16
-					if fov > math.Pi*2/3 {
-						fov = math.Pi * 2 / 3
-					}
+					pe.vi.IncreaseFOV()
 				case "Backslash":
-					fov -= math.Pi / 16
-					if fov < math.Pi/8 {
-						fov = math.Pi / 8
-					}
+					pe.vi.DecreaseFOV()
 				}
-			case "F1":
-				pe.vi.Reset()
-			case "F2":
-				pe.vi.Fps()
-			case "F3":
-				pe.cmd.SetProjectionType(ProjectionPerspective)
-			case "F4":
-				pe.cmd.SetProjectionType(ProjectionOrthographic)
 			case "F10":
 				pe.cmd.Crop()
 			case "F11":

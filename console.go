@@ -162,6 +162,20 @@ var consoleCommands = map[string]func(c *console, sel []uint32, args []float32) 
 			return nil, errArgumentNumber
 		}
 	},
+	"fov": func(c *console, sel []uint32, args []float32) ([][]float32, error) {
+		switch len(args) {
+		case 1:
+			switch {
+			case args[0] > 0:
+				c.view.IncreaseFOV()
+			case args[0] < 0:
+				c.view.DecreaseFOV()
+			}
+			return nil, nil
+		default:
+			return nil, errArgumentNumber
+		}
+	},
 	"voxel_grid": func(c *console, sel []uint32, args []float32) ([][]float32, error) {
 		switch len(args) {
 		case 0:
@@ -236,6 +250,20 @@ var consoleCommands = map[string]func(c *console, sel []uint32, args []float32) 
 		default:
 			return nil, errArgumentNumber
 		}
+	},
+	"view_reset": func(c *console, sel []uint32, args []float32) ([][]float32, error) {
+		if len(args) != 0 {
+			return nil, errArgumentNumber
+		}
+		c.view.Reset()
+		return nil, nil
+	},
+	"view_fps": func(c *console, sel []uint32, args []float32) ([][]float32, error) {
+		if len(args) != 0 {
+			return nil, errArgumentNumber
+		}
+		c.view.FPS()
+		return nil, nil
 	},
 }
 

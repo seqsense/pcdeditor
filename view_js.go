@@ -8,11 +8,15 @@ import (
 const (
 	defaultDistance = 100.0
 	defaultPitch    = math.Pi / 4
+	defaultFOV      = math.Pi / 3
+	fovMin          = math.Pi / 8
+	fovMax          = math.Pi * 2 / 3
+	fovUnit         = math.Pi / 16
 	yDeadband       = 20
 )
 
 type viewImpl struct {
-	fov              float64
+	fov              float32
 	x, y, yaw, pitch float64
 	distance         float64
 
@@ -24,17 +28,21 @@ func newView() *viewImpl {
 	return &viewImpl{
 		distance: defaultDistance,
 		pitch:    defaultPitch,
+		fov:      defaultFOV,
 	}
 }
 
 func (v *viewImpl) Reset() {
+	v.yaw = 0
 	v.distance = defaultDistance
 	v.pitch = defaultPitch
+	v.fov = defaultFOV
 }
 
-func (v *viewImpl) Fps() {
+func (v *viewImpl) FPS() {
 	v.distance = 0
 	v.pitch = math.Pi / 2
+	v.fov = fovMax
 }
 
 func (v *viewImpl) SnapYaw() {
@@ -59,6 +67,24 @@ func (v *viewImpl) Move(dx, dy, dyaw float64) {
 	v.y += s*dy - c*dx
 	v.yaw += dyaw
 	v.yaw = math.Remainder(v.yaw, 2*math.Pi)
+}
+
+func (v *viewImpl) IncreaseFOV() {
+	v.setFOV(v.fov + fovUnit)
+}
+
+func (v *viewImpl) DecreaseFOV() {
+	v.setFOV(v.fov - fovUnit)
+}
+
+func (v *viewImpl) setFOV(fov float32) {
+	switch {
+	case fov < fovMin:
+		fov = fovMin
+	case fov > fovMax:
+		fov = fovMax
+	}
+	v.fov = fov
 }
 
 func (v *viewImpl) wheel(e *webgl.WheelEvent) {

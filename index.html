@@ -23,16 +23,33 @@
         <span class="foldMenu">
           <div>
             <span>👁</span> <span class="foldMenuHeader">View</span>
+            <button id="crop" class="foldMenuElem">Crop/Uncrop</button>
+            <hr />
             <button id="side" class="foldMenuElem">Side view</button>
             <button id="top" class="foldMenuElem">Top view</button>
             <div class="foldMenuElem">
               <button id="yaw90ccw" class="twoButtons">←90°</button><button id="yaw90cw" class="twoButtons">90°→</button>
             </div>
+            <hr />
             <div class="foldMenuElem">
-              <label for="pointSize" class="rangeLabel">Point size</label>
+              <label for="pointSize" class="inputLabel">Point size</label>
               <input type="range" id="pointSize" class="foldMenuFill" min="20" max="100" value="40" />
             </div>
-            <button id="crop" class="foldMenuElem">Crop/Uncrop</button>
+            <hr />
+            <div class="foldMenuElem">
+              <label class="inputLabel">View preset</label>
+              <button id="viewPresetReset" class="twoButtons">Reset</button><button id="viewPresetFPS" class="twoButtons">FPS</button>
+            </div>
+            <hr />
+            <div class="foldMenuElem incDec">
+              <button id="fovInc" class="twoButtons"><svg width="1em" height="1em" viewBox="0 0 100 100">
+                <path d="M 0 30 L 50 100 L 100 30 Q 50 -10 0 30 z" />
+              </svg></button>
+              <span class="inputLabel">Depth</span>
+              <button id="fovDec" class="twoButtons"><svg width="1em" height="1em" viewBox="0 0 100 100">
+                <path d="M 30 20 L 50 100 L 70 20 Q 50 0 30 20 z" />
+              </svg></button>
+            </div>
           </div>
         </span>
         <a href="https://github.com/seqsense/pcdeditor#%E6%93%8D%E4%BD%9C" target="_blank">❓</a>
