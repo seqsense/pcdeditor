@@ -3,11 +3,11 @@ package main
 import (
 	"errors"
 
-	"github.com/seqsense/pcdeditor/mat"
-	"github.com/seqsense/pcdeditor/pcd"
-	"github.com/seqsense/pcdeditor/pcd/filter/voxelgrid"
-	"github.com/seqsense/pcdeditor/pcd/sac"
-	vgs "github.com/seqsense/pcdeditor/pcd/segmentation/voxelgrid"
+	"github.com/seqsense/pcgol/mat"
+	"github.com/seqsense/pcgol/pc"
+	"github.com/seqsense/pcgol/pc/filter/voxelgrid"
+	"github.com/seqsense/pcgol/pc/sac"
+	vgs "github.com/seqsense/pcgol/pc/segmentation/voxelgrid"
 )
 
 const (
@@ -26,8 +26,8 @@ const (
 )
 
 type pcdIO interface {
-	readPCD(path string) (*pcd.PointCloud, error)
-	exportPCD(pc *pcd.PointCloud) (interface{}, error)
+	readPCD(path string) (*pc.PointCloud, error)
+	exportPCD(pp *pc.PointCloud) (interface{}, error)
 }
 
 type mapIO interface {
@@ -142,13 +142,13 @@ func (c *commandContext) SetSegmentationParam(dist, r float32) error {
 	return nil
 }
 
-func (c *commandContext) PointCloud() (*pcd.PointCloud, bool, bool) {
+func (c *commandContext) PointCloud() (*pc.PointCloud, bool, bool) {
 	updated := c.pointCloudUpdated
 	if updated {
 		c.selectMode = selectModeRect
 	}
 	c.pointCloudUpdated = false
-	return c.editor.pc, updated, c.editor.pc != nil
+	return c.editor.pp, updated, c.editor.pp != nil
 }
 
 func (c *commandContext) CropMatrix() mat.Mat4 {
@@ -366,10 +366,10 @@ func (c *commandContext) AddSurface(resolution float32) bool {
 
 	w := int(l0 / resolution)
 	h := int(l1 / resolution)
-	pcNew := &pcd.PointCloud{
-		PointCloudHeader: c.editor.pc.PointCloudHeader.Clone(),
+	pcNew := &pc.PointCloud{
+		PointCloudHeader: c.editor.pp.PointCloudHeader.Clone(),
 		Points:           w * h,
-		Data:             make([]byte, w*h*c.editor.pc.Stride()),
+		Data:             make([]byte, w*h*c.editor.pp.Stride()),
 	}
 	it, err := pcNew.Vec3Iterator()
 	if err != nil {
@@ -403,7 +403,7 @@ func (c *commandContext) DeleteByMask(sel []uint32) bool {
 
 func (c *commandContext) VoxelFilter(sel []uint32, resolution float32) error {
 	var filter, filterInv func(int, mat.Vec3) bool
-	var pc *pcd.PointCloud
+	var pp *pc.PointCloud
 
 	_, selected := c.SelectMatrix()
 	if selected {
@@ -412,15 +412,15 @@ func (c *commandContext) VoxelFilter(sel []uint32, resolution float32) error {
 			return !filter(i, p)
 		}
 		var err error
-		if pc, err = passThrough(c.editor.pc, filterInv); err != nil {
+		if pp, err = passThrough(c.editor.pp, filterInv); err != nil {
 			return err
 		}
 	} else {
-		pc = c.editor.pc
+		pp = c.editor.pp
 	}
 
 	vg := voxelgrid.New(mat.Vec3{resolution, resolution, resolution})
-	pcFiltered, err := vg.Filter(pc)
+	pcFiltered, err := vg.Filter(pp)
 	if err != nil {
 		return err
 	}
@@ -495,10 +495,10 @@ func (c *commandContext) Load2D(yamlPath, imgPath string) error {
 }
 
 func (c *commandContext) ExportPCD() (interface{}, error) {
-	if c.editor.pc == nil {
+	if c.editor.pp == nil {
 		return nil, errors.New("no pointcloud")
 	}
-	blob, err := c.pcdIO.exportPCD(c.editor.pc)
+	blob, err := c.pcdIO.exportPCD(c.editor.pp)
 	if err != nil {
 		return nil, err
 	}
@@ -511,24 +511,24 @@ func (c *commandContext) SelectSegment(p mat.Vec3, sel []uint32) {
 	half := float32(w) * res / 2
 	v := vgs.New(res, [3]int{w, w, w}, p.Sub(mat.Vec3{half, half, half}))
 
-	it, err := c.editor.pc.Vec3Iterator()
+	it, err := c.editor.pp.Vec3Iterator()
 	if err != nil {
 		return
 	}
 
 	// Detect surface and exclude from selection.
-	n := c.editor.pc.Points
+	n := c.editor.pp.Points
 	for i := 0; i < n; i++ {
 		if sel[i]&(selectBitmaskCropped|selectBitmaskOnScreen) == selectBitmaskOnScreen {
 			v.Add(it.Vec3(), i)
 		}
 		it.Incr()
 	}
-	if it, err = c.editor.pc.Vec3Iterator(); err != nil {
+	if it, err = c.editor.pp.Vec3Iterator(); err != nil {
 		return
 	}
 	vIndice := v.Storage().Indice()
-	raIn := pcd.NewIndiceVec3RandomAccessor(it, vIndice)
+	raIn := pc.NewIndiceVec3RandomAccessor(it, vIndice)
 	sacSurface := sac.New(
 		sac.NewRandomSampler(raIn.Len()),
 		sac.NewVoxelGridSurfaceModel(v.Storage(), raIn),
@@ -551,7 +551,7 @@ func (c *commandContext) SelectSegment(p mat.Vec3, sel []uint32) {
 	v.Reset()
 
 	// Select segment start from clicked point.
-	if it, err = c.editor.pc.Vec3Iterator(); err != nil {
+	if it, err = c.editor.pp.Vec3Iterator(); err != nil {
 		return
 	}
 	for _, i := range vIndice {

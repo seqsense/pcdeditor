@@ -3,8 +3,8 @@ package main
 import (
 	"runtime"
 
-	"github.com/seqsense/pcdeditor/mat"
-	"github.com/seqsense/pcdeditor/pcd"
+	"github.com/seqsense/pcgol/mat"
+	"github.com/seqsense/pcgol/pc"
 )
 
 const (
@@ -13,7 +13,7 @@ const (
 
 type editor struct {
 	history
-	pc *pcd.PointCloud
+	pp *pc.PointCloud
 
 	cropMatrix mat.Mat4
 }
@@ -27,14 +27,14 @@ func newEditor() *editor {
 type history interface {
 	MaxHistory() int
 	SetMaxHistory(m int)
-	push(pc *pcd.PointCloud) *pcd.PointCloud
-	pop() *pcd.PointCloud
-	undo() (*pcd.PointCloud, bool)
+	push(pp *pc.PointCloud) *pc.PointCloud
+	pop() *pc.PointCloud
+	undo() (*pc.PointCloud, bool)
 }
 
 func (e *editor) Undo() bool {
 	var ok bool
-	e.pc, ok = e.history.undo()
+	e.pp, ok = e.history.undo()
 	return ok
 }
 
@@ -42,32 +42,32 @@ func (e *editor) Crop(origin mat.Mat4) {
 	e.cropMatrix = origin
 }
 
-func (e *editor) SetPointCloud(pc *pcd.PointCloud) error {
-	if len(pc.Fields) == 4 && pc.Fields[0] == "x" && pc.Fields[1] == "y" && pc.Fields[2] == "z" && pc.Fields[3] == "label" {
-		e.pc = e.push(pc)
+func (e *editor) SetPointCloud(pp *pc.PointCloud) error {
+	if len(pp.Fields) == 4 && pp.Fields[0] == "x" && pp.Fields[1] == "y" && pp.Fields[2] == "z" && pp.Fields[3] == "label" {
+		e.pp = e.push(pp)
 		runtime.GC()
 		return nil
 	}
-	i, err := pc.Vec3Iterator()
+	i, err := pp.Vec3Iterator()
 	if err != nil {
 		return err
 	}
-	iL, _ := pc.Uint32Iterator("label")
+	iL, _ := pp.Uint32Iterator("label")
 
-	pcNew := &pcd.PointCloud{
-		PointCloudHeader: pcd.PointCloudHeader{
-			Version:   pc.Version,
+	pcNew := &pc.PointCloud{
+		PointCloudHeader: pc.PointCloudHeader{
+			Version:   pp.Version,
 			Fields:    []string{"x", "y", "z", "label"},
 			Size:      []int{4, 4, 4, 4},
 			Type:      []string{"F", "F", "F", "U"},
 			Count:     []int{1, 1, 1, 1},
-			Viewpoint: pc.Viewpoint,
-			Width:     pc.Points,
+			Viewpoint: pp.Viewpoint,
+			Width:     pp.Points,
 			Height:    1,
 		},
-		Points: pc.Points,
+		Points: pp.Points,
 	}
-	pcNew.Data = make([]byte, pc.Points*pcNew.Stride())
+	pcNew.Data = make([]byte, pp.Points*pcNew.Stride())
 
 	j, err := pcNew.Vec3Iterator()
 	if err != nil {
@@ -87,18 +87,18 @@ func (e *editor) SetPointCloud(pc *pcd.PointCloud) error {
 			iL.Incr()
 		}
 	}
-	e.pc = e.push(pcNew)
+	e.pp = e.push(pcNew)
 	runtime.GC()
 	return nil
 }
 
 func (e *editor) label(fn func(int, mat.Vec3) (uint32, bool)) error {
-	pcNew := &pcd.PointCloud{
-		PointCloudHeader: e.pc.PointCloudHeader.Clone(),
-		Points:           e.pc.Points,
-		Data:             make([]byte, len(e.pc.Data)),
+	pcNew := &pc.PointCloud{
+		PointCloudHeader: e.pp.PointCloudHeader.Clone(),
+		Points:           e.pp.Points,
+		Data:             make([]byte, len(e.pp.Data)),
 	}
-	copy(pcNew.Data, e.pc.Data)
+	copy(pcNew.Data, e.pp.Data)
 
 	it, err := pcNew.Vec3Iterator()
 	if err != nil {
@@ -119,35 +119,35 @@ func (e *editor) label(fn func(int, mat.Vec3) (uint32, bool)) error {
 		itL.Incr()
 		i++
 	}
-	e.pc = e.push(pcNew)
+	e.pp = e.push(pcNew)
 	runtime.GC()
 	return nil
 }
 
 func (e *editor) passThrough(fn func(int, mat.Vec3) bool) error {
-	pc, err := passThrough(e.pc, fn)
+	pp, err := passThrough(e.pp, fn)
 	if err != nil {
 		return err
 	}
-	e.pc = e.push(pc)
+	e.pp = e.push(pp)
 	runtime.GC()
 	return nil
 }
 
 func (e *editor) passThroughByMask(sel []uint32, mask, val uint32) error {
-	pc, err := passThroughByMask(e.pc, sel, mask, val)
+	pp, err := passThroughByMask(e.pp, sel, mask, val)
 	if err != nil {
 		return err
 	}
-	e.pc = e.push(pc)
+	e.pp = e.push(pp)
 	runtime.GC()
 	return nil
 }
 
-func passThrough(pc *pcd.PointCloud, fn func(int, mat.Vec3) bool) (*pcd.PointCloud, error) {
-	return passThroughImpl(pc, func(it, jt pcd.Vec3Iterator, itL, jtL pcd.Uint32Iterator) int {
+func passThrough(pp *pc.PointCloud, fn func(int, mat.Vec3) bool) (*pc.PointCloud, error) {
+	return passThroughImpl(pp, func(it, jt pc.Vec3Iterator, itL, jtL pc.Uint32Iterator) int {
 		i := 0
-		n := pc.Points
+		n := pp.Points
 		for {
 			var p mat.Vec3
 			for i < n {
@@ -174,10 +174,10 @@ func passThrough(pc *pcd.PointCloud, fn func(int, mat.Vec3) bool) (*pcd.PointClo
 	})
 }
 
-func passThroughByMask(pc *pcd.PointCloud, sel []uint32, mask, val uint32) (*pcd.PointCloud, error) {
-	return passThroughImpl(pc, func(it, jt pcd.Vec3Iterator, itL, jtL pcd.Uint32Iterator) int {
+func passThroughByMask(pp *pc.PointCloud, sel []uint32, mask, val uint32) (*pc.PointCloud, error) {
+	return passThroughImpl(pp, func(it, jt pc.Vec3Iterator, itL, jtL pc.Uint32Iterator) int {
 		i := 0
-		n := pc.Points
+		n := pp.Points
 		for {
 			for i < n {
 				if sel[i]&mask == val {
@@ -202,14 +202,14 @@ func passThroughByMask(pc *pcd.PointCloud, sel []uint32, mask, val uint32) (*pcd
 	})
 }
 
-func passThroughImpl(pc *pcd.PointCloud, core func(_, _ pcd.Vec3Iterator, _, _ pcd.Uint32Iterator) int) (*pcd.PointCloud, error) {
-	pcNew := &pcd.PointCloud{
-		PointCloudHeader: pc.PointCloudHeader.Clone(),
-		Data:             make([]byte, len(pc.Data)),
-		Points:           pc.Points,
+func passThroughImpl(pp *pc.PointCloud, core func(_, _ pc.Vec3Iterator, _, _ pc.Uint32Iterator) int) (*pc.PointCloud, error) {
+	pcNew := &pc.PointCloud{
+		PointCloudHeader: pp.PointCloudHeader.Clone(),
+		Data:             make([]byte, len(pp.Data)),
+		Points:           pp.Points,
 	}
 
-	it, err := pc.Vec3Iterator()
+	it, err := pp.Vec3Iterator()
 	if err != nil {
 		return nil, err
 	}
@@ -217,7 +217,7 @@ func passThroughImpl(pc *pcd.PointCloud, core func(_, _ pcd.Vec3Iterator, _, _ p
 	if err != nil {
 		return nil, err
 	}
-	itL, err := pc.Uint32Iterator("label")
+	itL, err := pp.Uint32Iterator("label")
 	if err != nil {
 		return nil, err
 	}
@@ -234,15 +234,15 @@ func passThroughImpl(pc *pcd.PointCloud, core func(_, _ pcd.Vec3Iterator, _, _ p
 	return pcNew, nil
 }
 
-func (e *editor) merge(pc *pcd.PointCloud) {
-	pcNew := &pcd.PointCloud{
-		PointCloudHeader: e.pc.PointCloudHeader.Clone(),
-		Points:           e.pc.Points + pc.Points,
-		Data:             append(e.pc.Data[:e.pc.Stride()*e.pc.Points], pc.Data...),
+func (e *editor) merge(pp *pc.PointCloud) {
+	pcNew := &pc.PointCloud{
+		PointCloudHeader: e.pp.PointCloudHeader.Clone(),
+		Points:           e.pp.Points + pp.Points,
+		Data:             append(e.pp.Data[:e.pp.Stride()*e.pp.Points], pp.Data...),
 	}
 	pcNew.Width = pcNew.Points
 	pcNew.Height = 1
 
-	e.pc = e.push(pcNew)
+	e.pp = e.push(pcNew)
 	runtime.GC()
 }

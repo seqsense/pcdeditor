@@ -7,9 +7,9 @@ import (
 	"syscall/js"
 	"time"
 
-	webgl "github.com/seqsense/pcdeditor/gl"
-	"github.com/seqsense/pcdeditor/mat"
-	"github.com/seqsense/pcdeditor/pcd"
+	"github.com/seqsense/pcgol/mat"
+	"github.com/seqsense/pcgol/pc"
+	webgl "github.com/seqsense/webgl-go"
 )
 
 const (
@@ -381,8 +381,8 @@ func (pe *pcdeditor) runImpl() error {
 	wheelNormalizer := &wheelNormalizer{}
 
 	texture := gl.CreateTexture()
-	mapRect := &pcd.PointCloud{
-		PointCloudHeader: pcd.PointCloudHeader{
+	mapRect := &pc.PointCloud{
+		PointCloudHeader: pc.PointCloudHeader{
 			Fields: []string{"x", "y", "z", "u", "v"},
 			Size:   []int{4, 4, 4, 4, 4},
 			Count:  []int{1, 1, 1, 1, 1},
@@ -391,7 +391,7 @@ func (pe *pcdeditor) runImpl() error {
 		Data:   make([]byte, 5*4*5),
 	}
 	var selectMaskData webgl.ByteArrayBuffer
-	var pcCursor *pcd.PointCloud
+	var pcCursor *pc.PointCloud
 	var moveStart *mat.Vec3
 	var show2D bool = true
 
@@ -408,11 +408,11 @@ func (pe *pcdeditor) runImpl() error {
 				fmt.Printf("%s:%d: %s\n", file, line, f.Name())
 			}
 			pe.logPrint(r)
-			if pc, _, ok := pe.cmd.PointCloud(); ok {
+			if pp, _, ok := pe.cmd.PointCloud(); ok {
 				pe.logPrint("CRASHED (export command is available)")
 				pe.logPrint("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 				for promise := range pe.chExportPCD {
-					blob, err := pe.cmd.pcdIO.exportPCD(pc)
+					blob, err := pe.cmd.pcdIO.exportPCD(pp)
 					if err != nil {
 						promise.rejected(err)
 						continue
@@ -488,8 +488,8 @@ func (pe *pcdeditor) runImpl() error {
 			}
 			nRectPoints = len(rect)
 			if len(rect) > 0 {
-				pcCursor = &pcd.PointCloud{
-					PointCloudHeader: pcd.PointCloudHeader{
+				pcCursor = &pc.PointCloud{
+					PointCloudHeader: pc.PointCloudHeader{
 						Fields: []string{"x", "y", "z"},
 						Size:   []int{4, 4, 4},
 						Type:   []string{"F", "F", "F"},
@@ -563,15 +563,15 @@ func (pe *pcdeditor) runImpl() error {
 			gl.BufferData(gl.ARRAY_BUFFER, selectMaskData, gl.STATIC_DRAW)
 		}
 
-		pc, updatedPointCloud, hasPointCloud := pe.cmd.PointCloud()
-		if hasPointCloud && (updatedPointCloud || forceReload) && pc.Points > 0 {
+		pp, updatedPointCloud, hasPointCloud := pe.cmd.PointCloud()
+		if hasPointCloud && (updatedPointCloud || forceReload) && pp.Points > 0 {
 			// Send PointCloud vertices to GPU
 			gl.BindBuffer(gl.ARRAY_BUFFER, posBuf)
-			gl.BufferData(gl.ARRAY_BUFFER, webgl.ByteArrayBuffer(pc.Data), gl.STATIC_DRAW)
+			gl.BufferData(gl.ARRAY_BUFFER, webgl.ByteArrayBuffer(pp.Data), gl.STATIC_DRAW)
 
 			// Register buffer to receive GPGPU processing result
 			gl.BindBuffer(gl.ARRAY_BUFFER, selectResultBuf)
-			nBuf := pc.Points * 4
+			nBuf := pp.Points * 4
 			selectResultJS = js.Global().Get("Uint8Array").New(nBuf)
 			if cap(selectResultGo) < nBuf {
 				selectResultGo = make([]byte, nBuf)
@@ -589,7 +589,7 @@ func (pe *pcdeditor) runImpl() error {
 			pointSize := pe.cmd.PointSize()
 			selectMode := pe.cmd.SelectMode()
 
-			if hasPointCloud && pc.Points > 0 {
+			if hasPointCloud && pp.Points > 0 {
 				// Render PointCloud
 				gl.UseProgram(program)
 
@@ -601,8 +601,8 @@ func (pe *pcdeditor) runImpl() error {
 				}
 
 				gl.BindBuffer(gl.ARRAY_BUFFER, posBuf)
-				gl.VertexAttribPointer(aVertexPosition, 3, gl.FLOAT, false, pc.Stride(), 0)
-				gl.VertexAttribIPointer(aVertexLabel, 1, gl.UNSIGNED_INT, pc.Stride(), 3*4)
+				gl.VertexAttribPointer(aVertexPosition, 3, gl.FLOAT, false, pp.Stride(), 0)
+				gl.VertexAttribIPointer(aVertexLabel, 1, gl.UNSIGNED_INT, pp.Stride(), 3*4)
 				gl.UniformMatrix4fv(uModelViewMatrixLocation, false, modelViewMatrix)
 				gl.UniformMatrix4fv(uCropMatrixLocation, false, pe.cmd.CropMatrix())
 
@@ -618,7 +618,7 @@ func (pe *pcdeditor) runImpl() error {
 
 				gl.Uniform1f(uPointSizeBase, pointSize)
 
-				gl.DrawArrays(gl.POINTS, 0, pc.Points-1)
+				gl.DrawArrays(gl.POINTS, 0, pp.Points-1)
 			}
 
 			if nRectPoints > 0 && selectMode == selectModeRect {
@@ -670,7 +670,7 @@ func (pe *pcdeditor) runImpl() error {
 				// Run GPGPU shader
 				gl.UseProgram(programComputeSelect)
 				gl.BindBuffer(gl.ARRAY_BUFFER, posBuf)
-				gl.VertexAttribPointer(aVertexPosition, 3, gl.FLOAT, false, pc.Stride(), 0)
+				gl.VertexAttribPointer(aVertexPosition, 3, gl.FLOAT, false, pp.Stride(), 0)
 				gl.UniformMatrix4fv(uCropMatrixLocationComputeSelect, false, pe.cmd.CropMatrix())
 				gl.UniformMatrix4fv(uModelViewMatrixLocationComputeSelect, false, modelViewMatrix)
 
@@ -683,7 +683,7 @@ func (pe *pcdeditor) runImpl() error {
 				gl.BindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, selectResultBuf)
 				gl.Enable(gl.RASTERIZER_DISCARD)
 				gl.BeginTransformFeedback(gl.POINTS)
-				gl.DrawArrays(gl.POINTS, 0, pc.Points-1)
+				gl.DrawArrays(gl.POINTS, 0, pp.Points-1)
 				gl.EndTransformFeedback()
 				gl.Disable(gl.RASTERIZER_DISCARD)
 				gl.BindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, webgl.Buffer(js.Null()))
@@ -885,7 +885,7 @@ func (pe *pcdeditor) runImpl() error {
 			switch projectionType {
 			case ProjectionPerspective:
 				p, ok = selectPoint(
-					pc, sel, projectionType, &modelViewMatrix, &projectionMatrix, e.OffsetX*scale, e.OffsetY*scale, width, height,
+					pp, sel, projectionType, &modelViewMatrix, &projectionMatrix, e.OffsetX*scale, e.OffsetY*scale, width, height,
 				)
 			case ProjectionOrthographic:
 				p = selectPointOrtho(

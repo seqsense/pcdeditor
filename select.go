@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/seqsense/pcdeditor/mat"
-	"github.com/seqsense/pcdeditor/pcd"
+	"github.com/seqsense/pcgol/mat"
+	"github.com/seqsense/pcgol/pc"
 )
 
 const (
@@ -53,10 +53,10 @@ func perspectiveOriginDir(x, y, width, height int, projectionMatrix, modelViewMa
 	return perspectiveOriginDirFromPosVec(pos, a, modelViewMatrix)
 }
 
-func selectPoint(pc *pcd.PointCloud, selMask []uint32, projectionType ProjectionType, modelViewMatrix, projectionMatrix *mat.Mat4, x, y, width, height int) (*mat.Vec3, bool) {
+func selectPoint(pp *pc.PointCloud, selMask []uint32, projectionType ProjectionType, modelViewMatrix, projectionMatrix *mat.Mat4, x, y, width, height int) (*mat.Vec3, bool) {
 	pos, a := screenPosVec(x, y, width, height, projectionMatrix, modelViewMatrix)
 
-	it, err := pc.Vec3Iterator()
+	it, err := pp.Vec3Iterator()
 	if err != nil {
 		return nil, false
 	}
@@ -68,7 +68,7 @@ func selectPoint(pc *pcd.PointCloud, selMask []uint32, projectionType Projection
 		origin, dir := perspectiveOriginDirFromPosVec(pos, a, modelViewMatrix)
 		vMin := float32(1000 * 1000)
 		if selMask != nil {
-			n := pc.Points
+			n := pp.Points
 			for i := 0; i < n; func() {
 				it.Incr()
 				i++

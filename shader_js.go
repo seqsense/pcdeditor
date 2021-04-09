@@ -4,7 +4,7 @@ import (
 	"errors"
 	"syscall/js"
 
-	webgl "github.com/seqsense/pcdeditor/gl"
+	webgl "github.com/seqsense/webgl-go"
 )
 
 var errContextLost = errors.New("WebGL context lost")

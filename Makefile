@@ -15,7 +15,7 @@ vendor_js/postmate.min.js:
 	mkdir -p vendor_js
 	wget -O $@ https://cdn.jsdelivr.net/npm/postmate@1.5.2/build/postmate.min.js
 
-pcdeditor.wasm: *.go */*.go
+pcdeditor.wasm: *.go go.*
 	GOOS=js GOARCH=wasm go build \
 			 -ldflags="-s -w -X 'main.Version=$(shell git rev-parse --short HEAD)' -X 'main.BuildDate=$(shell git show -s --format=%ci HEAD)'" -o $@ .
 

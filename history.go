@@ -3,12 +3,12 @@
 package main
 
 import (
-	"github.com/seqsense/pcdeditor/pcd"
+	"github.com/seqsense/pcgol/pc"
 )
 
 // historyDummy is a dummy history implementation for testing.
 type historyDummy struct {
-	latest *pcd.PointCloud
+	latest *pc.PointCloud
 }
 
 func newHistory(_ int) history {
@@ -22,15 +22,15 @@ func (historyDummy) MaxHistory() int {
 func (historyDummy) SetMaxHistory(_ int) {
 }
 
-func (h *historyDummy) push(pc *pcd.PointCloud) *pcd.PointCloud {
-	h.latest = pc
-	return pc
+func (h *historyDummy) push(pp *pc.PointCloud) *pc.PointCloud {
+	h.latest = pp
+	return pp
 }
 
-func (h *historyDummy) pop() *pcd.PointCloud {
+func (h *historyDummy) pop() *pc.PointCloud {
 	return h.latest
 }
 
-func (historyDummy) undo() (*pcd.PointCloud, bool) {
+func (historyDummy) undo() (*pc.PointCloud, bool) {
 	return nil, false
 }

@@ -1,7 +1,7 @@
 package main
 
 import (
-	webgl "github.com/seqsense/pcdeditor/gl"
+	webgl "github.com/seqsense/webgl-go"
 	"math"
 )
 

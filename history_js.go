@@ -3,12 +3,12 @@ package main
 import (
 	"syscall/js"
 
-	"github.com/seqsense/pcdeditor/pcd"
+	"github.com/seqsense/pcgol/pc"
 )
 
 type historyJS struct {
 	history       []js.Value
-	historyHeader []pcd.PointCloudHeader
+	historyHeader []pc.PointCloudHeader
 	maxHistory    int
 }
 
@@ -27,20 +27,20 @@ func (h *historyJS) SetMaxHistory(m int) {
 	h.maxHistory = m
 }
 
-func (h *historyJS) push(pc *pcd.PointCloud) *pcd.PointCloud {
-	header := pc.PointCloudHeader.Clone()
-	dataJS := js.Global().Get("Uint8Array").New(len(pc.Data))
-	js.CopyBytesToJS(dataJS, pc.Data)
+func (h *historyJS) push(pp *pc.PointCloud) *pc.PointCloud {
+	header := pp.PointCloudHeader.Clone()
+	dataJS := js.Global().Get("Uint8Array").New(len(pp.Data))
+	js.CopyBytesToJS(dataJS, pp.Data)
 	h.history = append(h.history, dataJS)
 	h.historyHeader = append(h.historyHeader, header)
 	if len(h.history) > h.MaxHistory()+1 {
 		h.history = h.history[1:]
 		h.historyHeader = h.historyHeader[1:]
 	}
-	return pc
+	return pp
 }
 
-func (h *historyJS) pop() *pcd.PointCloud {
+func (h *historyJS) pop() *pc.PointCloud {
 	back := h.history[len(h.history)-1]
 	backHeader := h.historyHeader[len(h.historyHeader)-1]
 	h.history = h.history[:len(h.history)-1]
@@ -49,7 +49,7 @@ func (h *historyJS) pop() *pcd.PointCloud {
 	return h.reconstructPointCloud(backHeader, back)
 }
 
-func (h *historyJS) undo() (*pcd.PointCloud, bool) {
+func (h *historyJS) undo() (*pc.PointCloud, bool) {
 	if n := len(h.history); n > 1 {
 		h.history = h.history[:n-1]
 		h.historyHeader = h.historyHeader[:n-1]
@@ -59,12 +59,12 @@ func (h *historyJS) undo() (*pcd.PointCloud, bool) {
 	return nil, false
 }
 
-func (h *historyJS) reconstructPointCloud(header pcd.PointCloudHeader, dataJS js.Value) *pcd.PointCloud {
-	pc := &pcd.PointCloud{
+func (h *historyJS) reconstructPointCloud(header pc.PointCloudHeader, dataJS js.Value) *pc.PointCloud {
+	pp := &pc.PointCloud{
 		PointCloudHeader: header,
 		Points:           header.Width * header.Height,
 		Data:             make([]byte, dataJS.Get("byteLength").Int()),
 	}
-	js.CopyBytesToGo(pc.Data, dataJS)
-	return pc
+	js.CopyBytesToGo(pp.Data, dataJS)
+	return pp
 }

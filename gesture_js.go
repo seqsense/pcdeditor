@@ -3,7 +3,7 @@ package main
 import (
 	"math"
 
-	webgl "github.com/seqsense/pcdeditor/gl"
+	webgl "github.com/seqsense/webgl-go"
 )
 
 type gestureMode int

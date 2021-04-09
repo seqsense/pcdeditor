@@ -4,28 +4,28 @@ import (
 	"bytes"
 	"syscall/js"
 
-	"github.com/seqsense/pcdeditor/pcd"
+	"github.com/seqsense/pcgol/pc"
 )
 
 type pcdIOImpl struct{}
 
-func (*pcdIOImpl) readPCD(path string) (*pcd.PointCloud, error) {
+func (*pcdIOImpl) readPCD(path string) (*pc.PointCloud, error) {
 	b, err := fetchGet(path)
 	if err != nil {
 		return nil, err
 	}
 
-	pc, err := pcd.Unmarshal(bytes.NewReader(b))
+	pp, err := pc.Unmarshal(bytes.NewReader(b))
 	if err != nil {
 		return nil, err
 	}
 
-	return pc, nil
+	return pp, nil
 }
 
-func (*pcdIOImpl) exportPCD(pc *pcd.PointCloud) (interface{}, error) {
+func (*pcdIOImpl) exportPCD(pp *pc.PointCloud) (interface{}, error) {
 	var buf bytes.Buffer
-	if err := pcd.Marshal(pc, &buf); err != nil {
+	if err := pc.Marshal(pp, &buf); err != nil {
 		return nil, err
 	}
 	array := js.Global().Get("Uint8Array").New(buf.Len())

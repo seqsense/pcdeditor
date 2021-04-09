@@ -2,8 +2,7 @@ coverage:
   status:
     project:
       default:
-        # Allow decreasing 5% of total coverage to avoid noise.
-        threshold: 5%
+        target: 0%
     patch:
       default:
         informational: true

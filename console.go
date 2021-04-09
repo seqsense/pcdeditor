@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/seqsense/pcdeditor/mat"
+	"github.com/seqsense/pcgol/mat"
 )
 
 type console struct {
