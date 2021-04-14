@@ -66,9 +66,13 @@
       const pcdPath = '/fixture/map.pcd';
       const yamlPath = '/fixture/map.yaml';
       const imgPath = '/fixture/map.png';
-      document.querySelector('#loadPCD').onclick = () => {
-        editor.pcdeditor.loadPCD(pcdPath).catch(editor.logger);
-        editor.pcdeditor.load2D(yamlPath, imgPath).catch(editor.logger);
+      document.querySelector('#loadPCD').onclick = async () => {
+        try {
+          await editor.loadPCD(pcdPath);
+          await editor.load2D(yamlPath, imgPath);
+        } catch (e) {
+          editor.logger(e);
+        }
       };
     });
   </script>

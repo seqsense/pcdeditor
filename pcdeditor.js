@@ -4,6 +4,11 @@
   /** Shorthand for document.querySelector */
   const qs = (q) => document.querySelector(q);
 
+  const fetchOpts = {
+    credentials: 'include',
+    cache: 'no-cache'
+  };
+
   global.PCDEditor = class {
     constructor () {
       this.logger = msg => {
@@ -127,9 +132,54 @@
             resolve();
           };
           const go = new Go();
-          const { instance } = await WebAssembly.instantiateStreaming(fetch('pcdeditor.wasm', {cache: "no-cache"}), go.importObject)
+          const { instance } = await WebAssembly.instantiateStreaming(fetch('pcdeditor.wasm', fetchOpts), go.importObject)
           go.run(instance);
         }
+      });
+    }
+
+    loadPCD (path) {
+      const that = this;
+      return new Promise((resolve, reject) => {
+        fetch(path, fetchOpts).then(resp => {
+          if (!resp.ok) {
+            reject(new Error(`failed to load map.pcd: ${resp.statusText}`));
+            return undefined;
+          }
+          return resp.blob();
+        }).then(blob => {
+          return that.pcdeditor.importPCD(blob);
+        }).then(() => {
+          resolve();
+        }).catch(e => {
+          reject(e);
+        });
+      });
+    }
+
+    load2D (yamlPath, imgPath) {
+      const that = this;
+      return new Promise((resolve, reject) => {
+        fetch(yamlPath, fetchOpts).then(resp => {
+          if (!resp.ok) {
+            reject(new Error(`failed to load map.yaml: ${resp.statusText}`));
+            return undefined;
+          }
+          return resp.blob();
+        }).then(yamlBlob => {
+          const img = new global.Image();
+          img.onload = async () => {
+            await that.pcdeditor.import2D(yamlBlob, img);
+            resolve();
+          };
+          img.error = (e) => {
+            reject(new Error(`failed to load map.yaml: ${e.toString()}`));
+          };
+          img.crossOrigin = 'use-credentials';
+          img.src = imgPath;
+        }).catch(e => {
+          reject(e);
+        });
       });
     }
 
@@ -149,13 +199,13 @@
         };
       };
       /** Sets up the postmate (iframe communication library) */
-      const setupPostmate = (pcdeditor) => new Postmate.Model({
+      const setupPostmate = () => new Postmate.Model({
         load: async ({ mapPcd, mapYaml, mapPng }) => {
           if (!mapPcd) {
             that.logger('map.pcd is not given');
             return;
           }
-          pcdeditor.loadPCD(mapPcd).catch(that.logger);
+          that.loadPCD(mapPcd).catch(that.logger);
           if (!mapYaml) {
             that.logger('map.yaml is not given');
             return;
@@ -164,13 +214,13 @@
             that.logger('map.png is not given');
             return;
           }
-          pcdeditor.load2D(mapYaml, mapPng).catch(that.logger);
+          that.load2D(mapYaml, mapPng).catch(that.logger);
         },
         enableSaveBtn: () => {
           qs('#savePCD').disabled = false
         }
       });
-      const parentFrame = await setupPostmate(that.pcdeditor);
+      const parentFrame = await setupPostmate();
       setupControls(that.pcdeditor, parentFrame);
     }
   };

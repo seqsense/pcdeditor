@@ -1,16 +1,21 @@
 package main
 
 import (
-	"errors"
 	"syscall/js"
 
 	"gopkg.in/yaml.v2"
+
+	"github.com/seqsense/pcdeditor/blob"
 )
 
 type mapIOImpl struct{}
 
-func (*mapIOImpl) readMap(yamlPath, imgPath string) (*occupancyGrid, mapImage, error) {
-	b, err := fetchGet(yamlPath)
+func (*mapIOImpl) readMap(yamlBlob, img interface{}) (*occupancyGrid, mapImage, error) {
+	bj, err := blob.JS(yamlBlob)
+	if err != nil {
+		return nil, nil, err
+	}
+	b, err := bj.Bytes()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -18,29 +23,7 @@ func (*mapIOImpl) readMap(yamlPath, imgPath string) (*occupancyGrid, mapImage, e
 	if err := yaml.Unmarshal(b, m); err != nil {
 		return nil, nil, err
 	}
-
-	img := js.Global().Get("Image").New()
-	chOK := make(chan bool, 1)
-	img.Call("addEventListener", "load",
-		js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			chOK <- true
-			return nil
-		}),
-	)
-	img.Call("addEventListener", "error",
-		js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			chOK <- false
-			return nil
-		}),
-	)
-	img.Set("crossOrigin", "use-credentials")
-	img.Set("src", imgPath)
-
-	if !<-chOK {
-		return nil, nil, errors.New("failed to load map image")
-	}
-
-	return m, mapImageImpl(img), err
+	return m, mapImageImpl(img.(js.Value)), err
 }
 
 type mapImageImpl js.Value

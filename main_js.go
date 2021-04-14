@@ -44,8 +44,8 @@ type promiseCommand struct {
 type pcdeditor struct {
 	canvas            js.Value
 	logPrint          func(msg interface{})
-	chLoadPCD         chan promiseCommand
-	chLoad2D          chan promiseCommand
+	chImportPCD       chan promiseCommand
+	chImport2D        chan promiseCommand
 	chExportPCD       chan promiseCommand
 	chCommand         chan promiseCommand
 	chWheel           chan webgl.WheelEvent
@@ -72,8 +72,8 @@ func newPCDEditor(this js.Value, args []js.Value) interface{} {
 		logPrint: func(msg interface{}) {
 			fmt.Println(msg)
 		},
-		chLoadPCD:         make(chan promiseCommand, 1),
-		chLoad2D:          make(chan promiseCommand, 1),
+		chImportPCD:       make(chan promiseCommand, 1),
+		chImport2D:        make(chan promiseCommand, 1),
 		chExportPCD:       make(chan promiseCommand, 1),
 		chCommand:         make(chan promiseCommand, 1),
 		chWheel:           make(chan webgl.WheelEvent, 10),
@@ -104,11 +104,11 @@ func newPCDEditor(this js.Value, args []js.Value) interface{} {
 	go pe.Run()
 
 	return js.ValueOf(map[string]interface{}{
-		"loadPCD": js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			return newCommandPromise(pe.chLoadPCD, args[0].String())
+		"importPCD": js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			return newCommandPromise(pe.chImportPCD, args[0])
 		}),
-		"load2D": js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			return newCommandPromise(pe.chLoad2D, [2]string{args[0].String(), args[1].String()})
+		"import2D": js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			return newCommandPromise(pe.chImport2D, [2]js.Value{args[0], args[1]})
 		}),
 		"exportPCD": js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			return newCommandPromise(pe.chExportPCD, nil)
@@ -737,18 +737,18 @@ func (pe *pcdeditor) runImpl() error {
 
 		// Handle inputs
 		select {
-		case promise := <-pe.chLoadPCD:
-			pe.logPrint("loading pcd file")
-			if err := pe.cmd.LoadPCD(promise.data.(string)); err != nil {
+		case promise := <-pe.chImportPCD:
+			pe.logPrint("importing pcd file")
+			if err := pe.cmd.ImportPCD(promise.data); err != nil {
 				promise.rejected(err)
 				break
 			}
 			pe.logPrint("pcd file loaded")
 			promise.resolved("loaded")
-		case promise := <-pe.chLoad2D:
+		case promise := <-pe.chImport2D:
 			pe.logPrint("loading 2D map file")
-			paths := promise.data.([2]string)
-			if err := pe.cmd.Load2D(paths[0], paths[1]); err != nil {
+			data := promise.data.([2]js.Value)
+			if err := pe.cmd.Import2D(data[0], data[1]); err != nil {
 				promise.rejected(err)
 				break
 			}

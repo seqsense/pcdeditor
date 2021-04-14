@@ -2,20 +2,23 @@ package main
 
 import (
 	"bytes"
-	"syscall/js"
 
+	"github.com/seqsense/pcdeditor/blob"
 	"github.com/seqsense/pcgol/pc"
 )
 
 type pcdIOImpl struct{}
 
-func (*pcdIOImpl) readPCD(path string) (*pc.PointCloud, error) {
-	b, err := fetchGet(path)
+func (*pcdIOImpl) importPCD(b interface{}) (*pc.PointCloud, error) {
+	bj, err := blob.JS(b)
 	if err != nil {
 		return nil, err
 	}
-
-	pp, err := pc.Unmarshal(bytes.NewReader(b))
+	bs, err := bj.Bytes()
+	if err != nil {
+		return nil, err
+	}
+	pp, err := pc.Unmarshal(bytes.NewReader(bs))
 	if err != nil {
 		return nil, err
 	}
@@ -28,11 +31,5 @@ func (*pcdIOImpl) exportPCD(pp *pc.PointCloud) (interface{}, error) {
 	if err := pc.Marshal(pp, &buf); err != nil {
 		return nil, err
 	}
-	array := js.Global().Get("Uint8Array").New(buf.Len())
-	js.CopyBytesToJS(array, buf.Bytes())
-
-	blob := js.Global().Get("Blob").New([]interface{}{array}, map[string]interface{}{
-		"type": "application.octet-stream",
-	})
-	return blob, nil
+	return blob.New(buf.Bytes()).JS(), nil
 }

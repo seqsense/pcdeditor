@@ -26,12 +26,12 @@ const (
 )
 
 type pcdIO interface {
-	readPCD(path string) (*pc.PointCloud, error)
+	importPCD(blob interface{}) (*pc.PointCloud, error)
 	exportPCD(pp *pc.PointCloud) (interface{}, error)
 }
 
 type mapIO interface {
-	readMap(yamlPath, imgPath string) (*occupancyGrid, mapImage, error)
+	readMap(yamlBlob, img interface{}) (*occupancyGrid, mapImage, error)
 }
 
 type selectMode int
@@ -468,8 +468,8 @@ func (c *commandContext) SetMaxHistory(m int) bool {
 	return true
 }
 
-func (c *commandContext) LoadPCD(path string) error {
-	p, err := c.pcdIO.readPCD(path)
+func (c *commandContext) ImportPCD(blob interface{}) error {
+	p, err := c.pcdIO.importPCD(blob)
 	if err != nil {
 		return err
 	}
@@ -481,14 +481,14 @@ func (c *commandContext) LoadPCD(path string) error {
 	return nil
 }
 
-func (c *commandContext) Load2D(yamlPath, imgPath string) error {
-	mi, img, err := c.mapIO.readMap(yamlPath, imgPath)
+func (c *commandContext) Import2D(yamlBlob, img interface{}) error {
+	mi, imgJS, err := c.mapIO.readMap(yamlBlob, img)
 	if err != nil {
 		c.mapInfo = nil
 		return err
 	}
 	c.mapInfo = mi
-	c.mapImg = img
+	c.mapImg = imgJS
 
 	c.mapUpdated = true
 	return nil
