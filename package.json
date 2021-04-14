@@ -1,17 +1,43 @@
 {
-  "name": "pcdeditor",
+  "name": "@seqsense/pcdeditor",
   "version": "0.0.0",
   "description": "PCD editor",
   "main": "pcdeditor.js",
+  "types": {
+    ".": "pcdeditor.d.ts",
+    "./ReactPCDEditor": "./ReactPCDEditor/index.d.ts"
+  },
+  "exports": {
+    ".": {
+      "import": "./pcdeditor.esm.js",
+      "require": "./pcdeditor.js",
+      "node": "./pcdeditor.esm.js",
+      "default": "./pcdeditor.esm.js"
+    },
+    "./ReactPCDEditor": "./ReactPCDEditor/index.js"
+  },
+  "files": [
+    "pcdeditor.js",
+    "pcdeditor.esm.js",
+    "pcdeditor.d.ts",
+    "wasm_exec.js",
+    "pcdeditor.wasm",
+    "ReactPCDEditor/index.js",
+    "ReactPCDEditor/index.d.ts"
+  ],
+  "scripts": {
+    "build": "make pcdeditor.esm.js ReactPCDEditor/index.js",
+    "fmt": "prettier --write pcdeditor.js ReactPCDEditor/index.tsx",
+    "lint": "eslint pcdeditor.js ReactPCDEditor/index.tsx",
+    "typecheck": "tsc --noEmit pcdeditor.js ReactPCDEditor/index.tsx",
+    "tsc": "tsc --declaration --jsx react --esModuleInterop ReactPCDEditor/index.tsx"
+  },
   "directories": {
     "example": "examples"
   },
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/seqsense/pcdeditor.git"
+    "url": "git://github.com/seqsense/pcdeditor.git"
   },
   "author": "",
   "license": "SEQSENSE Proprietary",
@@ -19,7 +45,14 @@
     "url": "https://github.com/seqsense/pcdeditor/issues"
   },
   "homepage": "https://github.com/seqsense/pcdeditor#readme",
-  "dependencies": {
-    "eslint": "^7.23.0"
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^4.21.0",
+    "@typescript-eslint/parser": "^4.21.0",
+    "eslint": "^7.23.0",
+    "eslint-plugin-react": "^7.23.2",
+    "prettier": "^2.2.1",
+    "react": "^16.14.0",
+    "styled-components": "^5.2.3",
+    "typescript": "^4.2.4"
   }
 }

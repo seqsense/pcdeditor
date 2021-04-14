@@ -1,6 +1,8 @@
 pcdeditor.wasm
+pcdeditor.esm.js
 wasm_exec.js
 release
 cover.out
 vendor_js
 node_modules
+*.tgz

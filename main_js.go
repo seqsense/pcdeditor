@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"runtime"
@@ -101,7 +102,9 @@ func newPCDEditor(this js.Value, args []js.Value) interface{} {
 			}
 		}
 	}
-	go pe.Run()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go pe.Run(ctx)
 
 	return js.ValueOf(map[string]interface{}{
 		"importPCD": js.FuncOf(func(this js.Value, args []js.Value) interface{} {
@@ -118,6 +121,10 @@ func newPCDEditor(this js.Value, args []js.Value) interface{} {
 		}),
 		"show2D": js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			return newCommandPromise(pe.ch2D, args[0].Bool())
+		}),
+		"exit": js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			cancel()
+			return nil
 		}),
 	})
 }
@@ -156,7 +163,7 @@ func newCommandPromise(ch chan promiseCommand, data interface{}) js.Value {
 	}))
 }
 
-func (pe *pcdeditor) Run() {
+func (pe *pcdeditor) Run(ctx context.Context) {
 	canvas := webgl.Canvas(pe.canvas)
 
 	canvas.OnClick(func(e webgl.MouseEvent) {
@@ -232,23 +239,29 @@ func (pe *pcdeditor) Run() {
 	})
 
 	for {
-		err := pe.runImpl()
-		switch {
-		case err == errContextLost:
+		err := pe.runImpl(ctx)
+		switch err {
+		case errContextLostEvent:
+			// Received context lost event from the browser.
+			pe.logPrint("Waiting WebGL context restore")
+			<-pe.chContextRestored
+			pe.logPrint("WebGL context restored")
+		case errContextLost:
+			// WebGL context is not available during initialization.
 			time.Sleep(time.Second)
 			pe.logPrint("Retrying")
-			continue
-		case err != nil:
+		case nil:
+			pe.logPrint("Exiting")
+			println("pcdeditor exiting")
+			return
+		default:
 			pe.logPrint("Fatal: " + err.Error())
 			return
 		}
-		pe.logPrint("Waiting WebGL context restore")
-		<-pe.chContextRestored
-		pe.logPrint("WebGL context restored")
 	}
 }
 
-func (pe *pcdeditor) runImpl() error {
+func (pe *pcdeditor) runImpl(ctx context.Context) error {
 	gl, err := webgl.New(pe.canvas)
 	if err != nil {
 		return err
@@ -1013,7 +1026,7 @@ func (pe *pcdeditor) runImpl() error {
 				vib3D = !vib3D
 			}
 		case <-pe.chContextLost:
-			return nil
+			return errContextLostEvent
 		case <-tick.C:
 			if vib3D {
 				if vib3DX < 0 {
@@ -1024,6 +1037,8 @@ func (pe *pcdeditor) runImpl() error {
 			} else {
 				vib3DX = 0
 			}
+		case <-ctx.Done():
+			return nil
 		}
 	}
 }

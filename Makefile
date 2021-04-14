@@ -1,19 +1,19 @@
 GOROOT := $(shell go env GOROOT)
-RELEASE_FILES := \
-	iframe.html \
-	index.html \
-	pcdeditor.css \
-	pcdeditor.js \
+TARGET_FILES := \
+	pcdeditor.esm.js \
 	pcdeditor.wasm \
-	wasm_exec.js
+	wasm_exec.js \
+	ReactPCDEditor/index.js
 
 .PHONY: serve
-serve: pcdeditor.wasm wasm_exec.js fixture/map.pcd vendor_js/postmate.min.js
+serve: pcdeditor.wasm wasm_exec.js pcdeditor.esm.js
 	go run ./examples/serve
 
-vendor_js/postmate.min.js:
-	mkdir -p vendor_js
-	wget -O $@ https://cdn.jsdelivr.net/npm/postmate@1.5.2/build/postmate.min.js
+pcdeditor.esm.js: pcdeditor.js
+	sed 's/module\.exports = /export default /' $< > $@
+
+ReactPCDEditor/index.js: ReactPCDEditor/index.tsx package.json tsconfig.json
+	npm run-script tsc
 
 pcdeditor.wasm: *.go go.*
 	GOOS=js GOARCH=wasm go build \
@@ -22,9 +22,17 @@ pcdeditor.wasm: *.go go.*
 wasm_exec.js: $(GOROOT)/misc/wasm/wasm_exec.js
 	cp $< $@
 
-.PHONY: release
-release: $(addprefix release/,$(RELEASE_FILES))
+.PHONY: target-files
+target-files: $(TARGET_FILES)
 
-release/%: %
-	mkdir -p release
-	cp $< $@
+.PHONY: pack
+pack: target-files
+	npm pack
+
+.PHONY: version
+version-$(VERSION):
+	npm version $(VERSION) --allow-same-version --no-git-tag-version
+
+.PHONY: publish
+publish-$(VERSION):
+	npm publish seqsense-pcdeditor-$(VERSION).tgz
