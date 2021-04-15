@@ -160,12 +160,10 @@ func (v *viewImpl) mouseDrag(e *webgl.MouseEvent) {
 	}
 }
 
-func (v *viewImpl) View() [5]float64 {
-	return [5]float64{
-		v.x, v.y, v.yaw, v.pitch, v.distance,
-	}
+func (v *viewImpl) View() (x, y, yaw, pitch, distance float64) {
+	return v.x, v.y, v.yaw, v.pitch, v.distance
 }
-func (v *viewImpl) SetView(p [5]float64) error {
-	v.x, v.y, v.yaw, v.pitch, v.distance = p[0], p[1], p[2], p[3], p[4]
+func (v *viewImpl) SetView(x, y, yaw, pitch, distance float64) error {
+	v.x, v.y, v.yaw, v.pitch, v.distance = x, y, yaw, pitch, distance
 	return nil
 }

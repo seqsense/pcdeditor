@@ -7,8 +7,8 @@ type view interface {
 	SnapPitch()
 	Move(dx, dy, dyaw float64)
 
-	View() [5]float64
-	SetView([5]float64) error
+	View() (x, y, yaw, pitch, distance float64)
+	SetView(x, y, yaw, pitch, distance float64) error
 
 	SetPitch(p float64)
 	RotateYaw(y float64)
