@@ -1,0 +1,62 @@
+name: ci
+on:
+  pull_request:
+    branches:
+      - master
+  push:
+    branches:
+      - master
+      - release-*
+  release:
+    types: [created]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Setup Go
+        uses: actions/setup-go@v2
+      - uses: actions/setup-node@v2
+        with:
+          node-version: '12.x'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@seqsense'
+
+      - name: Run go vet
+        run: GOOS=js GOARCH=wasm go vet ./...
+      - name: Run go test
+        run: go test ./... -v -race -coverprofile=cover.out -covermode atomic -coverpkg ./...
+      - name: Build WASM
+        run: make pcdeditor.wasm
+
+      - uses: codecov/codecov-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          file: ./cover.out
+
+      - uses: actions/cache@v2
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: ${{ runner.os }}-node-
+      - name: install
+        run: npm install
+      - name: Set PACKAGE_VERSION
+        run: |
+          if [ -z "${PACKAGE_VERSION}" ]; then
+            PACKAGE_VERSION=v0.0.0
+          fi
+          echo "${PACKAGE_VERSION}" | sed 's/^v//;s/^/PACKAGE_VERSION=/' >> ${GITHUB_ENV}
+        env:
+          PACKAGE_VERSION: ${{ github.event.release.tag_name }}
+      - name: Pack
+        run: |
+          npm version ${PACKAGE_VERSION} --no-git-tag-version --allow-same-version
+          make pack
+      - name: Publish
+        if: github.event_name == 'release'
+        run: npm publish seqsense-pcdeditor-${PACKAGE_VERSION}.tgz
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
