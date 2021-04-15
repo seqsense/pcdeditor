@@ -265,6 +265,23 @@ var consoleCommands = map[string]func(c *console, sel []uint32, args []float32) 
 		c.view.FPS()
 		return nil, nil
 	},
+	"view": func(c *console, sel []uint32, args []float32) ([][]float32, error) {
+		switch len(args) {
+		case 0:
+			x, y, yaw, pitch, distance := c.view.View()
+			return [][]float32{{
+				float32(x), float32(y),
+				float32(yaw), float32(pitch), float32(distance),
+			}}, nil
+		case 5:
+			x, y, yaw, pitch, distance :=
+				float64(args[0]), float64(args[1]),
+				float64(args[2]), float64(args[3]), float64(args[4])
+			return nil, c.view.SetView(x, y, yaw, pitch, distance)
+		default:
+			return nil, errArgumentNumber
+		}
+	},
 }
 
 func (c *console) Run(line string, sel []uint32) ([][]float32, error) {
