@@ -159,3 +159,33 @@ func (v *viewImpl) mouseDrag(e *webgl.MouseEvent) {
 		v.y = v.y0 + 0.1*(xDiff*s-yDiff*c)
 	}
 }
+
+func (v *viewImpl) View() []float64 {
+	return []float64{
+		v.x, v.y, v.yaw, v.pitch, v.distance,
+	}
+}
+func (v *viewImpl) SetView(p []float64) error {
+	n := len(p)
+	if n == 0 || n > 5 {
+		return errArgumentNumber
+	}
+	v.x = p[0]
+	if n < 2 {
+		return nil
+	}
+	v.y = p[1]
+	if n < 3 {
+		return nil
+	}
+	v.yaw = p[2]
+	if n < 4 {
+		return nil
+	}
+	v.pitch = p[3]
+	if n < 5 {
+		return nil
+	}
+	v.distance = p[4]
+	return nil
+}
