@@ -266,19 +266,23 @@ var consoleCommands = map[string]func(c *console, sel []uint32, args []float32) 
 		return nil, nil
 	},
 	"view": func(c *console, sel []uint32, args []float32) ([][]float32, error) {
-		if len(args) == 0 {
+		switch len(args) {
+		case 0:
 			params := c.view.View()
-			ret := make([]float32, len(params))
+			ret := make([]float32, 5)
 			for i, v := range params {
 				ret[i] = float32(v)
 			}
 			return [][]float32{ret}, nil
+		case 5:
+			var params [5]float64
+			for i, v := range args {
+				params[i] = float64(v)
+			}
+			return nil, c.view.SetView(params)
+		default:
+			return nil, errArgumentNumber
 		}
-		params := make([]float64, len(args))
-		for i, v := range args {
-			params[i] = float64(v)
-		}
-		return nil, c.view.SetView(params)
 	},
 }
 
