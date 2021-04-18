@@ -4,35 +4,26 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
     <style>
-      html {
-        height: 100%;
-        width: 100%;
-      }
-      body {
+      html, body, #container, #mapCanvas {
         box-sizing: border-box;
-        width: 100%;
         height: 100%;
+        width: 100%;
         margin: 0;
         padding: 0;
         overflow: hidden;
       }
       #container {
-        box-sizing: border-box;
-        width: 100%;
-        height: 100%;
         position: relative;
-        margin: 0;
-        padding: 0;
         background-color: black;
       }
       #mapCanvas {
-        width: 100%;
-        height: 100%;
         z-index: 1;
         touch-action: none;
       }
       #menubox {
-        z-index: 2;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: stretch;
         position: absolute;
         top: 0;
         left: 0;
@@ -64,7 +55,7 @@
   <script type="module">
     import PCDEditor from './pcdeditor.esm.js'
     const editor = new PCDEditor()
-    PCDEditor.appendDefaultMenuboxTo('#menubox')
+    editor.appendDefaultMenuboxTo('#menubox')
     editor.attach().then(() => {
       const pcdPath = '/fixture/map.pcd'
       const yamlPath = '/fixture/map.yaml'

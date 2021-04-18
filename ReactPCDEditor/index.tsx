@@ -11,6 +11,7 @@ type Props = {
   onAttached: AttachedCallback
   appendDefaultMenu?: boolean
   customMenu?: React.ReactNode
+  idPrefix?: string
 }
 
 const Editor: React.FC<Props> = ({
@@ -19,7 +20,12 @@ const Editor: React.FC<Props> = ({
   onAttached,
   appendDefaultMenu = true,
   customMenu,
+  idPrefix = '',
 }: Props) => {
+  const logId = `${idPrefix}log`
+  const canvasId = `${idPrefix}mapCanvas`
+  const menuboxId = `${idPrefix}menubox`
+
   useEffect(() => {
     let cleanup = () => {
       // Cleanup function will be set after initialization.
@@ -28,9 +34,15 @@ const Editor: React.FC<Props> = ({
     const editor = new PCDEditor({
       wasmPath: wasmPath,
       wasmExecPath: wasmExecPath,
+      idPrefix: idPrefix,
+      canvasId: `#${canvasId}`,
+      logId: `#${logId}`,
     })
-    if (appendDefaultMenu && document.querySelector('#exportPCD') === null) {
-      PCDEditor.appendDefaultMenuboxTo('#menubox')
+    if (
+      appendDefaultMenu &&
+      document.querySelector(`#${idPrefix}exportPCD`) === null
+    ) {
+      editor.appendDefaultMenuboxTo(`#${menuboxId}`)
     }
     editor.attach().then(() => {
       onAttached(editor)
@@ -44,9 +56,11 @@ const Editor: React.FC<Props> = ({
 
   return (
     <Container>
-      <canvas id="mapCanvas" tabIndex={0} />
-      <div id="menubox">{customMenu}</div>
-      <div id="log" />
+      <canvas id={canvasId} tabIndex={0} />
+      <div id={menuboxId} className="pcdeditorMenubox">
+        {customMenu}
+      </div>
+      <div id={logId} className="pcdeditorLog" />
     </Container>
   )
 }
@@ -57,22 +71,24 @@ const Container = styled.div`
   height: 100%;
   position: relative;
   color: black;
+  overflow: visible;
 
-  canvas#mapCanvas {
+  canvas {
     width: 100%;
     height: 100%;
-    z-index: 1;
     touch-action: none;
   }
-  div#menubox {
-    z-index: 2;
+  div.pcdeditorMenubox {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
     position: absolute;
     top: 0;
     left: 0;
     padding: 2px;
     box-sizing: border-box;
   }
-  div#log {
+  div.pcdeditorLog {
     font-size: 0.6em;
     max-height: 20em;
     position: absolute;

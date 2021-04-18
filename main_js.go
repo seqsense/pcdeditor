@@ -96,7 +96,7 @@ func newPCDEditor(this js.Value, args []js.Value) interface{} {
 
 	if len(args) > 1 {
 		init := args[1]
-		if logger := init.Get("logger"); !logger.IsNull() {
+		if logger := init.Get("logger"); !logger.IsUndefined() {
 			pe.logPrint = func(msg interface{}) {
 				logger.Invoke(fmt.Sprintf("%v", msg))
 			}

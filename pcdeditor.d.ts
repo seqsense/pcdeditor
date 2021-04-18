@@ -1,8 +1,19 @@
+interface PCDEditorOptions {
+  wasmPath?: string
+  wasmExecPath?: string
+  idPrefix?: string
+  logId?: string
+  canvasId?: string
+}
+
 declare class PCDEditor {
-  constructor(opts: { wasmPath: string; wasmExecPath: string })
+  constructor(opts: PCDEditorOptions)
   attach(): Promise<null>
+  appendDefaultMenuboxTo(selector: string): void
+
   logger(any): void
-  static appendDefaultMenuboxTo(selector: string): void
+  private qs: (q: string) => Element
+  private wrapId: (q: string) => string
 
   pcdeditor: {
     exportPCD(): Promise<Blob>
@@ -11,9 +22,11 @@ declare class PCDEditor {
     exit(): void
   }
 
-  wasmPath: string
+  opts: PCDEditorOptions
 
-  wasmExecPath: string
+  canvas: HTMLCanvasElement
+
+  log: HTMLDivElement
 }
 
-export = PCDEditor
+export default PCDEditor
