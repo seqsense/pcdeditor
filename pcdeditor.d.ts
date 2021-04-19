@@ -10,6 +10,8 @@ declare class PCDEditor {
   constructor(opts: PCDEditorOptions)
   attach(): Promise<null>
   appendDefaultMenuboxTo(selector: string): void
+  loadPCD(path: string): Promise<null>
+  load2D(yamlPath: string, imgPath: string): Promise<null>
 
   logger(any): void
   private qs: (q: string) => Element
