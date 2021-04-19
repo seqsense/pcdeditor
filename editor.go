@@ -33,8 +33,10 @@ type history interface {
 }
 
 func (e *editor) Undo() bool {
-	var ok bool
-	e.pp, ok = e.history.undo()
+	pp, ok := e.history.undo()
+	if ok {
+		e.pp = pp
+	}
 	return ok
 }
 
