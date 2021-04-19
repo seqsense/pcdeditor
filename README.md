@@ -1,5 +1,8 @@
 ## pcdeditor
 
+[![ci](https://github.com/seqsense/webgl-go/actions/workflows/ci.yml/badge.svg)](https://github.com/seqsense/webgl-go/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+
 ### ローカルでの実行
 
 読み込みたい `map.pcd`, `map.yaml`, `map.png` ファイルを `./fixture` 下にコピーして
@@ -100,3 +103,7 @@ segmentation\_param `D` `R`   | セグメンテーション時の分離距離を
     小数点以下3桁まで表示
   </dd>
 </dl>
+
+## License
+
+This package is licensed under [Apache License Version 2.0](./LICENSE).
