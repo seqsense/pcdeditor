@@ -180,6 +180,26 @@ class PCDEditor {
         selThickLogInput.onchange = (e) => onSelThickLogChange(e.target)
         onSelThickLogChange(selThickLogInput)
 
+        // Edit menu
+        const surfaceGridInput = this.qs('#surfaceGrid')
+        const labelIdInput = this.qs('#labelID')
+
+        this.qs('#undo').onclick = () =>
+          pcdeditor.command('undo').catch(this.logger)
+        this.qs('#createSurface').onclick = () => {
+          const grid = surfaceGridInput.value
+          pcdeditor.command(`add_surface ${grid}`).catch(this.logger)
+        }
+        this.qs('#unsetLabel').onclick = () =>
+          pcdeditor.command('label 0').catch(this.logger)
+        this.qs('#setLabel').onclick = () => {
+          const id = labelIdInput.value
+          pcdeditor.command(`label ${id}`).catch(this.logger)
+        }
+        this.qs('#delete').onclick = () =>
+          pcdeditor.command('delete').catch(this.logger)
+
+        // Debug menu
         this.qs('#resetContext').onclick = () => {
           const gl = this.canvas.getContext('webgl2')
           const glex = gl.getExtension('WEBGL_lose_context')
@@ -296,12 +316,15 @@ class PCDEditor {
     flex-grow: 2;
     max-width: 10em;
   }
-  ${selector} button, ${selector} input[type=text], ${selector} a {
+  ${selector} button,
+  ${selector} input[type=text],
+  ${selector} input[type=number],
+  ${selector} a {
     background-color: #ccc;
     border: none;
     min-height: 1.5em;
   }
-  ${selector} button:hover, ${selector} input:hover, ${selector} a:hover, ${selector} span:not(.foldMenu):not(.foldMenuIcon):hover {
+  ${selector} button:hover, ${selector}>input:hover, ${selector}>a:hover, ${selector} span:not(.foldMenu):not(.foldMenuIcon):hover {
     background-color: #ddd;
     box-shadow: -1px -1px 1px #999 inset;
   }
@@ -396,11 +419,19 @@ class PCDEditor {
     z-index: 2000;
     max-width: calc(100% - 4px);
   }
+  ${selector} ${id('.foldMenuElem')} input {
+    border: none;
+  }
   ${selector} ${id('.inputLabel')} {
     width: 100%;
-    margin-bottom: -2px;
     display: block;
     font-size: 0.875em;
+  }
+  ${selector} ${id('.inputLabelShort')} {
+    display: flex;
+    font-size: 0.875em;
+    align-items: center;
+    padding-right: 2px;
   }
   ${selector}>span${id('.foldMenu')}>div>hr {
     background-color: #aaa;
@@ -515,6 +546,57 @@ class PCDEditor {
         id="${id('selThickLog')}"
         type="range" min="0.05" max="4" step="0.05" value="0.25"
       />
+    </div>
+  </div>
+</span>
+<span class="${id('foldMenu')}">
+  <div>
+    <span class="${id('foldMenuIcon')}">
+      <svg viewBox="0 0 24 24" width="1em" height="1em">
+        <polygon points="11.607,19.121 7.373,20.025 7.269,15.699 19.66,0 24,3.425 "/>
+        <path fill="none" stroke="#000" stroke-width="2" d="M15.635,20.5c0,1.375-1.125,2.5-2.5,2.5H3.5C2.125,23,1,21.875,1,20.5v-17C1,2.125,2.125,1,3.5,1h9.635c1.375,0,2.5,1.125,2.5,2.5V20.5z"/>
+      </svg>
+    </span><span class="${id('foldMenuHeader')}">Edit</span>
+    <div class="${id('foldMenuElem')}">
+      <button id="${id('undo')}">Undo</button>
+    </div>
+    <hr/>
+    <div class="${id('foldMenuElem')}">
+      <div class="${id('foldMenuElem')}">
+        <label
+          for="${id('surfaceGrid')}"
+          class="${id('inputLabelShort')}"
+        >Grid</label>
+        <input
+          id="${id('surfaceGrid')}"
+          type="number" value="0.05" min="0.01" step="0.01" max="1"
+          style="width: 4em; text-align: center;"
+        />
+      </div>
+      <button id="${id('createSurface')}">Create surface</button>
+    </div>
+    <hr/>
+    <div class="${id('foldMenuElem')}">
+      <label class="${id('inputLabel')}">Label</label>
+      <div class="${id('foldMenuElem')}">
+        <button id="${id('unsetLabel')}">Unset</button>
+      </div>
+      <div class="${id('foldMenuElem')}">
+        <label
+          for="${id('labelID')}"
+          class="${id('inputLabelShort')}"
+        >ID</label>
+        <input
+          id="${id('labelID')}"
+          type="number" value="1" min="1" max="255"
+          style="width: 3em; text-align: center;"
+        />
+        <button id="${id('setLabel')}">Set</button>
+      </div>
+    </div>
+    <hr/>
+    <div class="${id('foldMenuElem')}">
+      <button id="${id('delete')}">Delete</button>
     </div>
   </div>
 </span>
