@@ -447,18 +447,14 @@ class PCDEditor {
       'top',
     )}">Top view</button></div>
     <div class="${id('foldMenuElem')}">
-      <button id="${id('yaw90ccw')}" class="${id('twoButtons')}">←90°</button>
-      <button id="${id('yaw90cw')}" class="${id('twoButtons')}">90°→</button>
+      <button id="${id('yaw90ccw')}">←90°</button>
+      <button id="${id('yaw90cw')}">90°→</button>
     </div>
     <hr />
     <div class="${id('foldMenuElem')}">
       <label class="${id('inputLabel')}">View preset</label>
-      <button id="${id('viewPresetReset')}" class="${id(
-      'twoButtons',
-    )}">Reset</button>
-      <button id="${id('viewPresetFPS')}" class="${id(
-      'twoButtons',
-    )}">FPS</button>
+      <button id="${id('viewPresetReset')}">Reset</button>
+      <button id="${id('viewPresetFPS')}">FPS</button>
     </div>
     <hr />
     <div class="${id('foldMenuElem')}">
@@ -472,14 +468,10 @@ class PCDEditor {
     <hr />
     <div class="${id('foldMenuElem')}">
       <label class="${id('inputLabel')}">Depth</label>
-      <button id="${id('fovInc')}" class="${id(
-      'twoButtons',
-    )}"><svg width="1em" height="1em" viewBox="0 0 100 100">
+      <button id="${id('fovInc')}"><svg width="1em" height="1em" viewBox="0 0 100 100">
         <path d="M 0 30 L 50 100 L 100 30 Q 50 -10 0 30 z" />
       </svg></button>
-      <button id="${id('fovDec')}" class="${id(
-      'twoButtons',
-    )}"><svg width="1em" height="1em" viewBox="0 0 100 100">
+      <button id="${id('fovDec')}"><svg width="1em" height="1em" viewBox="0 0 100 100">
         <path d="M 30 20 L 50 100 L 70 20 Q 50 0 30 20 z" />
       </svg></button>
     </div>
@@ -504,8 +496,8 @@ class PCDEditor {
     )}">Unselect</button></div>
     <hr />
     <div class="${id('foldMenuElem')}">
-      <button id="${id('vsnap')}" class="${id('twoButtons')}">V Snap</button>
-      <button id="${id('hsnap')}" class="${id('twoButtons')}">H Snap</button>
+      <button id="${id('vsnap')}">V Snap</button>
+      <button id="${id('hsnap')}">H Snap</button>
     </div>
     <hr />
     <div class="${id('foldMenuElem')}">
