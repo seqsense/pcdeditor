@@ -485,14 +485,16 @@ class PCDEditor {
   <div>
     <span class="${id('foldMenuIcon')}">
       <svg viewBox="0 0 24 24" width="1em" height="1em">
-        <path d="M23,24h-3v-2h2v-2h2v3C24,23.553,23.553,24,23,24z"/>
-        <rect x="9.333" y="22" width="5.333" height="2"/>
-        <path d="M4,24H1c-0.552,0-1-0.447-1-1v-3h2v2h2V24z"/>
-        <rect y="9.333" width="2" height="5.333"/>
-        <path d="M2,4H0V1c0-0.552,0.448-1,1-1h3v2H2V4z"/>
-        <rect x="9.333" width="5.333" height="2"/>
-        <path d="M24,4h-2V2h-2V0h3c0.553,0,1,0.448,1,1V4z"/>
-        <rect x="22" y="9.333" width="2" height="5.333"/>
+        <g stroke="#000" stroke-width="2" stroke-linejoin="round">
+          <line x1="14.333" y1="1" x2="9.667" y2="1" />
+          <polyline points="1,5 1,1 5,1" />
+          <line x1="9.667" y1="23" x2="14.334" y2="23" />
+          <polyline points="23,19 23,23 19,23" />
+          <line x1="1" y1="9.667" x2="1" y2="14.334" />
+          <polyline points="5,23 1,23 1,19" />
+          <line x1="23" y1="14.333" x2="23" y2="9.666" />
+          <polyline points="19,1 23,1 23,5" />
+        </g>
       </svg>
     </span><span class="${id('foldMenuHeader')}">Select</span>
     <div class="${id('foldMenuElem')}">
