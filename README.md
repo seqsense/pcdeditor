@@ -40,7 +40,7 @@ H                    | 2, 3点目を水平スナップ
 ↑/↓/←/→              | 選択領域を水平移動 (視点奥方向が↑)
 PageUp/Down          | 選択領域を上下移動
 0, 1                 | ラベル設定
-U                    | Undo
+U, Ctrl+Z            | Undo
 
 <dl>
   <dt><a id="footnote1">[1] 左クリック</a></dt><dd>

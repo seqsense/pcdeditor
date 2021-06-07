@@ -961,6 +961,10 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 						pe.cmd.Label(sel, l)
 					}
 				}
+			case "KeyZ":
+				if e.CtrlKey {
+					pe.cmd.Undo()
+				}
 			case "KeyU":
 				pe.cmd.Undo()
 			case "KeyF":
