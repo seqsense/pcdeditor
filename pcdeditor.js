@@ -93,6 +93,7 @@ class PCDEditor {
               })
               .catch(this.logger)
             e.target.value = ''
+            this.canvas.focus()
           }
           if (e.keyCode === 27) {
             this.canvas.focus()
@@ -102,6 +103,7 @@ class PCDEditor {
           pcdeditor.show2D(e.target.checked).catch(this.logger)
         pcdeditor.show2D(this.qs('#show2D').checked).catch(this.logger)
 
+        // View menu
         const fovIncButton = this.qs('#fovInc')
         const fovDecButton = this.qs('#fovDec')
         const pointSizeInput = this.qs('#pointSize')
@@ -124,6 +126,7 @@ class PCDEditor {
           const val = target.value
           pcdeditor.command(`point_size ${val}`).catch(this.logger)
         }
+        pointSizeInput.oninput = (e) => onPointSizeChange(e.target)
         pointSizeInput.onchange = (e) => onPointSizeChange(e.target)
         onPointSizeChange(pointSizeInput)
 
@@ -158,6 +161,24 @@ class PCDEditor {
           pcdeditor.command('view_reset').catch(this.logger)
         this.qs('#viewPresetFPS').onclick = () =>
           pcdeditor.command('view_fps').catch(this.logger)
+
+        // Select menu
+        const selThickLogInput = this.qs('#selThickLog')
+
+        this.qs('#unselect').onclick = () =>
+          pcdeditor.command('unset_cursor').catch(this.logger)
+        this.qs('#vsnap').onclick = () =>
+          pcdeditor.command('snap_v').catch(this.logger)
+        this.qs('#hsnap').onclick = () =>
+          pcdeditor.command('snap_h').catch(this.logger)
+
+        const onSelThickLogChange = (target) => {
+          const val = Math.pow(target.value, 2)
+          pcdeditor.command(`select_range ${val}`).catch(this.logger)
+        }
+        selThickLogInput.oninput = (e) => onSelThickLogChange(e.target)
+        selThickLogInput.onchange = (e) => onSelThickLogChange(e.target)
+        onSelThickLogChange(selThickLogInput)
 
         this.qs('#resetContext').onclick = () => {
           const gl = this.canvas.getContext('webgl2')
@@ -280,7 +301,7 @@ class PCDEditor {
     border: none;
     min-height: 1.5em;
   }
-  ${selector} button:hover, ${selector} input:hover, ${selector} a:hover, ${selector} span:not(.foldMenu):hover {
+  ${selector} button:hover, ${selector} input:hover, ${selector} a:hover, ${selector} span:not(.foldMenu):not(.foldMenuIcon):hover {
     background-color: #ddd;
     box-shadow: -1px -1px 1px #999 inset;
   }
@@ -341,6 +362,7 @@ class PCDEditor {
     overflow: visible;
     backdrop-filter: blur(1px);
     color: #222;
+    z-index: 4;
   }
   ${selector} span${id('.foldMenuIcon')}, ${selector} span${id(
       '.foldMenuHeader',
@@ -349,6 +371,14 @@ class PCDEditor {
     float: left;
     display: inline-flex;
     align-items: center;
+    position: relative;
+  }
+  ${selector} span${id('.foldMenuIcon')}:after {
+    position: absolute;
+    width: 1em;
+    height: 1em;
+    z-index: 10;
+    content: "";
   }
   ${selector} span${id('.foldMenuHeader')} {
     font-size: 0.875em;
@@ -400,8 +430,8 @@ class PCDEditor {
   <div>
     <span class="${id('foldMenuIcon')}">
       <svg viewBox="0 0 24 24" width="1em" height="1em">
-        <g><path d="M24,12.03c0,0-5.37,7.98-12,7.98c-6.63,0-12-7.98-12-7.98s5.37-7.98,12-7.98C18.63,4.06,24,12.03,24,12.03z M17.83,12.03
-          c0-3.22-2.61-5.83-5.83-5.83s-5.83,2.61-5.83,5.83s2.61,5.83,5.83,5.83S17.83,15.25,17.83,12.03z" /></g>
+        <path d="M24,12.03c0,0-5.37,7.98-12,7.98c-6.63,0-12-7.98-12-7.98s5.37-7.98,12-7.98C18.63,4.06,24,12.03,24,12.03z M17.83,12.03
+          c0-3.22-2.61-5.83-5.83-5.83s-5.83,2.61-5.83,5.83s2.61,5.83,5.83,5.83S17.83,15.25,17.83,12.03z" />
         <path d="M12,7.69c-0.48,0-0.94,0.1-1.37,0.24c0.4,0.33,0.65,0.82,0.65,1.38c0,1-0.81,1.81-1.81,1.81c-0.61,0-1.15-0.3-1.48-0.77
           c-0.22,0.52-0.34,1.08-0.34,1.67c0,2.4,1.95,4.34,4.34,4.34s4.34-1.95,4.34-4.34S14.4,7.69,12,7.69z" />
       </svg>
@@ -452,6 +482,39 @@ class PCDEditor {
     )}"><svg width="1em" height="1em" viewBox="0 0 100 100">
         <path d="M 30 20 L 50 100 L 70 20 Q 50 0 30 20 z" />
       </svg></button>
+    </div>
+  </div>
+</span>
+<span class="${id('foldMenu')}">
+  <div>
+    <span class="${id('foldMenuIcon')}">
+      <svg viewBox="0 0 24 24" width="1em" height="1em">
+        <path d="M23,24h-3v-2h2v-2h2v3C24,23.553,23.553,24,23,24z"/>
+        <rect x="9.333" y="22" width="5.333" height="2"/>
+        <path d="M4,24H1c-0.552,0-1-0.447-1-1v-3h2v2h2V24z"/>
+        <rect y="9.333" width="2" height="5.333"/>
+        <path d="M2,4H0V1c0-0.552,0.448-1,1-1h3v2H2V4z"/>
+        <rect x="9.333" width="5.333" height="2"/>
+        <path d="M24,4h-2V2h-2V0h3c0.553,0,1,0.448,1,1V4z"/>
+        <rect x="22" y="9.333" width="2" height="5.333"/>
+      </svg>
+    </span><span class="${id('foldMenuHeader')}">Select</span>
+    <div class="${id('foldMenuElem')}"><button id="${id(
+      'unselect',
+    )}">Unselect</button></div>
+    <hr />
+    <div class="${id('foldMenuElem')}">
+      <button id="${id('vsnap')}" class="${id('twoButtons')}">V Snap</button>
+      <button id="${id('hsnap')}" class="${id('twoButtons')}">H Snap</button>
+    </div>
+    <hr />
+    <div class="${id('foldMenuElem')}">
+      <label for="${id('selThickLog')}" class="${id(
+      'inputLabel',
+    )}">Select surface thickness</label>
+      <input type="range" id="${id(
+        'selThickLog',
+      )}" min="0.05" max="4" step="0.05" value="0.25" />
     </div>
   </div>
 </span>
