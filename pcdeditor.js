@@ -364,9 +364,8 @@ class PCDEditor {
     color: #222;
     z-index: 4;
   }
-  ${selector} span${id('.foldMenuIcon')}, ${selector} span${id(
-      '.foldMenuHeader',
-    )} {
+  ${selector} span${id('.foldMenuIcon')},
+  ${selector} span${id('.foldMenuHeader')} {
     height: ${menuHeight};
     float: left;
     display: inline-flex;
@@ -389,9 +388,8 @@ class PCDEditor {
     display: flex;
     flex-wrap: wrap;
   }
-  ${selector} ${id('.foldMenuElem')} button, ${selector} ${id(
-      '.foldMenuElem',
-    )} input {
+  ${selector} ${id('.foldMenuElem')} button,
+  ${selector} ${id('.foldMenuElem')} input {
     flex-grow: 2;
     flex-shrink: 2;
     margin: 2px;
@@ -436,16 +434,16 @@ class PCDEditor {
           c-0.22,0.52-0.34,1.08-0.34,1.67c0,2.4,1.95,4.34,4.34,4.34s4.34-1.95,4.34-4.34S14.4,7.69,12,7.69z" />
       </svg>
     </span><span class="${id('foldMenuHeader')}">View</span>
-    <div class="${id('foldMenuElem')}"><button id="${id(
-      'crop',
-    )}">Crop/Uncrop</button></div>
+    <div class="${id('foldMenuElem')}">
+      <button id="${id('crop')}">Crop/Uncrop</button>
+    </div>
     <hr />
-    <div class="${id('foldMenuElem')}"><button id="${id(
-      'side',
-    )}">Side view</button></div>
-    <div class="${id('foldMenuElem')}"><button id="${id(
-      'top',
-    )}">Top view</button></div>
+    <div class="${id('foldMenuElem')}">
+      <button id="${id('side')}">Side view</button>
+    </div>
+    <div class="${id('foldMenuElem')}">
+      <button id="${id('top')}">Top view</button>
+    </div>
     <div class="${id('foldMenuElem')}">
       <button id="${id('yaw90ccw')}">←90°</button>
       <button id="${id('yaw90cw')}">90°→</button>
@@ -458,22 +456,28 @@ class PCDEditor {
     </div>
     <hr />
     <div class="${id('foldMenuElem')}">
-      <label for="${id('pointSize')}" class="${id(
-      'inputLabel',
-    )}">Point size</label>
-      <input type="range" id="${id(
-        'pointSize',
-      )}" min="20" max="100" value="40" />
+      <label
+        for="${id('pointSize')}"
+        class="${id('inputLabel')}"
+      >Point size</label>
+      <input
+        id="${id('pointSize')}"
+        type="range" min="20" max="100" value="40"
+      />
     </div>
     <hr />
     <div class="${id('foldMenuElem')}">
       <label class="${id('inputLabel')}">Depth</label>
-      <button id="${id('fovInc')}"><svg width="1em" height="1em" viewBox="0 0 100 100">
-        <path d="M 0 30 L 50 100 L 100 30 Q 50 -10 0 30 z" />
-      </svg></button>
-      <button id="${id('fovDec')}"><svg width="1em" height="1em" viewBox="0 0 100 100">
-        <path d="M 30 20 L 50 100 L 70 20 Q 50 0 30 20 z" />
-      </svg></button>
+      <button id="${id('fovInc')}">
+        <svg width="1em" height="1em" viewBox="0 0 100 100">
+          <path d="M 0 30 L 50 100 L 100 30 Q 50 -10 0 30 z" />
+        </svg>
+      </button>
+      <button id="${id('fovDec')}">
+        <svg width="1em" height="1em" viewBox="0 0 100 100">
+          <path d="M 30 20 L 50 100 L 70 20 Q 50 0 30 20 z" />
+        </svg>
+      </button>
     </div>
   </div>
 </span>
@@ -491,9 +495,9 @@ class PCDEditor {
         <rect x="22" y="9.333" width="2" height="5.333"/>
       </svg>
     </span><span class="${id('foldMenuHeader')}">Select</span>
-    <div class="${id('foldMenuElem')}"><button id="${id(
-      'unselect',
-    )}">Unselect</button></div>
+    <div class="${id('foldMenuElem')}">
+      <button id="${id('unselect')}">Unselect</button>
+    </div>
     <hr />
     <div class="${id('foldMenuElem')}">
       <button id="${id('vsnap')}">V Snap</button>
@@ -501,12 +505,14 @@ class PCDEditor {
     </div>
     <hr />
     <div class="${id('foldMenuElem')}">
-      <label for="${id('selThickLog')}" class="${id(
-      'inputLabel',
-    )}">Select surface thickness</label>
-      <input type="range" id="${id(
-        'selThickLog',
-      )}" min="0.05" max="4" step="0.05" value="0.25" />
+      <label
+        for="${id('selThickLog')}"
+        class="${id('inputLabel')}"
+      >Select surface thickness</label>
+      <input
+        id="${id('selThickLog')}"
+        type="range" min="0.05" max="4" step="0.05" value="0.25"
+      />
     </div>
   </div>
 </span>
