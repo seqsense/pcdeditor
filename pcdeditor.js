@@ -93,6 +93,7 @@ class PCDEditor {
               })
               .catch(this.logger)
             e.target.value = ''
+            this.canvas.focus()
           }
           if (e.keyCode === 27) {
             this.canvas.focus()
@@ -102,6 +103,7 @@ class PCDEditor {
           pcdeditor.show2D(e.target.checked).catch(this.logger)
         pcdeditor.show2D(this.qs('#show2D').checked).catch(this.logger)
 
+        // View menu
         const fovIncButton = this.qs('#fovInc')
         const fovDecButton = this.qs('#fovDec')
         const pointSizeInput = this.qs('#pointSize')
@@ -124,6 +126,7 @@ class PCDEditor {
           const val = target.value
           pcdeditor.command(`point_size ${val}`).catch(this.logger)
         }
+        pointSizeInput.oninput = (e) => onPointSizeChange(e.target)
         pointSizeInput.onchange = (e) => onPointSizeChange(e.target)
         onPointSizeChange(pointSizeInput)
 
@@ -159,6 +162,44 @@ class PCDEditor {
         this.qs('#viewPresetFPS').onclick = () =>
           pcdeditor.command('view_fps').catch(this.logger)
 
+        // Select menu
+        const selThickLogInput = this.qs('#selThickLog')
+
+        this.qs('#unselect').onclick = () =>
+          pcdeditor.command('unset_cursor').catch(this.logger)
+        this.qs('#vsnap').onclick = () =>
+          pcdeditor.command('snap_v').catch(this.logger)
+        this.qs('#hsnap').onclick = () =>
+          pcdeditor.command('snap_h').catch(this.logger)
+
+        const onSelThickLogChange = (target) => {
+          const val = Math.pow(target.value, 2)
+          pcdeditor.command(`select_range ${val}`).catch(this.logger)
+        }
+        selThickLogInput.oninput = (e) => onSelThickLogChange(e.target)
+        selThickLogInput.onchange = (e) => onSelThickLogChange(e.target)
+        onSelThickLogChange(selThickLogInput)
+
+        // Edit menu
+        const surfaceGridInput = this.qs('#surfaceGrid')
+        const labelIdInput = this.qs('#labelID')
+
+        this.qs('#undo').onclick = () =>
+          pcdeditor.command('undo').catch(this.logger)
+        this.qs('#createSurface').onclick = () => {
+          const grid = surfaceGridInput.value
+          pcdeditor.command(`add_surface ${grid}`).catch(this.logger)
+        }
+        this.qs('#unsetLabel').onclick = () =>
+          pcdeditor.command('label 0').catch(this.logger)
+        this.qs('#setLabel').onclick = () => {
+          const id = labelIdInput.value
+          pcdeditor.command(`label ${id}`).catch(this.logger)
+        }
+        this.qs('#delete').onclick = () =>
+          pcdeditor.command('delete').catch(this.logger)
+
+        // Debug menu
         this.qs('#resetContext').onclick = () => {
           const gl = this.canvas.getContext('webgl2')
           const glex = gl.getExtension('WEBGL_lose_context')
@@ -275,12 +316,15 @@ class PCDEditor {
     flex-grow: 2;
     max-width: 10em;
   }
-  ${selector} button, ${selector} input[type=text], ${selector} a {
+  ${selector} button,
+  ${selector} input[type=text],
+  ${selector} input[type=number],
+  ${selector} a {
     background-color: #ccc;
     border: none;
     min-height: 1.5em;
   }
-  ${selector} button:hover, ${selector} input:hover, ${selector} a:hover, ${selector} span:not(.foldMenu):hover {
+  ${selector} button:hover, ${selector}>input:hover, ${selector}>a:hover, ${selector} span:not(.foldMenu):not(.foldMenuIcon):hover {
     background-color: #ddd;
     box-shadow: -1px -1px 1px #999 inset;
   }
@@ -341,14 +385,22 @@ class PCDEditor {
     overflow: visible;
     backdrop-filter: blur(1px);
     color: #222;
+    z-index: 4;
   }
-  ${selector} span${id('.foldMenuIcon')}, ${selector} span${id(
-      '.foldMenuHeader',
-    )} {
+  ${selector} span${id('.foldMenuIcon')},
+  ${selector} span${id('.foldMenuHeader')} {
     height: ${menuHeight};
     float: left;
     display: inline-flex;
     align-items: center;
+    position: relative;
+  }
+  ${selector} span${id('.foldMenuIcon')}:after {
+    position: absolute;
+    width: 1em;
+    height: 1em;
+    z-index: 10;
+    content: "";
   }
   ${selector} span${id('.foldMenuHeader')} {
     font-size: 0.875em;
@@ -359,20 +411,27 @@ class PCDEditor {
     display: flex;
     flex-wrap: wrap;
   }
-  ${selector} ${id('.foldMenuElem')} button, ${selector} ${id(
-      '.foldMenuElem',
-    )} input {
+  ${selector} ${id('.foldMenuElem')} button,
+  ${selector} ${id('.foldMenuElem')} input {
     flex-grow: 2;
     flex-shrink: 2;
     margin: 2px;
     z-index: 2000;
     max-width: calc(100% - 4px);
   }
+  ${selector} ${id('.foldMenuElem')} input {
+    border: none;
+  }
   ${selector} ${id('.inputLabel')} {
     width: 100%;
-    margin-bottom: -2px;
     display: block;
     font-size: 0.875em;
+  }
+  ${selector} ${id('.inputLabelShort')} {
+    display: flex;
+    font-size: 0.875em;
+    align-items: center;
+    padding-right: 2px;
   }
   ${selector}>span${id('.foldMenu')}>div>hr {
     background-color: #aaa;
@@ -400,58 +459,144 @@ class PCDEditor {
   <div>
     <span class="${id('foldMenuIcon')}">
       <svg viewBox="0 0 24 24" width="1em" height="1em">
-        <g><path d="M24,12.03c0,0-5.37,7.98-12,7.98c-6.63,0-12-7.98-12-7.98s5.37-7.98,12-7.98C18.63,4.06,24,12.03,24,12.03z M17.83,12.03
-          c0-3.22-2.61-5.83-5.83-5.83s-5.83,2.61-5.83,5.83s2.61,5.83,5.83,5.83S17.83,15.25,17.83,12.03z" /></g>
+        <path d="M24,12.03c0,0-5.37,7.98-12,7.98c-6.63,0-12-7.98-12-7.98s5.37-7.98,12-7.98C18.63,4.06,24,12.03,24,12.03z M17.83,12.03
+          c0-3.22-2.61-5.83-5.83-5.83s-5.83,2.61-5.83,5.83s2.61,5.83,5.83,5.83S17.83,15.25,17.83,12.03z" />
         <path d="M12,7.69c-0.48,0-0.94,0.1-1.37,0.24c0.4,0.33,0.65,0.82,0.65,1.38c0,1-0.81,1.81-1.81,1.81c-0.61,0-1.15-0.3-1.48-0.77
           c-0.22,0.52-0.34,1.08-0.34,1.67c0,2.4,1.95,4.34,4.34,4.34s4.34-1.95,4.34-4.34S14.4,7.69,12,7.69z" />
       </svg>
     </span><span class="${id('foldMenuHeader')}">View</span>
-    <div class="${id('foldMenuElem')}"><button id="${id(
-      'crop',
-    )}">Crop/Uncrop</button></div>
-    <hr />
-    <div class="${id('foldMenuElem')}"><button id="${id(
-      'side',
-    )}">Side view</button></div>
-    <div class="${id('foldMenuElem')}"><button id="${id(
-      'top',
-    )}">Top view</button></div>
     <div class="${id('foldMenuElem')}">
-      <button id="${id('yaw90ccw')}" class="${id('twoButtons')}">←90°</button>
-      <button id="${id('yaw90cw')}" class="${id('twoButtons')}">90°→</button>
+      <button id="${id('crop')}">Crop/Uncrop</button>
+    </div>
+    <hr />
+    <div class="${id('foldMenuElem')}">
+      <button id="${id('side')}">Side view</button>
+    </div>
+    <div class="${id('foldMenuElem')}">
+      <button id="${id('top')}">Top view</button>
+    </div>
+    <div class="${id('foldMenuElem')}">
+      <button id="${id('yaw90ccw')}">←90°</button>
+      <button id="${id('yaw90cw')}">90°→</button>
     </div>
     <hr />
     <div class="${id('foldMenuElem')}">
       <label class="${id('inputLabel')}">View preset</label>
-      <button id="${id('viewPresetReset')}" class="${id(
-      'twoButtons',
-    )}">Reset</button>
-      <button id="${id('viewPresetFPS')}" class="${id(
-      'twoButtons',
-    )}">FPS</button>
+      <button id="${id('viewPresetReset')}">Reset</button>
+      <button id="${id('viewPresetFPS')}">FPS</button>
     </div>
     <hr />
     <div class="${id('foldMenuElem')}">
-      <label for="${id('pointSize')}" class="${id(
-      'inputLabel',
-    )}">Point size</label>
-      <input type="range" id="${id(
-        'pointSize',
-      )}" min="20" max="100" value="40" />
+      <label
+        for="${id('pointSize')}"
+        class="${id('inputLabel')}"
+      >Point size</label>
+      <input
+        id="${id('pointSize')}"
+        type="range" min="20" max="100" value="40"
+      />
     </div>
     <hr />
     <div class="${id('foldMenuElem')}">
       <label class="${id('inputLabel')}">Depth</label>
-      <button id="${id('fovInc')}" class="${id(
-      'twoButtons',
-    )}"><svg width="1em" height="1em" viewBox="0 0 100 100">
-        <path d="M 0 30 L 50 100 L 100 30 Q 50 -10 0 30 z" />
-      </svg></button>
-      <button id="${id('fovDec')}" class="${id(
-      'twoButtons',
-    )}"><svg width="1em" height="1em" viewBox="0 0 100 100">
-        <path d="M 30 20 L 50 100 L 70 20 Q 50 0 30 20 z" />
-      </svg></button>
+      <button id="${id('fovInc')}">
+        <svg width="1em" height="1em" viewBox="0 0 100 100">
+          <path d="M 0 30 L 50 100 L 100 30 Q 50 -10 0 30 z" />
+        </svg>
+      </button>
+      <button id="${id('fovDec')}">
+        <svg width="1em" height="1em" viewBox="0 0 100 100">
+          <path d="M 30 20 L 50 100 L 70 20 Q 50 0 30 20 z" />
+        </svg>
+      </button>
+    </div>
+  </div>
+</span>
+<span class="${id('foldMenu')}">
+  <div>
+    <span class="${id('foldMenuIcon')}">
+      <svg viewBox="0 0 24 24" width="1em" height="1em">
+        <g stroke="#000" stroke-width="2" stroke-linejoin="round">
+          <line x1="14.333" y1="1" x2="9.667" y2="1" />
+          <polyline points="1,5 1,1 5,1" />
+          <line x1="9.667" y1="23" x2="14.334" y2="23" />
+          <polyline points="23,19 23,23 19,23" />
+          <line x1="1" y1="9.667" x2="1" y2="14.334" />
+          <polyline points="5,23 1,23 1,19" />
+          <line x1="23" y1="14.333" x2="23" y2="9.666" />
+          <polyline points="19,1 23,1 23,5" />
+        </g>
+      </svg>
+    </span><span class="${id('foldMenuHeader')}">Select</span>
+    <div class="${id('foldMenuElem')}">
+      <button id="${id('unselect')}">Unselect</button>
+    </div>
+    <hr />
+    <div class="${id('foldMenuElem')}">
+      <button id="${id('vsnap')}">V Snap</button>
+      <button id="${id('hsnap')}">H Snap</button>
+    </div>
+    <hr />
+    <div class="${id('foldMenuElem')}">
+      <label
+        for="${id('selThickLog')}"
+        class="${id('inputLabel')}"
+      >Select surface thickness</label>
+      <input
+        id="${id('selThickLog')}"
+        type="range" min="0.05" max="4" step="0.05" value="0.25"
+      />
+    </div>
+  </div>
+</span>
+<span class="${id('foldMenu')}">
+  <div>
+    <span class="${id('foldMenuIcon')}">
+      <svg viewBox="0 0 24 24" width="1em" height="1em">
+        <polygon points="11.607,19.121 7.373,20.025 7.269,15.699 19.66,0 24,3.425 "/>
+        <path fill="none" stroke="#000" stroke-width="2" d="M15.635,20.5c0,1.375-1.125,2.5-2.5,2.5H3.5C2.125,23,1,21.875,1,20.5v-17C1,2.125,2.125,1,3.5,1h9.635c1.375,0,2.5,1.125,2.5,2.5V20.5z"/>
+      </svg>
+    </span><span class="${id('foldMenuHeader')}">Edit</span>
+    <div class="${id('foldMenuElem')}">
+      <button id="${id('undo')}">Undo</button>
+    </div>
+    <hr/>
+    <div class="${id('foldMenuElem')}">
+      <div class="${id('foldMenuElem')}">
+        <label
+          for="${id('surfaceGrid')}"
+          class="${id('inputLabelShort')}"
+        >Grid</label>
+        <input
+          id="${id('surfaceGrid')}"
+          type="number" value="0.05" min="0.01" step="0.01" max="1"
+          style="width: 4em; text-align: center;"
+        />
+      </div>
+      <button id="${id('createSurface')}">Create surface</button>
+    </div>
+    <hr/>
+    <div class="${id('foldMenuElem')}">
+      <label class="${id('inputLabel')}">Label</label>
+      <div class="${id('foldMenuElem')}">
+        <button id="${id('unsetLabel')}">Unset</button>
+      </div>
+      <div class="${id('foldMenuElem')}">
+        <label
+          for="${id('labelID')}"
+          class="${id('inputLabelShort')}"
+        >ID</label>
+        <input
+          id="${id('labelID')}"
+          type="number" value="1" min="1" max="255"
+          style="width: 3em; text-align: center;"
+        />
+        <button id="${id('setLabel')}">Set</button>
+      </div>
+    </div>
+    <hr/>
+    <div class="${id('foldMenuElem')}">
+      <button id="${id('delete')}">Delete</button>
     </div>
   </div>
 </span>

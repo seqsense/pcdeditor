@@ -784,7 +784,6 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 				break
 			}
 			promise.resolved(res)
-			gl.Canvas.Focus()
 		case promise := <-pe.ch2D:
 			show2D = promise.data.(bool)
 			promise.resolved("changed")
