@@ -1,9 +1,16 @@
 package main
 
 import (
+	"context"
 	"math"
+	"time"
 
 	webgl "github.com/seqsense/webgl-go"
+)
+
+const (
+	doubleTapInterval = 250 * time.Millisecond
+	tapMaxEndDuration = 150 * time.Millisecond
 )
 
 type gestureMode int
@@ -17,9 +24,10 @@ const (
 )
 
 type gesture struct {
-	pointers map[int]webgl.PointerEvent
-	pointer0 webgl.PointerEvent
+	pointer0  webgl.TouchEvent
+	primaryID int
 
+	onClick     func(webgl.MouseEvent)
 	onMouseUp   func(webgl.MouseEvent)
 	onMouseDrag func(webgl.MouseEvent)
 	onMouseDown func(webgl.MouseEvent)
@@ -27,65 +35,79 @@ type gesture struct {
 
 	mode      gestureMode
 	distance0 float64
+
+	lastStart   time.Time
+	tapCnt      int
+	clickCancel func()
 }
 
-func (g *gesture) pointerUp(e webgl.PointerEvent) {
+func (g *gesture) fromLastEnd(now time.Time) time.Duration {
+	return now.Sub(g.lastStart)
+}
+
+func (g *gesture) touchEnd(e webgl.TouchEvent) {
 	e.PreventDefault()
 	e.StopPropagation()
 
-	if _, ok := g.pointers[e.PointerId]; ok {
-		delete(g.pointers, e.PointerId)
-	}
-	if len(g.pointers) == 0 {
-		if e.IsPrimary {
-			g.pointer0 = e
+	now := time.Now()
+
+	switch g.mode {
+	case gestureNone:
+		if g.fromLastEnd(now) < tapMaxEndDuration {
+			ctx, cancel := context.WithCancel(context.Background())
+			g.clickCancel = cancel
+			go func() {
+				defer cancel()
+				select {
+				case <-time.After(doubleTapInterval):
+					g.onClick(touchToMouse(g.pointer0, 0))
+				case <-ctx.Done():
+				}
+			}()
 		}
-		switch g.mode {
-		case gestureRotate:
-			g.onMouseUp(g.pointer0.MouseEvent)
-		case gestureDrag:
-			g.pointer0.MouseEvent.Button = 1
-			g.onMouseUp(g.pointer0.MouseEvent)
-		}
-		g.mode = gestureNone
+	case gestureRotate:
+		g.onMouseUp(touchToMouse(g.pointer0, 0))
+	case gestureDrag:
+		g.onMouseUp(touchToMouse(g.pointer0, 1))
 	}
+	g.mode = gestureNone
 }
 
-func (g *gesture) pointerMove(e webgl.PointerEvent) {
+func (g *gesture) touchMove(e webgl.TouchEvent) {
 	e.PreventDefault()
 	e.StopPropagation()
-	if _, ok := g.pointers[e.PointerId]; !ok {
-		return
-	}
-	g.pointers[e.PointerId] = e
+
+	now := time.Now()
 
 	if g.mode == gestureNone {
-		switch len(g.pointers) {
+		n := len(e.Touches)
+		if g.tapCnt == 1 {
+			n = 3
+		}
+		switch n {
 		case 1:
-			g.onMouseDown(g.pointer0.MouseEvent)
-			g.mode = gestureRotate
+			if g.fromLastEnd(now) > doubleTapInterval {
+				g.onMouseDown(touchToMouse(g.pointer0, 0))
+				g.mode = gestureRotate
+			}
 		case 2:
 			g.mode = gestureWheel
 		case 3:
-			g.pointer0.MouseEvent.Button = 1
-			g.onMouseDown(g.pointer0.MouseEvent)
+			g.onMouseDown(touchToMouse(g.pointer0, 1))
 			g.mode = gestureDrag
 		}
 	}
 	switch g.mode {
 	case gestureRotate:
-		if e.IsPrimary {
-			g.onMouseDrag(e.MouseEvent)
-		}
+		g.onMouseDrag(touchToMouse(e, 0))
 	case gestureWheel:
-		if len(g.pointers) != 2 {
+		if len(e.Touches) != 2 {
 			break
 		}
-		var pp []webgl.PointerEvent
-		for id := range g.pointers {
-			pp = append(pp, g.pointers[id])
-		}
-		d := math.Hypot(float64(pp[0].OffsetX-pp[1].OffsetX), float64(pp[0].OffsetY-pp[1].OffsetY))
+		d := math.Hypot(
+			float64(e.Touches[0].ClientX-e.Touches[1].ClientX),
+			float64(e.Touches[0].ClientY-e.Touches[1].ClientY),
+		)
 		we := webgl.WheelEvent{
 			MouseEvent: webgl.MouseEvent{
 				UIEvent: webgl.UIEvent{
@@ -100,30 +122,49 @@ func (g *gesture) pointerMove(e webgl.PointerEvent) {
 		g.onWheel(we)
 		g.distance0 = d
 	case gestureDrag:
-		if e.IsPrimary {
-			e.MouseEvent.Button = 1
-			g.onMouseDrag(e.MouseEvent)
-		}
+		g.onMouseDrag(touchToMouse(e, 1))
 	}
-	if e.IsPrimary {
+	if len(e.Touches) > 0 {
 		g.pointer0 = e
 	}
 }
 
-func (g *gesture) pointerDown(e webgl.PointerEvent) {
+func (g *gesture) touchStart(e webgl.TouchEvent) {
 	e.PreventDefault()
 	e.StopPropagation()
-	g.pointers[e.PointerId] = e
 
-	switch len(g.pointers) {
+	now := time.Now()
+
+	if g.clickCancel != nil {
+		g.clickCancel()
+		g.clickCancel = nil
+	}
+
+	switch len(e.Touches) {
 	case 1:
-		g.pointer0 = e
-	case 2:
-		var pp []webgl.PointerEvent
-		for id := range g.pointers {
-			pp = append(pp, g.pointers[id])
+		if g.fromLastEnd(now) < doubleTapInterval {
+			g.tapCnt++
+		} else {
+			g.tapCnt = 0
 		}
-		g.distance0 = math.Hypot(float64(pp[0].OffsetX-pp[1].OffsetX), float64(pp[0].OffsetY-pp[1].OffsetY))
+		g.lastStart = now
+	case 2:
+		g.distance0 = math.Hypot(
+			float64(e.Touches[0].ClientX-e.Touches[1].ClientX),
+			float64(e.Touches[0].ClientY-e.Touches[1].ClientY),
+		)
 	case 3:
+	}
+}
+
+func touchToMouse(e webgl.TouchEvent, button webgl.MouseButton) webgl.MouseEvent {
+	return webgl.MouseEvent{
+		UIEvent:  e.UIEvent,
+		OffsetX:  e.Touches[0].ClientX,
+		OffsetY:  e.Touches[0].ClientY,
+		Button:   button,
+		AltKey:   e.AltKey,
+		CtrlKey:  e.CtrlKey,
+		ShiftKey: e.ShiftKey,
 	}
 }

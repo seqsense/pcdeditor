@@ -197,7 +197,12 @@ func (pe *pcdeditor) Run(ctx context.Context) {
 	}
 	canvas.OnWheel(wheelHandler)
 	gesture := &gesture{
-		pointers: make(map[int]webgl.PointerEvent),
+		onClick: func(e webgl.MouseEvent) {
+			select {
+			case pe.chClick <- e:
+			default:
+			}
+		},
 		onMouseDown: func(e webgl.MouseEvent) {
 			select {
 			case pe.chMouseDown <- e:
@@ -218,14 +223,40 @@ func (pe *pcdeditor) Run(ctx context.Context) {
 		},
 		onWheel: wheelHandler,
 	}
-	canvas.OnPointerDown(gesture.pointerDown)
-	canvas.OnPointerMove(gesture.pointerMove)
-	canvas.OnPointerUp(gesture.pointerUp)
-	canvas.OnPointerOut(gesture.pointerUp)
-	canvas.OnMouseMove(func(e webgl.MouseEvent) {
+	canvas.OnTouchStart(gesture.touchStart)
+	canvas.OnTouchMove(gesture.touchMove)
+	canvas.OnTouchEnd(gesture.touchEnd)
+	canvas.OnTouchCancel(gesture.touchEnd)
+
+	mouseDragging := webgl.MouseButtonNull
+	canvas.OnMouseUp(func(e webgl.MouseEvent) {
 		select {
-		case pe.chMouseMove <- e:
+		case pe.chMouseUp <- e:
+			if mouseDragging == e.Button {
+				mouseDragging = webgl.MouseButtonNull
+			}
 		default:
+		}
+	})
+	canvas.OnMouseDown(func(e webgl.MouseEvent) {
+		select {
+		case pe.chMouseDown <- e:
+			mouseDragging = e.Button
+		default:
+		}
+	})
+	canvas.OnMouseMove(func(e webgl.MouseEvent) {
+		if mouseDragging != webgl.MouseButtonNull {
+			e.Button = mouseDragging
+			select {
+			case pe.chMouseDrag <- e:
+			default:
+			}
+		} else {
+			select {
+			case pe.chMouseMove <- e:
+			default:
+			}
 		}
 	})
 
