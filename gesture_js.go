@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"math"
+	"syscall/js"
 	"time"
 
 	webgl "github.com/seqsense/webgl-go"
@@ -24,6 +25,8 @@ const (
 )
 
 type gesture struct {
+	canvas webgl.Canvas
+
 	pointer0  webgl.TouchEvent
 	primaryID int
 
@@ -60,15 +63,15 @@ func (g *gesture) touchEnd(e webgl.TouchEvent) {
 				defer cancel()
 				select {
 				case <-time.After(doubleTapInterval):
-					g.onClick(touchToMouse(g.pointer0, 0))
+					g.onClick(g.touchToMouse(g.pointer0, 0))
 				case <-ctx.Done():
 				}
 			}()
 		}
 	case gestureRotate:
-		g.onMouseUp(touchToMouse(g.pointer0, 0))
+		g.onMouseUp(g.touchToMouse(g.pointer0, 0))
 	case gestureDrag:
-		g.onMouseUp(touchToMouse(g.pointer0, 1))
+		g.onMouseUp(g.touchToMouse(g.pointer0, 1))
 	}
 	g.mode = gestureNone
 }
@@ -87,19 +90,19 @@ func (g *gesture) touchMove(e webgl.TouchEvent) {
 		switch n {
 		case 1:
 			if g.fromLastEnd(now) > doubleTapInterval {
-				g.onMouseDown(touchToMouse(g.pointer0, 0))
+				g.onMouseDown(g.touchToMouse(g.pointer0, 0))
 				g.mode = gestureRotate
 			}
 		case 2:
 			g.mode = gestureWheel
 		case 3:
-			g.onMouseDown(touchToMouse(g.pointer0, 1))
+			g.onMouseDown(g.touchToMouse(g.pointer0, 1))
 			g.mode = gestureDrag
 		}
 	}
 	switch g.mode {
 	case gestureRotate:
-		g.onMouseDrag(touchToMouse(e, 0))
+		g.onMouseDrag(g.touchToMouse(e, 0))
 	case gestureWheel:
 		if len(e.Touches) != 2 {
 			break
@@ -122,7 +125,7 @@ func (g *gesture) touchMove(e webgl.TouchEvent) {
 		g.onWheel(we)
 		g.distance0 = d
 	case gestureDrag:
-		g.onMouseDrag(touchToMouse(e, 1))
+		g.onMouseDrag(g.touchToMouse(e, 1))
 	}
 	if len(e.Touches) > 0 {
 		g.pointer0 = e
@@ -158,11 +161,14 @@ func (g *gesture) touchStart(e webgl.TouchEvent) {
 	g.pointer0 = e
 }
 
-func touchToMouse(e webgl.TouchEvent, button webgl.MouseButton) webgl.MouseEvent {
+func (g *gesture) touchToMouse(e webgl.TouchEvent, button webgl.MouseButton) webgl.MouseEvent {
+	bcr := js.Value(g.canvas).Call("getBoundingClientRect")
+	x, y := e.Touches[0].ClientX, e.Touches[0].ClientY
+	cx, cy := bcr.Get("x").Int(), bcr.Get("y").Int()
 	return webgl.MouseEvent{
 		UIEvent:  e.UIEvent,
-		OffsetX:  e.Touches[0].ClientX,
-		OffsetY:  e.Touches[0].ClientY,
+		OffsetX:  x - cx,
+		OffsetY:  y - cy,
 		Button:   button,
 		AltKey:   e.AltKey,
 		CtrlKey:  e.CtrlKey,

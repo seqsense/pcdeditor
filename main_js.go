@@ -197,6 +197,7 @@ func (pe *pcdeditor) Run(ctx context.Context) {
 	}
 	canvas.OnWheel(wheelHandler)
 	gesture := &gesture{
+		canvas: canvas,
 		onClick: func(e webgl.MouseEvent) {
 			select {
 			case pe.chClick <- e:
