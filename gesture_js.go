@@ -155,6 +155,7 @@ func (g *gesture) touchStart(e webgl.TouchEvent) {
 		)
 	case 3:
 	}
+	g.pointer0 = e
 }
 
 func touchToMouse(e webgl.TouchEvent, button webgl.MouseButton) webgl.MouseEvent {
