@@ -53,6 +53,10 @@ class PCDEditor {
     return document.querySelector(this.wrapId(q))
   }
 
+  qsAll(q) {
+    return document.querySelectorAll(this.wrapId(q))
+  }
+
   attach() {
     return new Promise((resolve) => {
       /** Sets up the control's event handlers */
@@ -213,6 +217,10 @@ class PCDEditor {
             clearInterval(retryRestore)
           }, 1000)
         }
+
+        this.qsAll('.foldMenu').forEach(e => {
+          e.onmouseleave = () => this.canvas.focus()
+        })
       }
       /** main */
       const loadWasm = async () => {
