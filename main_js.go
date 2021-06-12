@@ -833,14 +833,14 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 		case e := <-pe.chMouseDown:
 			if e.Button == 0 {
 				pe.cg.DragStart()
-			}
-			if p, ok := cursorOnSelect(e); ok {
-				pe.cmd.PushCursors()
-				moveStart = selectPointOrtho(
-					&modelViewMatrix, &projectionMatrix,
-					e.OffsetX*scale, e.OffsetY*scale, width, height, p,
-				)
-				continue
+				if p, ok := cursorOnSelect(e); ok {
+					pe.cmd.PushCursors()
+					moveStart = selectPointOrtho(
+						&modelViewMatrix, &projectionMatrix,
+						e.OffsetX*scale, e.OffsetY*scale, width, height, p,
+					)
+					continue
+				}
 			}
 			moveStart = nil
 			pe.vi.mouseDragStart(&e)
@@ -863,7 +863,7 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 			pe.vi.mouseDragEnd(&e)
 		case e := <-pe.chMouseDrag:
 			pe.cg.Move()
-			if moveStart != nil {
+			if e.Button == 0 && moveStart != nil {
 				pe.cmd.PopCursors()
 				pe.cmd.PushCursors()
 
