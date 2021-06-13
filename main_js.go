@@ -863,6 +863,7 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 				pe.vi.wheel(&e)
 			}
 		case e := <-pe.chMouseDown:
+			gl.Canvas.Focus()
 			if e.Button == 0 {
 				pe.cg.DragStart()
 				if p, ok := cursorOnSelect(e); ok {

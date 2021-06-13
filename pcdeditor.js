@@ -59,6 +59,11 @@ class PCDEditor {
 
   attach() {
     return new Promise((resolve) => {
+      let touchMode = false
+      const backdrop = document.createElement('div')
+      backdrop.id = `${this.wrapId('foldMenuBackdrop')}`
+      this.canvas.parentNode.insertBefore(backdrop, this.canvas.nextSibling)
+
       /** Sets up the control's event handlers */
       const setupControls = async (pcdeditor) => {
         this.qs('#exportPCD').onclick = async () => {
@@ -218,8 +223,20 @@ class PCDEditor {
           }, 1000)
         }
 
-        this.qsAll('.foldMenu').forEach(e => {
-          e.onmouseleave = () => this.canvas.focus()
+        let backdropDisableTimer
+        this.qsAll('.foldMenu').forEach((e) => {
+          e.onmouseenter = () => {
+            if (backdropDisableTimer) {
+              clearTimeout(backdropDisableTimer)
+            }
+            backdrop.style.display = 'block'
+          }
+          e.onmouseleave = () => {
+            backdropDisableTimer = setTimeout(
+              () => (backdrop.style.display = 'none'),
+              0,
+            )
+          }
         })
       }
       /** main */
@@ -451,6 +468,15 @@ class PCDEditor {
     text-decoration: none;
     text-align: center;
     font-weight: 800;
+  }
+  ${id('#foldMenuBackdrop')} {
+    display: none;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.1);
   }
 </style>
 <button id="${id('exportPCD')}">export</button>
