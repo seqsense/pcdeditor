@@ -31,10 +31,32 @@ var consoleCommands = map[string]func(c *console, sel []uint32, args []float32) 
 	"select_range": func(c *console, sel []uint32, args []float32) ([][]float32, error) {
 		switch len(args) {
 		case 0:
-			return [][]float32{{c.cmd.SelectRange()}}, nil
+			return [][]float32{{c.cmd.SelectRange(rangeTypeAuto)}}, nil
 		case 1:
-			c.cmd.SetSelectRange(args[0])
-			return [][]float32{{c.cmd.SelectRange()}}, nil
+			c.cmd.SetSelectRange(rangeTypeAuto, args[0])
+			return [][]float32{{c.cmd.SelectRange(rangeTypeAuto)}}, nil
+		default:
+			return nil, errArgumentNumber
+		}
+	},
+	"select_range_perspective": func(c *console, sel []uint32, args []float32) ([][]float32, error) {
+		switch len(args) {
+		case 0:
+			return [][]float32{{c.cmd.SelectRange(rangeTypePerspective)}}, nil
+		case 1:
+			c.cmd.SetSelectRange(rangeTypePerspective, args[0])
+			return [][]float32{{c.cmd.SelectRange(rangeTypePerspective)}}, nil
+		default:
+			return nil, errArgumentNumber
+		}
+	},
+	"select_range_ortho": func(c *console, sel []uint32, args []float32) ([][]float32, error) {
+		switch len(args) {
+		case 0:
+			return [][]float32{{c.cmd.SelectRange(rangeTypeOrtho)}}, nil
+		case 1:
+			c.cmd.SetSelectRange(rangeTypeOrtho, args[0])
+			return [][]float32{{c.cmd.SelectRange(rangeTypeOrtho)}}, nil
 		default:
 			return nil, errArgumentNumber
 		}
