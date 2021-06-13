@@ -59,7 +59,6 @@ class PCDEditor {
 
   attach() {
     return new Promise((resolve) => {
-      let touchMode = false
       const backdrop = document.createElement('div')
       backdrop.id = `${this.wrapId('foldMenuBackdrop')}`
       this.canvas.parentNode.insertBefore(backdrop, this.canvas.nextSibling)
