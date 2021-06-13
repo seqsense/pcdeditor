@@ -56,13 +56,23 @@ func (g *gesture) touchEnd(e webgl.TouchEvent) {
 	switch g.mode {
 	case gestureNone:
 		if g.fromLastEnd(now) < tapMaxEndDuration {
+			if g.clickCancel != nil {
+				g.clickCancel()
+			}
 			ctx, cancel := context.WithCancel(context.Background())
 			g.clickCancel = cancel
+			tapCnt, pointer0 := g.tapCnt, g.pointer0
 			go func() {
 				defer cancel()
 				select {
 				case <-time.After(doubleTapInterval):
-					g.onClick(g.touchToMouse(g.pointer0, 0))
+					switch tapCnt {
+					case 1:
+						pointer0.ShiftKey = true
+					case 2:
+						pointer0.AltKey = true
+					}
+					g.onClick(g.touchToMouse(pointer0, 0))
 				case <-ctx.Done():
 				}
 			}()
