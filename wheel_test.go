@@ -41,12 +41,15 @@ func TestWheelNormalizer(t *testing.T) {
 		tt := tt
 		t.Run(name, func(t *testing.T) {
 			wn := &wheelNormalizer{}
+			tick := time.NewTicker(interval)
+			defer tick.Stop()
+
 			for _, v := range tt.pre {
-				time.Sleep(interval)
+				<-tick.C
 				wn.Normalize(v)
 			}
 			for i, v := range tt.input {
-				time.Sleep(interval)
+				<-tick.C
 				o, ok := wn.Normalize(v)
 				if !ok {
 					t.Error("Normalizer should be ready")
