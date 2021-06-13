@@ -800,7 +800,10 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 					rate = 0.1
 				}
 				if len(pe.cmd.Cursors()) < 4 {
-					pe.cmd.SetSelectRange(pe.cmd.SelectRange() + float32(e.DeltaY*rate))
+					pe.cmd.SetSelectRange(
+						rangeTypeAuto,
+						pe.cmd.SelectRange(rangeTypeAuto)+float32(e.DeltaY*rate),
+					)
 					break
 				}
 				r := 1.0 + float32(e.DeltaY*rate)
