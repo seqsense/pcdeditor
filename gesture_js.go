@@ -27,8 +27,7 @@ const (
 type gesture struct {
 	canvas webgl.Canvas
 
-	pointer0  webgl.TouchEvent
-	primaryID int
+	pointer0 webgl.TouchEvent
 
 	onClick     func(webgl.MouseEvent)
 	onMouseUp   func(webgl.MouseEvent)
