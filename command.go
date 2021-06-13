@@ -25,6 +25,14 @@ const (
 	sacSurfacePointsMin = 50
 )
 
+type rangeType int
+
+const (
+	rangeTypeAuto = iota
+	rangeTypePerspective
+	rangeTypeOrtho
+)
+
 type pcdIO interface {
 	importPCD(blob interface{}) (*pc.PointCloud, error)
 	exportPCD(pp *pc.PointCloud) (interface{}, error)
@@ -202,16 +210,33 @@ func (c *commandContext) RectCenter() []mat.Vec3 {
 	return c.rectCenter
 }
 
-func (c *commandContext) SetSelectRange(r float32) {
+func (c *commandContext) SetSelectRange(t rangeType, r float32) {
 	if r < 0 {
 		r = 0
 	}
-	*c.selectRange = r
+	switch t {
+	case rangeTypeAuto:
+		*c.selectRange = r
+	case rangeTypePerspective:
+		c.selectRangePerspective = r
+	case rangeTypeOrtho:
+		c.selectRangeOrtho = r
+	default:
+		panic("invalid rangeType")
+	}
 	c.updateRect()
 }
 
-func (c *commandContext) SelectRange() float32 {
-	return *c.selectRange
+func (c *commandContext) SelectRange(t rangeType) float32 {
+	switch t {
+	case rangeTypeAuto:
+		return *c.selectRange
+	case rangeTypePerspective:
+		return c.selectRangePerspective
+	case rangeTypeOrtho:
+		return c.selectRangeOrtho
+	}
+	panic("invalid rangeType")
 }
 
 func (c *commandContext) SelectMode() selectMode {

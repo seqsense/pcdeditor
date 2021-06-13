@@ -183,7 +183,7 @@ class PCDEditor {
 
         const onSelThickLogChange = (target) => {
           const val = Math.pow(target.value, 2)
-          pcdeditor.command(`select_range ${val}`).catch(this.logger)
+          pcdeditor.command(`select_range_perspective ${val}`).catch(this.logger)
         }
         selThickLogInput.oninput = (e) => onSelThickLogChange(e.target)
         selThickLogInput.onchange = (e) => onSelThickLogChange(e.target)
