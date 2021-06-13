@@ -28,8 +28,6 @@ jobs:
         run: GOOS=js GOARCH=wasm go vet ./...
       - name: Run go test
         run: go test ./... -v -race -coverprofile=cover.out -covermode atomic -coverpkg ./...
-      - name: Test flakyness
-        run: go test -v . -run TestWheelNormalizer -count 100 -race
       - name: Build WASM
         run: make pcdeditor.wasm
 
