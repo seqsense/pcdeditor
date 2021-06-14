@@ -1,20 +1,28 @@
 {
-    "extends": [
-        "config:base",
-        "schedule:weekends"
-    ],
-    "postUpdateOptions": [
-        "gomodTidy"
-    ],
-    "packageRules": [
-        {
-            "packagePatterns": [
-                "^golang.org/x/"
-            ],
-            "schedule": [
-                "on the first day of the month"
-            ]
-        }
-    ],
-    "timezone": "Asia/Tokyo"
+  "extends": [
+    "config:base",
+    "schedule:weekends"
+  ],
+  "postUpdateOptions": [
+    "gomodTidy"
+  ],
+  "packageRules": [
+    {
+      "matchPackagePatterns": [
+        "^github.com/seqsense/"
+      ],
+      "schedule": [
+        "at any time"
+      ]
+    },
+    {
+      "packagePatterns": [
+        "^golang.org/x/"
+      ],
+      "schedule": [
+        "on the first day of the month"
+      ]
+    }
+  ],
+  "timezone": "Asia/Tokyo"
 }
