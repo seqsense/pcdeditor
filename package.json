@@ -46,8 +46,8 @@
   },
   "homepage": "https://github.com/seqsense/pcdeditor#readme",
   "devDependencies": {
-    "@typescript-eslint/eslint-plugin": "^4.21.0",
-    "@typescript-eslint/parser": "^4.21.0",
+    "@typescript-eslint/eslint-plugin": "4.27.0",
+    "@typescript-eslint/parser": "4.27.0",
     "eslint": "^7.23.0",
     "eslint-plugin-react": "^7.23.2",
     "prettier": "^2.2.1",
