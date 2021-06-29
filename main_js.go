@@ -709,7 +709,7 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 		//   - in the select box
 		//   - close to the mouse cursor position given as (x, y)
 		scanSelection := func(x, y int) ([]uint32, bool) {
-			if hasPointCloud {
+			if hasPointCloud && pp.Points > 0 {
 				origin, dir := perspectiveOriginDir(x, y, width, height, &projectionMatrix, &modelViewMatrix)
 
 				// Run GPGPU shader
