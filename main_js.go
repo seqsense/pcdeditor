@@ -476,9 +476,12 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 	pe.logPrint("WebGL context initialized")
 
 	for {
-		scale := devicePixelRatioJS.Int()
-		newWidth := gl.Canvas.ClientWidth() * scale
-		newHeight := gl.Canvas.ClientHeight() * scale
+		scale := float32(devicePixelRatioJS.Float())
+		scaled := func(v int) int {
+			return int(float32(v) * scale)
+		}
+		newWidth := scaled(gl.Canvas.ClientWidth())
+		newHeight := scaled(gl.Canvas.ClientHeight())
 		newProjectionType := pe.cmd.ProjectionType()
 		newDistance := pe.vi.distance
 		newFOV := pe.vi.fov
@@ -774,7 +777,7 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 			}
 			return selectPoint(
 				pcCursor, nil, projectionType, &modelViewMatrix, &projectionMatrix,
-				e.OffsetX*scale, e.OffsetY*scale, width, height,
+				scaled(e.OffsetX), scaled(e.OffsetY), width, height,
 			)
 		}
 
@@ -873,7 +876,7 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 					pe.cmd.PushCursors()
 					moveStart = selectPointOrtho(
 						&modelViewMatrix, &projectionMatrix,
-						e.OffsetX*scale, e.OffsetY*scale, width, height, p,
+						scaled(e.OffsetX), scaled(e.OffsetY), width, height, p,
 					)
 					continue
 				}
@@ -888,7 +891,7 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 				pe.cmd.PopCursors()
 				moveEnd := selectPointOrtho(
 					&modelViewMatrix, &projectionMatrix,
-					e.OffsetX*scale, e.OffsetY*scale, width, height, moveStart,
+					scaled(e.OffsetX), scaled(e.OffsetY), width, height, moveStart,
 				)
 				diff := moveEnd.Sub(*moveStart)
 				pe.cmd.TransformCursors(mat.Translate(diff[0], diff[1], diff[2]))
@@ -905,7 +908,7 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 
 				moveEnd := selectPointOrtho(
 					&modelViewMatrix, &projectionMatrix,
-					e.OffsetX*scale, e.OffsetY*scale, width, height, moveStart,
+					scaled(e.OffsetX), scaled(e.OffsetY), width, height, moveStart,
 				)
 				diff := moveEnd.Sub(*moveStart)
 				pe.cmd.TransformCursors(mat.Translate(diff[0], diff[1], diff[2]))
@@ -924,7 +927,7 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 			if e.Button != 0 || !pe.cg.Click() {
 				continue
 			}
-			sel, ok := scanSelection(e.OffsetX*scale, e.OffsetY*scale)
+			sel, ok := scanSelection(scaled(e.OffsetX), scaled(e.OffsetY))
 			if !ok {
 				updateSelectMask()
 				continue
@@ -933,11 +936,11 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 			switch projectionType {
 			case ProjectionPerspective:
 				p, ok = selectPoint(
-					pp, sel, projectionType, &modelViewMatrix, &projectionMatrix, e.OffsetX*scale, e.OffsetY*scale, width, height,
+					pp, sel, projectionType, &modelViewMatrix, &projectionMatrix, scaled(e.OffsetX), scaled(e.OffsetY), width, height,
 				)
 			case ProjectionOrthographic:
 				p = selectPointOrtho(
-					&modelViewMatrix, &projectionMatrix, e.OffsetX*scale, e.OffsetY*scale, width, height, nil,
+					&modelViewMatrix, &projectionMatrix, scaled(e.OffsetX), scaled(e.OffsetY), width, height, nil,
 				)
 			default:
 				ok = false
@@ -957,7 +960,7 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 				if projectionType != ProjectionPerspective {
 					break
 				}
-				if sel, ok := scanSelection(e.OffsetX*scale, e.OffsetY*scale); ok {
+				if sel, ok := scanSelection(scaled(e.OffsetX), scaled(e.OffsetY)); ok {
 					pe.cmd.SelectSegment(*p, sel)
 					updateSelectMask()
 				}
