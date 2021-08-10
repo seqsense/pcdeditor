@@ -52,3 +52,14 @@ func linkShaders(gl *webgl.WebGL, fbVarings []string, shaders ...webgl.Shader) (
 	}
 	return program, nil
 }
+
+func enableVertexAttribs(gl *webgl.WebGL, attrs ...int) func() {
+	for _, attr := range attrs {
+		gl.EnableVertexAttribArray(attr)
+	}
+	return func() {
+		for _, attr := range attrs {
+			gl.DisableVertexAttribArray(attr)
+		}
+	}
+}

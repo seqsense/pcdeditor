@@ -407,20 +407,6 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 		aTextureCoordMap = 1
 		aSelectMask      = 2
 	)
-	gl.UseProgram(program)
-	gl.EnableVertexAttribArray(aVertexPosition)
-	gl.EnableVertexAttribArray(aVertexLabel)
-	gl.EnableVertexAttribArray(aSelectMask)
-
-	gl.UseProgram(programSel)
-	gl.EnableVertexAttribArray(aVertexPosition)
-
-	gl.UseProgram(programMap)
-	gl.EnableVertexAttribArray(aVertexPosition)
-	gl.EnableVertexAttribArray(aTextureCoordMap)
-
-	gl.UseProgram(programComputeSelect)
-	gl.EnableVertexAttribArray(aVertexPosition)
 
 	devicePixelRatioJS := js.Global().Get("window").Get("devicePixelRatio")
 	wheelNormalizer := &wheelNormalizer{}
@@ -485,6 +471,7 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 		newProjectionType := pe.cmd.ProjectionType()
 		newDistance := pe.vi.distance
 		newFOV := pe.vi.fov
+
 		if forceReload || newWidth != width || newHeight != height || newFOV != fov || projectionType != newProjectionType || (newProjectionType == ProjectionOrthographic && newDistance != distance) {
 			width, height = newWidth, newHeight
 			projectionType = newProjectionType
@@ -640,6 +627,7 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 			if hasPointCloud && pp.Points > 0 {
 				// Render PointCloud
 				gl.UseProgram(program)
+				clean := enableVertexAttribs(gl, aVertexPosition, aVertexLabel, aSelectMask)
 
 				switch selectMode {
 				case selectModeRect:
@@ -667,6 +655,7 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 				gl.Uniform1f(uPointSizeBase, pointSize)
 
 				gl.DrawArrays(gl.POINTS, 0, pp.Points-1)
+				clean()
 			}
 
 			if nRectPoints > 0 && selectMode == selectModeRect {
@@ -674,6 +663,7 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 				gl.Enable(gl.BLEND)
 				gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 				gl.UseProgram(programSel)
+				clean := enableVertexAttribs(gl, aVertexPosition)
 				for i := 0; i < nRectPoints; i += 4 {
 					gl.BindBuffer(gl.ARRAY_BUFFER, toolBuf)
 					gl.VertexAttribPointer(aVertexPosition, 3, gl.FLOAT, false, 3*4, 3*4*i)
@@ -688,6 +678,7 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 					gl.DrawArrays(gl.POINTS, 0, n)
 				}
 				gl.Disable(gl.BLEND)
+				clean()
 			}
 
 			if show2D && has2D {
@@ -695,6 +686,7 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 				gl.Enable(gl.BLEND)
 				gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 				gl.UseProgram(programMap)
+				clean := enableVertexAttribs(gl, aVertexPosition, aTextureCoordMap)
 				gl.BindBuffer(gl.ARRAY_BUFFER, mapBuf)
 				gl.VertexAttribPointer(aVertexPosition, 3, gl.FLOAT, false, mapRect.Stride(), 0)
 				gl.VertexAttribPointer(aTextureCoordMap, 2, gl.FLOAT, false, mapRect.Stride(), 4*3)
@@ -702,6 +694,7 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 				gl.Uniform1f(uAlphaLocationMap, pe.cmd.MapAlpha())
 				gl.DrawArrays(gl.TRIANGLE_FAN, 0, 5)
 				gl.Disable(gl.BLEND)
+				clean()
 			}
 		}
 		render()
@@ -717,6 +710,9 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 
 				// Run GPGPU shader
 				gl.UseProgram(programComputeSelect)
+				clean := enableVertexAttribs(gl, aVertexPosition)
+				defer clean()
+
 				gl.BindBuffer(gl.ARRAY_BUFFER, posBuf)
 				gl.VertexAttribPointer(aVertexPosition, 3, gl.FLOAT, false, pp.Stride(), 0)
 				gl.UniformMatrix4fv(uCropMatrixLocationComputeSelect, false, pe.cmd.CropMatrix())
