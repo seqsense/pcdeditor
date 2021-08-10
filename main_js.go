@@ -686,7 +686,7 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 				gl.Enable(gl.BLEND)
 				gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 				gl.UseProgram(programMap)
-				enableVertexAttribs(gl, aVertexPosition, aTextureCoordMap)
+				clean := enableVertexAttribs(gl, aVertexPosition, aTextureCoordMap)
 				gl.BindBuffer(gl.ARRAY_BUFFER, mapBuf)
 				gl.VertexAttribPointer(aVertexPosition, 3, gl.FLOAT, false, mapRect.Stride(), 0)
 				gl.VertexAttribPointer(aTextureCoordMap, 2, gl.FLOAT, false, mapRect.Stride(), 4*3)
@@ -694,6 +694,7 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 				gl.Uniform1f(uAlphaLocationMap, pe.cmd.MapAlpha())
 				gl.DrawArrays(gl.TRIANGLE_FAN, 0, 5)
 				gl.Disable(gl.BLEND)
+				clean()
 			}
 		}
 		render()
