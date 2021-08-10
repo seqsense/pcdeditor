@@ -49,7 +49,7 @@ const vsSource = `#version 300 es
 				cSelected = 0.0;
 			}
 		} else {
-			if ((aSelectMask << 30u) >> 31u == 1u) {
+			if ((aSelectMask & 0x10u) != 0u) {
 				cSelected = 0.5;
 			} else {
 				cSelected = 0.0;
@@ -123,6 +123,7 @@ const fsMapSource = `#version 300 es
 
 const csComputeSelectSource = `#version 300 es
 	layout (location = 0) in vec4 aVertexPosition;
+	layout (location = 2) in uint aSelectMask;
 	uniform mat4 uModelViewMatrix;
 	uniform mat4 uProjectionMatrix;
 	uniform mat4 uSelectMatrix;
@@ -139,7 +140,7 @@ const csComputeSelectSource = `#version 300 es
 	flat out uint oResult;
 
 	void main(void) {
-		oResult = 0u;
+		oResult = aSelectMask & 0x10u; // keep previous segment select result
 
 		cropPosition = uCropMatrix * aVertexPosition;
 		if (any(lessThan(vec3(cropPosition), vec3(0, 0, 0))) ||

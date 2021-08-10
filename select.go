@@ -6,11 +6,12 @@ import (
 )
 
 const (
-	selectBitmaskCropped    = 0x00000001
-	selectBitmaskSelected   = 0x00000002
-	selectBitmaskNearCursor = 0x00000004
-	selectBitmaskOnScreen   = 0x00000008
-	selectBitmaskExclude    = 0x80000000
+	selectBitmaskCropped         = 0x00000001
+	selectBitmaskSelected        = 0x00000002
+	selectBitmaskNearCursor      = 0x00000004
+	selectBitmaskOnScreen        = 0x00000008
+	selectBitmaskExclude         = 0x80000000
+	selectBitmaskSegmentSelected = 0x00000010
 )
 
 func selectPointOrtho(modelViewMatrix, projectionMatrix *mat.Mat4, x, y, width, height int, depth *mat.Vec3) *mat.Vec3 {

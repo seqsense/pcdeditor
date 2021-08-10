@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"runtime"
@@ -704,17 +705,20 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 		//   - in the crop box
 		//   - in the select box
 		//   - close to the mouse cursor position given as (x, y)
-		scanSelection := func(x, y int) ([]uint32, bool) {
+		scanSelection := func(x, y int) bool {
 			if hasPointCloud && pp.Points > 0 {
 				origin, dir := perspectiveOriginDir(x, y, width, height, &projectionMatrix, &modelViewMatrix)
 
 				// Run GPGPU shader
 				gl.UseProgram(programComputeSelect)
-				clean := enableVertexAttribs(gl, aVertexPosition)
+				clean := enableVertexAttribs(gl, aVertexPosition, aSelectMask)
 				defer clean()
 
 				gl.BindBuffer(gl.ARRAY_BUFFER, posBuf)
 				gl.VertexAttribPointer(aVertexPosition, 3, gl.FLOAT, false, pp.Stride(), 0)
+				gl.BindBuffer(gl.ARRAY_BUFFER, selectMaskBuf)
+				gl.VertexAttribIPointer(aSelectMask, 1, gl.UNSIGNED_INT, 4, 0)
+
 				gl.UniformMatrix4fv(uCropMatrixLocationComputeSelect, false, pe.cmd.CropMatrix())
 				gl.UniformMatrix4fv(uModelViewMatrixLocationComputeSelect, false, modelViewMatrix)
 
@@ -751,7 +755,7 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 						break L_SYNC
 					case gl.WAIT_FAILED:
 						if failCnt++; failCnt > 10 {
-							return nil, false
+							return false
 						}
 					}
 					time.Sleep(10 * time.Millisecond)
@@ -761,9 +765,11 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 				gl.BindBuffer(gl.ARRAY_BUFFER, selectResultBuf)
 				gl.GetBufferSubData(gl.ARRAY_BUFFER, 0, selectResultJS, 0, 0)
 				js.CopyBytesToGo(selectResultGo, selectResultJS)
-				return webgl.ByteArrayBuffer(selectResultGo).UInt32Slice(), true
+
+				pe.cmd.SetSelectMask(webgl.ByteArrayBuffer(selectResultGo).UInt32Slice())
+				return true
 			}
-			return nil, false
+			return false
 		}
 
 		// Check the cursor is on select box vertices
@@ -808,8 +814,12 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 			pe.logPrint("pcd file exported")
 			promise.resolved(blob)
 		case promise := <-pe.chCommand:
-			sel, _ := scanSelection(0, 0)
-			res, err := pe.cs.Run(promise.data.(string), sel)
+			res, err := pe.cs.Run(promise.data.(string), func() error {
+				if scanSelection(0, 0) {
+					return nil
+				}
+				return errors.New("failed to scan selected points")
+			})
 			if err != nil {
 				promise.rejected(err)
 				break
@@ -923,7 +933,7 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 			if e.Button != 0 || !pe.cg.Click() {
 				continue
 			}
-			sel, ok := scanSelection(scaled(e.OffsetX), scaled(e.OffsetY))
+			ok := scanSelection(scaled(e.OffsetX), scaled(e.OffsetY))
 			if !ok {
 				updateSelectMask()
 				continue
@@ -932,7 +942,7 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 			switch projectionType {
 			case ProjectionPerspective:
 				p, ok = selectPoint(
-					pp, sel, projectionType, &modelViewMatrix, &projectionMatrix, scaled(e.OffsetX), scaled(e.OffsetY), width, height,
+					pp, pe.cmd.SelectMask(), projectionType, &modelViewMatrix, &projectionMatrix, scaled(e.OffsetX), scaled(e.OffsetY), width, height,
 				)
 			case ProjectionOrthographic:
 				p = selectPointOrtho(
@@ -956,8 +966,8 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 				if projectionType != ProjectionPerspective {
 					break
 				}
-				if sel, ok := scanSelection(scaled(e.OffsetX), scaled(e.OffsetY)); ok {
-					pe.cmd.SelectSegment(*p, sel)
+				if ok := scanSelection(scaled(e.OffsetX), scaled(e.OffsetY)); ok {
+					pe.cmd.SelectSegment(*p)
 					updateSelectMask()
 				}
 			default:
@@ -974,25 +984,19 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 			case "Delete", "Backspace", "Digit0", "Digit1":
 				switch e.Code {
 				case "Delete", "Backspace":
-					switch pe.cmd.SelectMode() {
-					case selectModeRect:
-						if sel, ok := scanSelection(0, 0); ok {
-							pe.cmd.Delete(sel)
-							if !e.ShiftKey && !e.CtrlKey {
-								pe.cmd.UnsetCursors()
-							}
+					if ok := scanSelection(0, 0); ok {
+						pe.cmd.Delete()
+						if !e.ShiftKey && !e.CtrlKey {
+							pe.cmd.UnsetCursors()
 						}
-					case selectModeMask:
-						pe.cmd.DeleteByMask(selectMaskData.UInt32Slice())
-						pe.cmd.UnsetCursors()
 					}
 				case "Digit0", "Digit1":
 					var l uint32
 					if e.Code == "Digit1" {
 						l = 1
 					}
-					if sel, ok := scanSelection(0, 0); ok {
-						pe.cmd.Label(sel, l)
+					if ok := scanSelection(0, 0); ok {
+						pe.cmd.Label(l)
 					}
 				}
 			case "KeyZ":

@@ -62,6 +62,7 @@ type commandContext struct {
 
 	selected      []mat.Vec3
 	selectedStack [][]mat.Vec3
+	selectMask    []uint32
 
 	rectUpdated bool
 	rect        []mat.Vec3
@@ -99,6 +100,14 @@ func newCommandContext(pcdio pcdIO, mapio mapIO) *commandContext {
 	}
 	c.selectRange = &c.selectRangePerspective
 	return c
+}
+
+func (c *commandContext) SelectMask() []uint32 {
+	return c.selectMask
+}
+
+func (c *commandContext) SetSelectMask(mask []uint32) {
+	c.selectMask = mask
 }
 
 func (c *commandContext) Map() (*occupancyGrid, mapImage, bool, bool) {
@@ -152,9 +161,6 @@ func (c *commandContext) SetSegmentationParam(dist, r float32) error {
 
 func (c *commandContext) PointCloud() (*pc.PointCloud, bool, bool) {
 	updated := c.pointCloudUpdated
-	if updated {
-		c.selectMode = selectModeRect
-	}
 	c.pointCloudUpdated = false
 	return c.editor.pp, updated, c.editor.pp != nil
 }
@@ -361,11 +367,19 @@ func (c *commandContext) SelectMatrix() (mat.Mat4, bool) {
 	}
 }
 
-func (c *commandContext) baseFilter(sel []uint32) func(int, mat.Vec3) bool {
+func (c *commandContext) baseFilter() func(int, mat.Vec3) bool {
 	return func(i int, p mat.Vec3) bool {
-		mask := sel[i]
+		mask := c.selectMask[i]
 		return mask&selectBitmaskCropped != 0 ||
 			mask&selectBitmaskSelected == 0
+	}
+}
+
+func (c *commandContext) baseFilterByMask() func(int, mat.Vec3) bool {
+	return func(i int, p mat.Vec3) bool {
+		mask := c.selectMask[i]
+		return mask&selectBitmaskCropped != 0 ||
+			mask&selectBitmaskSegmentSelected == 0
 	}
 }
 
@@ -413,26 +427,31 @@ func (c *commandContext) AddSurface(resolution float32) bool {
 	return true
 }
 
-func (c *commandContext) Delete(sel []uint32) bool {
-	filter := c.baseFilter(sel)
-	c.editor.passThrough(filter)
-	c.pointCloudUpdated = true
+func (c *commandContext) Delete() bool {
+	switch c.SelectMode() {
+	case selectModeRect:
+		filter := c.baseFilter()
+		c.editor.passThrough(filter)
+		c.pointCloudUpdated = true
+	case selectModeMask:
+		c.editor.passThroughByMask(c.selectMask, selectBitmaskSegmentSelected, 0)
+		c.selectMode = selectModeRect // selected points are deleted
+		c.pointCloudUpdated = true
+	}
 	return true
 }
 
-func (c *commandContext) DeleteByMask(sel []uint32) bool {
-	c.editor.passThroughByMask(sel, selectBitmaskSelected, 0)
-	c.pointCloudUpdated = true
-	return true
-}
+func (c *commandContext) VoxelFilter(resolution float32) error {
+	if c.SelectMode() != selectModeRect {
+		return errors.New("VoxelFilter is not supported on segment based select")
+	}
 
-func (c *commandContext) VoxelFilter(sel []uint32, resolution float32) error {
 	var filter, filterInv func(int, mat.Vec3) bool
 	var pp *pc.PointCloud
 
 	_, selected := c.SelectMatrix()
 	if selected {
-		filter = c.baseFilter(sel)
+		filter = c.baseFilter()
 		filterInv = func(i int, p mat.Vec3) bool {
 			return !filter(i, p)
 		}
@@ -464,8 +483,16 @@ func (c *commandContext) VoxelFilter(sel []uint32, resolution float32) error {
 	return nil
 }
 
-func (c *commandContext) Label(sel []uint32, l uint32) bool {
-	filter := c.baseFilter(sel)
+func (c *commandContext) Label(l uint32) bool {
+	var filter func(int, mat.Vec3) bool
+	switch c.SelectMode() {
+	case selectModeRect:
+		filter = c.baseFilter()
+	case selectModeMask:
+		filter = c.baseFilterByMask()
+	default:
+		return false
+	}
 	c.editor.label(func(i int, p mat.Vec3) (uint32, bool) {
 		if filter(i, p) {
 			return 0, false
@@ -530,7 +557,7 @@ func (c *commandContext) ExportPCD() (interface{}, error) {
 	return blob, nil
 }
 
-func (c *commandContext) SelectSegment(p mat.Vec3, sel []uint32) {
+func (c *commandContext) SelectSegment(p mat.Vec3) {
 	res := float32(c.segmentationDistance)
 	w := int(c.segmentationRange / c.segmentationDistance)
 	half := float32(w) * res / 2
@@ -544,7 +571,8 @@ func (c *commandContext) SelectSegment(p mat.Vec3, sel []uint32) {
 	// Detect surface and exclude from selection.
 	n := c.editor.pp.Points
 	for i := 0; i < n; i++ {
-		if sel[i]&(selectBitmaskCropped|selectBitmaskOnScreen) == selectBitmaskOnScreen {
+		c.selectMask[i] &= ^uint32(selectBitmaskSegmentSelected)
+		if c.selectMask[i]&(selectBitmaskCropped|selectBitmaskOnScreen) == selectBitmaskOnScreen {
 			v.Add(it.Vec3(), i)
 		}
 		it.Incr()
@@ -567,7 +595,7 @@ func (c *commandContext) SelectSegment(p mat.Vec3, sel []uint32) {
 				surfRealIndice := make([]int, len(surfIndice))
 				for j, i := range surfIndice {
 					ri := vIndice[i]
-					sel[ri] |= selectBitmaskExclude
+					c.selectMask[ri] |= selectBitmaskExclude
 					surfRealIndice[j] = ri
 				}
 			}
@@ -580,19 +608,19 @@ func (c *commandContext) SelectSegment(p mat.Vec3, sel []uint32) {
 		return
 	}
 	for _, i := range vIndice {
-		if sel[i]&(selectBitmaskCropped|selectBitmaskOnScreen|selectBitmaskExclude) == selectBitmaskOnScreen {
+		if c.selectMask[i]&(selectBitmaskCropped|selectBitmaskOnScreen|selectBitmaskExclude) == selectBitmaskOnScreen {
 			v.Add(it.Vec3At(i), i)
 		}
 	}
 
 	for _, i := range v.Segment(p) {
-		if sel[i]&selectBitmaskExclude == 0 {
-			sel[i] |= selectBitmaskSelected
+		if c.selectMask[i]&selectBitmaskExclude == 0 {
+			c.selectMask[i] |= selectBitmaskSegmentSelected
 		}
 	}
 	for _, i := range surfRealIndice {
 		// Clear selectBitmaskExclude bit.
-		sel[i] &= 0xFFFFFFFF ^ uint32(selectBitmaskExclude)
+		c.selectMask[i] &= 0xFFFFFFFF ^ uint32(selectBitmaskExclude)
 	}
 	c.UnsetCursors()
 	c.selectMode = selectModeMask
