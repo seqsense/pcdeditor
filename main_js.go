@@ -232,6 +232,8 @@ func (pe *pcdeditor) Run(ctx context.Context) {
 
 	mouseDragging := webgl.MouseButtonNull
 	canvas.OnMouseUp(func(e webgl.MouseEvent) {
+		e.PreventDefault()
+		e.StopPropagation()
 		select {
 		case pe.chMouseUp <- e:
 			if mouseDragging == e.Button {
@@ -241,6 +243,8 @@ func (pe *pcdeditor) Run(ctx context.Context) {
 		}
 	})
 	canvas.OnMouseDown(func(e webgl.MouseEvent) {
+		e.PreventDefault()
+		e.StopPropagation()
 		select {
 		case pe.chMouseDown <- e:
 			mouseDragging = e.Button
@@ -248,6 +252,8 @@ func (pe *pcdeditor) Run(ctx context.Context) {
 		}
 	})
 	canvas.OnMouseMove(func(e webgl.MouseEvent) {
+		e.PreventDefault()
+		e.StopPropagation()
 		if mouseDragging != webgl.MouseButtonNull {
 			e.Button = mouseDragging
 			select {
