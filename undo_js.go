@@ -34,6 +34,7 @@ func (h *historyJS) push(pp *pc.PointCloud) *pc.PointCloud {
 	h.history = append(h.history, dataJS)
 	h.historyHeader = append(h.historyHeader, header)
 	if len(h.history) > h.MaxHistory()+1 {
+		h.history[0] = js.Null()
 		h.history = h.history[1:]
 		h.historyHeader = h.historyHeader[1:]
 	}
@@ -41,16 +42,19 @@ func (h *historyJS) push(pp *pc.PointCloud) *pc.PointCloud {
 }
 
 func (h *historyJS) pop() *pc.PointCloud {
-	back := h.history[len(h.history)-1]
-	backHeader := h.historyHeader[len(h.historyHeader)-1]
-	h.history = h.history[:len(h.history)-1]
-	h.historyHeader = h.historyHeader[:len(h.historyHeader)-1]
+	n := len(h.history)
+	back := h.history[n-1]
+	backHeader := h.historyHeader[n-1]
+	h.history[n-1] = js.Null()
+	h.history = h.history[:n-1]
+	h.historyHeader = h.historyHeader[:n-1]
 
 	return h.reconstructPointCloud(backHeader, back)
 }
 
 func (h *historyJS) undo() (*pc.PointCloud, bool) {
 	if n := len(h.history); n > 1 {
+		h.history[n-1] = js.Null()
 		h.history = h.history[:n-1]
 		h.historyHeader = h.historyHeader[:n-1]
 

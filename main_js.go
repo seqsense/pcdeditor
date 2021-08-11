@@ -605,16 +605,18 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 			gl.BindBuffer(gl.ARRAY_BUFFER, posBuf)
 			gl.BufferData(gl.ARRAY_BUFFER, webgl.ByteArrayBuffer(pp.Data), gl.STATIC_DRAW)
 
-			// Register buffer to receive GPGPU processing result
-			gl.BindBuffer(gl.ARRAY_BUFFER, selectResultBuf)
-			nBuf := pp.Points * 4
-			selectResultJS = js.Global().Get("Uint8Array").New(nBuf)
-			if cap(selectResultGo) < nBuf {
-				selectResultGo = make([]byte, nBuf)
+			// Re-allocate buffer only when pointcloud size is changed
+			if nBuf := pp.Points * 4; nBuf != len(selectResultGo) {
+				// Register buffer to receive GPGPU processing result
+				selectResultJS = js.Global().Get("Uint8Array").New(nBuf)
+				if cap(selectResultGo) < nBuf {
+					selectResultGo = make([]byte, nBuf)
+				}
+				selectResultGo = selectResultGo[:nBuf:nBuf]
+				selectMaskData = webgl.ByteArrayBuffer(selectResultGo)
 			}
-			selectResultGo = selectResultGo[:nBuf:nBuf]
+			gl.BindBuffer(gl.ARRAY_BUFFER, selectResultBuf)
 			gl.BufferData_JS(gl.ARRAY_BUFFER, js.ValueOf(selectResultJS), gl.STREAM_READ)
-			selectMaskData = webgl.ByteArrayBuffer(selectResultGo)
 
 			updateSelectMask()
 		}
