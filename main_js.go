@@ -305,6 +305,7 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	showDebugInfo(gl)
 
 	vs, err := initVertexShader(gl, vsSource)
 	if err != nil {
