@@ -305,14 +305,7 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if ri, ok := gl.GetExtension("WEBGL_debug_renderer_info"); ok {
-		println("GPU info:",
-			gl.GetParameter(ri.Get("UNMASKED_VENDOR_WEBGL").Int()).String(),
-			gl.GetParameter(ri.Get("UNMASKED_RENDERER_WEBGL").Int()).String(),
-		)
-	} else {
-		println("GPU info: hidden by the browser privacy setting")
-	}
+	showDebugInfo(gl)
 
 	vs, err := initVertexShader(gl, vsSource)
 	if err != nil {
