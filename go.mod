@@ -7,3 +7,5 @@ require (
 	github.com/seqsense/webgl-go v0.0.0-20210812015006-a4655d333f73
 	gopkg.in/yaml.v2 v2.4.0
 )
+
+replace github.com/seqsense/pcgol => ../pcgol
