@@ -149,46 +149,66 @@ func (e *editor) passThroughByMask(sel []uint32, mask, val uint32) error {
 func passThrough(pp *pc.PointCloud, fn func(int, mat.Vec3) bool) (*pc.PointCloud, error) {
 	return passThroughImpl(pp, func(it pc.Vec3Iterator, dst, src *pc.PointCloud) int {
 		i, j := 0, 0
+		is, js, cnt := 0, 0, 0
 		n := pp.Points
 		for {
-			for i < n {
+			for {
+				if i >= n {
+					if cnt > 0 {
+						src.CopyTo(dst, js, is, cnt)
+					}
+					return j
+				}
 				p := it.Vec3()
 				if fn(i, p) {
 					break
 				}
 				i++
 				it.Incr()
+				if cnt > 0 {
+					src.CopyTo(dst, js, is, cnt)
+					cnt = 0
+				}
 			}
-			if i >= n {
-				break
+			if cnt == 0 {
+				is, js = i, j
 			}
-			src.CopyTo(dst, j, i, 1)
 			i++
 			j++
+			cnt++
 		}
-		return j
 	})
 }
 
 func passThroughByMask(pp *pc.PointCloud, sel []uint32, mask, val uint32) (*pc.PointCloud, error) {
 	return passThroughImpl(pp, func(_ pc.Vec3Iterator, dst, src *pc.PointCloud) int {
 		i, j := 0, 0
+		is, js, cnt := 0, 0, 0
 		n := pp.Points
 		for {
-			for i < n {
+			for {
+				if i >= n {
+					if cnt > 0 {
+						src.CopyTo(dst, js, is, cnt)
+					}
+					return j
+				}
 				if sel[i]&mask == val {
 					break
 				}
 				i++
+				if cnt > 0 {
+					src.CopyTo(dst, js, is, cnt)
+					cnt = 0
+				}
 			}
-			if i >= n {
-				break
+			if cnt == 0 {
+				is, js = i, j
 			}
-			src.CopyTo(dst, j, i, 1)
 			i++
 			j++
+			cnt++
 		}
-		return j
 	})
 }
 
