@@ -70,14 +70,11 @@ func selectPoint(pp *pc.PointCloud, selMask []uint32, projectionType ProjectionT
 		vMin := float32(1000 * 1000)
 		if selMask != nil {
 			n := pp.Points
-			for i := 0; i < n; func() {
-				it.Incr()
-				i++
-			}() {
+			for i := 0; i < n; i++ {
 				if selMask[i]&(selectBitmaskCropped|selectBitmaskNearCursor|selectBitmaskOnScreen) != selectBitmaskNearCursor|selectBitmaskOnScreen {
 					continue
 				}
-				p := it.Vec3()
+				p := it.Vec3At(i)
 				pRel := origin.Sub(p)
 				dot, distSq := pRel.Dot(*dir), pRel.NormSq()
 				v := (distSq - dot*dot) + distSq/10000
