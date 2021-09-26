@@ -147,7 +147,11 @@ func (e *editor) passThroughByMask(sel []uint32, mask, val uint32) error {
 }
 
 func passThrough(pp *pc.PointCloud, fn func(int, mat.Vec3) bool) (*pc.PointCloud, error) {
-	return passThroughImpl(pp, func(it pc.Vec3Iterator, dst, src *pc.PointCloud) int {
+	it, err := pp.Vec3Iterator()
+	if err != nil {
+		return nil, err
+	}
+	return passThroughImpl(pp, func(dst, src *pc.PointCloud) int {
 		i, j := 0, 0
 		is, js, cnt := 0, 0, 0
 		n := pp.Points
@@ -163,8 +167,8 @@ func passThrough(pp *pc.PointCloud, fn func(int, mat.Vec3) bool) (*pc.PointCloud
 				if fn(i, p) {
 					break
 				}
-				i++
 				it.Incr()
+				i++
 				if cnt > 0 {
 					pc.Copy(dst, js, src, is, cnt)
 					cnt = 0
@@ -173,6 +177,7 @@ func passThrough(pp *pc.PointCloud, fn func(int, mat.Vec3) bool) (*pc.PointCloud
 			if cnt == 0 {
 				is, js = i, j
 			}
+			it.Incr()
 			i++
 			j++
 			cnt++
@@ -181,7 +186,7 @@ func passThrough(pp *pc.PointCloud, fn func(int, mat.Vec3) bool) (*pc.PointCloud
 }
 
 func passThroughByMask(pp *pc.PointCloud, sel []uint32, mask, val uint32) (*pc.PointCloud, error) {
-	return passThroughImpl(pp, func(_ pc.Vec3Iterator, dst, src *pc.PointCloud) int {
+	return passThroughImpl(pp, func(dst, src *pc.PointCloud) int {
 		i, j := 0, 0
 		is, js, cnt := 0, 0, 0
 		n := pp.Points
@@ -212,18 +217,14 @@ func passThroughByMask(pp *pc.PointCloud, sel []uint32, mask, val uint32) (*pc.P
 	})
 }
 
-func passThroughImpl(pp *pc.PointCloud, core func(_ pc.Vec3Iterator, _, _ *pc.PointCloud) int) (*pc.PointCloud, error) {
+func passThroughImpl(pp *pc.PointCloud, core func(_, _ *pc.PointCloud) int) (*pc.PointCloud, error) {
 	pcNew := &pc.PointCloud{
 		PointCloudHeader: pp.PointCloudHeader.Clone(),
 		Data:             make([]byte, len(pp.Data)),
 		Points:           pp.Points,
 	}
 
-	it, err := pp.Vec3Iterator()
-	if err != nil {
-		return nil, err
-	}
-	i := core(it, pcNew, pp)
+	i := core(pcNew, pp)
 
 	pcNew.Points = i
 	pcNew.Width = i
