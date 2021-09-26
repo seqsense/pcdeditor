@@ -155,7 +155,7 @@ func passThrough(pp *pc.PointCloud, fn func(int, mat.Vec3) bool) (*pc.PointCloud
 			for {
 				if i >= n {
 					if cnt > 0 {
-						src.CopyTo(dst, js, is, cnt)
+						pc.Copy(dst, js, src, is, cnt)
 					}
 					return j
 				}
@@ -166,7 +166,7 @@ func passThrough(pp *pc.PointCloud, fn func(int, mat.Vec3) bool) (*pc.PointCloud
 				i++
 				it.Incr()
 				if cnt > 0 {
-					src.CopyTo(dst, js, is, cnt)
+					pc.Copy(dst, js, src, is, cnt)
 					cnt = 0
 				}
 			}
@@ -189,7 +189,7 @@ func passThroughByMask(pp *pc.PointCloud, sel []uint32, mask, val uint32) (*pc.P
 			for {
 				if i >= n {
 					if cnt > 0 {
-						src.CopyTo(dst, js, is, cnt)
+						pc.Copy(dst, js, src, is, cnt)
 					}
 					return j
 				}
@@ -198,7 +198,7 @@ func passThroughByMask(pp *pc.PointCloud, sel []uint32, mask, val uint32) (*pc.P
 				}
 				i++
 				if cnt > 0 {
-					src.CopyTo(dst, js, is, cnt)
+					pc.Copy(dst, js, src, is, cnt)
 					cnt = 0
 				}
 			}
