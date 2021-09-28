@@ -147,87 +147,84 @@ func (e *editor) passThroughByMask(sel []uint32, mask, val uint32) error {
 }
 
 func passThrough(pp *pc.PointCloud, fn func(int, mat.Vec3) bool) (*pc.PointCloud, error) {
-	return passThroughImpl(pp, func(it, jt pc.Vec3Iterator, itL, jtL pc.Uint32Iterator) int {
-		i := 0
+	it, err := pp.Vec3Iterator()
+	if err != nil {
+		return nil, err
+	}
+	return passThroughImpl(pp, func(dst, src *pc.PointCloud) int {
+		i, j := 0, 0
+		is, js, cnt := 0, 0, 0
 		n := pp.Points
 		for {
-			var p mat.Vec3
-			for i < n {
-				p = it.Vec3()
+			for {
+				if i >= n {
+					if cnt > 0 {
+						pc.Copy(dst, js, src, is, cnt)
+					}
+					return j
+				}
+				p := it.Vec3()
 				if fn(i, p) {
 					break
 				}
-				i++
 				it.Incr()
-				itL.Incr()
+				i++
+				if cnt > 0 {
+					pc.Copy(dst, js, src, is, cnt)
+					cnt = 0
+				}
 			}
-			if i >= n {
-				break
+			if cnt == 0 {
+				is, js = i, j
 			}
-			jt.SetVec3(p)
-			jtL.SetUint32(itL.Uint32())
-			jt.Incr()
-			jtL.Incr()
 			it.Incr()
-			itL.Incr()
 			i++
+			j++
+			cnt++
 		}
-		return i
 	})
 }
 
 func passThroughByMask(pp *pc.PointCloud, sel []uint32, mask, val uint32) (*pc.PointCloud, error) {
-	return passThroughImpl(pp, func(it, jt pc.Vec3Iterator, itL, jtL pc.Uint32Iterator) int {
-		i := 0
+	return passThroughImpl(pp, func(dst, src *pc.PointCloud) int {
+		i, j := 0, 0
+		is, js, cnt := 0, 0, 0
 		n := pp.Points
 		for {
-			for i < n {
+			for {
+				if i >= n {
+					if cnt > 0 {
+						pc.Copy(dst, js, src, is, cnt)
+					}
+					return j
+				}
 				if sel[i]&mask == val {
 					break
 				}
 				i++
-				it.Incr()
-				itL.Incr()
+				if cnt > 0 {
+					pc.Copy(dst, js, src, is, cnt)
+					cnt = 0
+				}
 			}
-			if i >= n {
-				break
+			if cnt == 0 {
+				is, js = i, j
 			}
-			jt.SetVec3(it.Vec3())
-			jtL.SetUint32(itL.Uint32())
-			jt.Incr()
-			jtL.Incr()
-			it.Incr()
-			itL.Incr()
 			i++
+			j++
+			cnt++
 		}
-		return i
 	})
 }
 
-func passThroughImpl(pp *pc.PointCloud, core func(_, _ pc.Vec3Iterator, _, _ pc.Uint32Iterator) int) (*pc.PointCloud, error) {
+func passThroughImpl(pp *pc.PointCloud, core func(_, _ *pc.PointCloud) int) (*pc.PointCloud, error) {
 	pcNew := &pc.PointCloud{
 		PointCloudHeader: pp.PointCloudHeader.Clone(),
 		Data:             make([]byte, len(pp.Data)),
 		Points:           pp.Points,
 	}
 
-	it, err := pp.Vec3Iterator()
-	if err != nil {
-		return nil, err
-	}
-	jt, err := pcNew.Vec3Iterator()
-	if err != nil {
-		return nil, err
-	}
-	itL, err := pp.Uint32Iterator("label")
-	if err != nil {
-		return nil, err
-	}
-	jtL, err := pcNew.Uint32Iterator("label")
-	if err != nil {
-		return nil, err
-	}
-	i := core(it, jt, itL, jtL)
+	i := core(pcNew, pp)
 
 	pcNew.Points = i
 	pcNew.Width = i

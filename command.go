@@ -572,8 +572,11 @@ func (c *commandContext) SelectSegment(p mat.Vec3) {
 	n := c.editor.pp.Points
 	for i := 0; i < n; i++ {
 		c.selectMask[i] &= ^uint32(selectBitmaskSegmentSelected)
-		if c.selectMask[i]&(selectBitmaskCropped|selectBitmaskOnScreen) == selectBitmaskOnScreen {
-			v.Add(it.Vec3(), i)
+		a, ok := v.Addr(it.Vec3())
+		if ok {
+			if c.selectMask[i]&(selectBitmaskCropped|selectBitmaskOnScreen) == selectBitmaskOnScreen {
+				v.AddByAddr(a, i)
+			}
 		}
 		it.Incr()
 	}
