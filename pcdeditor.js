@@ -24,7 +24,7 @@ class PCDEditor {
 
     const log = qsRaw(this.opts.logId)
     this.logger = (msg) => {
-      if (msg.toString !== undefined) {
+      if (msg !== undefined && msg.toString !== undefined) {
         log.innerHTML = `${msg.toString().replace(/\n/g, '<br/>')}<br/>${
           log.innerHTML
         }`
