@@ -84,7 +84,7 @@ func (e *editor) SetPointCloud(pp *pc.PointCloud) error {
 		j.Incr()
 		i.Incr()
 		if iL != nil {
-			jL.SetUint32(jL.Uint32())
+			jL.SetUint32(iL.Uint32())
 			jL.Incr()
 			iL.Incr()
 		}
