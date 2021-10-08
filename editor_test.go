@@ -135,18 +135,16 @@ func TestPassThrough(t *testing.T) {
 
 func TestSetPointCloud(t *testing.T) {
 	e := newEditor()
-
 	pps := []*pc.PointCloud{
 		createPointCloud(t, false),
 		createPointCloud(t, true),
 	}
-
 	indices := []int{0, 1, 2}
+
 	for _, pp := range pps {
 		if err := e.SetPointCloud(pp); err != nil {
 			t.Fatal(err)
 		}
-
 		check(t, e.pp, indices)
 	}
 }
