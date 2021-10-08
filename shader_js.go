@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"syscall/js"
 
 	webgl "github.com/seqsense/webgl-go"
@@ -17,7 +18,8 @@ func initVertexShader(gl *webgl.WebGL, src string) (webgl.Shader, error) {
 		if gl.IsContextLost() {
 			return webgl.Shader(js.Null()), errContextLost
 		}
-		return webgl.Shader(js.Null()), errors.New("compile failed (VERTEX_SHADER)")
+		compilationLog := gl.GetShaderInfoLog(s)
+		return webgl.Shader(js.Null()), fmt.Errorf("compile failed (VERTEX_SHADER) %v", compilationLog)
 	}
 	return s, nil
 }
@@ -30,7 +32,8 @@ func initFragmentShader(gl *webgl.WebGL, src string) (webgl.Shader, error) {
 		if gl.IsContextLost() {
 			return webgl.Shader(js.Null()), errContextLost
 		}
-		return webgl.Shader(js.Null()), errors.New("compile failed (FRAGMENT_SHADER)")
+		compilationLog := gl.GetShaderInfoLog(s)
+		return webgl.Shader(js.Null()), fmt.Errorf("compile failed (FRAGMENT_SHADER) %v", compilationLog)
 	}
 	return s, nil
 }
