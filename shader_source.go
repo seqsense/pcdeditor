@@ -84,11 +84,12 @@ const vsSource = `#version 300 es
 				cSelected = 0.0;
 			}
 		}
-		c = (aVertexPosition[2] - uZMin) / uZRange;
-		if (aVertexLabel == 0u) {
-			vColor = vec4(c, cSelected, 1.0 - c, 1.0);
+
+		if (aVertexLabel >= 1u) {
+			vColor = label2color(int(aVertexLabel));
 		} else {
-			vColor = vec4(1.0 - c, c, cSelected, 1.0);
+			c = (aVertexPosition[2] - uZMin) / uZRange;
+			vColor = vec4(c, cSelected, 1.0 - c, 1.0);
 		}
 	}
 `
