@@ -11,6 +11,7 @@ declare class PCDEditor {
   attach(): Promise<null>
   appendDefaultMenuboxTo(selector: string): void
   loadPCD(path: string): Promise<null>
+  loadSubPCD(path: string): Promise<null>
   load2D(yamlPath: string, imgPath: string): Promise<null>
 
   logger(any): void
@@ -18,9 +19,12 @@ declare class PCDEditor {
   private wrapId: (q: string) => string
 
   pcdeditor: {
+    importPCD(a: Blob): Promise<string>
+    importSubPCD(a: Blob): Promise<string>
+    import2D(a, b: Blob): Promise<string>
     exportPCD(): Promise<Blob>
-    loadPCD(a: string): Promise<null>
-    load2D(a, b: string): Promise<null>
+    command(cmd: string): Promise<number[][]>
+    show2D(show: boolean): Promise<string>
     exit(): void
   }
 
