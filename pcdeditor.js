@@ -206,6 +206,15 @@ class PCDEditor {
         }
         this.qs('#delete').onclick = () =>
           pcdeditor.command('delete').catch(this.logger)
+        const insertSubPcdFile = this.qs('#insertSubPcdFile')
+        this.qs('#insertSubPcd').onclick = async () =>
+          insertSubPcdFile.click()
+        insertSubPcdFile.onchange = async (e) =>
+          this.loadSubPCD(URL.createObjectURL(e.target.files[0]))
+            .finally(() => {
+              insertSubPcdFile.value = ''
+              this.canvas.focus()
+            })
 
         // Debug menu
         this.qs('#resetContext').onclick = () => {
@@ -275,6 +284,28 @@ class PCDEditor {
         })
         .then((blob) => {
           return this.pcdeditor.importPCD(blob)
+        })
+        .then(() => {
+          resolve()
+        })
+        .catch((e) => {
+          reject(e)
+        })
+    })
+  }
+
+  loadSubPCD(path) {
+    return new Promise((resolve, reject) => {
+      fetch(path, fetchOpts)
+        .then((resp) => {
+          if (!resp.ok) {
+            reject(new Error(`failed to load sub pcd: ${resp.statusText}`))
+            return undefined
+          }
+          return resp.blob()
+        })
+        .then((blob) => {
+          return this.pcdeditor.importSubPCD(blob)
         })
         .then(() => {
           resolve()
@@ -630,6 +661,19 @@ class PCDEditor {
     <hr/>
     <div class="${id('foldMenuElem')}">
       <button id="${id('delete')}">Delete</button>
+    </div>
+    <hr/>
+    <div class="${id('foldMenuElem')}">
+      <label
+        class="${id('inputLabelShort')}"
+      >Insert pcd</label>
+      <input
+        id="${id('insertSubPcdFile')}"
+        type="file"
+        accept=".pcd"
+        style="display: none;"
+      />
+      <button id="${id('insertSubPcd')}">Select file</button>
     </div>
   </div>
 </span>

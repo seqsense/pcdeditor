@@ -47,14 +47,16 @@ type selectMode int
 const (
 	selectModeRect selectMode = iota
 	selectModeMask
+	selectModeInsert
 )
 
 type commandContext struct {
 	*editor
-	pcdIO             pcdIO
-	mapIO             mapIO
-	pointCloudUpdated bool
-	mapUpdated        bool
+	pcdIO                pcdIO
+	mapIO                mapIO
+	pointCloudUpdated    bool
+	subPointCloudUpdated bool
+	mapUpdated           bool
 
 	selectRange            *float32
 	selectRangeOrtho       float32
@@ -165,6 +167,12 @@ func (c *commandContext) PointCloud() (*pc.PointCloud, bool, bool) {
 	return c.editor.pp, updated, c.editor.pp != nil
 }
 
+func (c *commandContext) SubPointCloud() (*pc.PointCloud, bool, bool) {
+	updated := c.subPointCloudUpdated
+	c.subPointCloudUpdated = false
+	return c.editor.ppSub, updated, c.editor.ppSub != nil
+}
+
 func (c *commandContext) CropMatrix() mat.Mat4 {
 	return c.editor.cropMatrix
 }
@@ -180,6 +188,16 @@ func (c *commandContext) Crop() bool {
 }
 
 func (c *commandContext) updateRect() {
+	if c.selectMode == selectModeInsert {
+		b := boxFromRect(c.editor.ppSubRect.min, c.editor.ppSubRect.max)
+		trans := cursorsToTrans(c.selected)
+		for i := range b {
+			b[i] = trans.Transform(b[i])
+		}
+		c.rect = b[:]
+		c.rectUpdated = true
+		return
+	}
 	switch len(c.selected) {
 	case 0, 1, 2:
 		c.rect = c.selected
@@ -250,6 +268,9 @@ func (c *commandContext) SelectMode() selectMode {
 }
 
 func (c *commandContext) SetCursor(i int, p mat.Vec3) bool {
+	if c.selectMode == selectModeInsert {
+		return false
+	}
 	c.selectMode = selectModeRect
 	if i < len(c.selected) {
 		c.selected[i] = p
@@ -285,6 +306,9 @@ func (c *commandContext) Cursors() []mat.Vec3 {
 }
 
 func (c *commandContext) UnsetCursors() {
+	if c.selectMode == selectModeInsert {
+		_ = c.editor.SetPointCloud(nil, cloudSub)
+	}
 	c.selectMode = selectModeRect
 	c.selected = nil
 	c.updateRect()
@@ -299,6 +323,7 @@ func (c *commandContext) PushCursors() {
 		copied = append(copied, mat.Vec3{s[0], s[1], s[2]})
 	}
 	c.selectedStack = append(c.selectedStack, copied)
+	c.updateRect()
 }
 
 func (c *commandContext) PopCursors() {
@@ -307,9 +332,13 @@ func (c *commandContext) PopCursors() {
 	}
 	c.selected = c.selectedStack[len(c.selectedStack)-1]
 	c.selectedStack = c.selectedStack[:len(c.selectedStack)-1]
+	c.updateRect()
 }
 
 func (c *commandContext) SnapVertical() {
+	if c.selectMode == selectModeInsert {
+		return
+	}
 	if len(c.selected) > 2 {
 		c.selected[2][0] = c.selected[0][0]
 		c.selected[2][1] = c.selected[0][1]
@@ -318,6 +347,9 @@ func (c *commandContext) SnapVertical() {
 }
 
 func (c *commandContext) SnapHorizontal() {
+	if c.selectMode == selectModeInsert {
+		return
+	}
 	if len(c.selected) > 1 {
 		c.selected[1][2] = c.selected[0][2]
 	}
@@ -335,6 +367,9 @@ func (c *commandContext) TransformCursors(m mat.Mat4) {
 }
 
 func (c *commandContext) SelectMatrix() (mat.Mat4, bool) {
+	if c.selectMode == selectModeInsert {
+		return mat.Mat4{}, false
+	}
 	switch len(c.selected) {
 	case 3:
 		v0, v1 := c.rectCenter[1].Sub(c.rectCenter[0]), c.rectCenter[3].Sub(c.rectCenter[0])
@@ -384,6 +419,9 @@ func (c *commandContext) baseFilterByMask() func(int, mat.Vec3) bool {
 }
 
 func (c *commandContext) AddSurface(resolution float32) bool {
+	if c.selectMode == selectModeInsert {
+		return false
+	}
 	if len(c.selected) != 3 {
 		return false
 	}
@@ -474,7 +512,7 @@ func (c *commandContext) VoxelFilter(resolution float32) error {
 		c.editor.pop()
 		c.editor.merge(pcFiltered)
 	} else {
-		if err := c.editor.SetPointCloud(pcFiltered); err != nil {
+		if err := c.editor.SetPointCloud(pcFiltered, cloudMain); err != nil {
 			return err
 		}
 	}
@@ -525,11 +563,54 @@ func (c *commandContext) ImportPCD(blob interface{}) error {
 	if err != nil {
 		return err
 	}
-	if err := c.editor.SetPointCloud(p); err != nil {
+	if err := c.editor.SetPointCloud(p, cloudMain); err != nil {
 		return err
 	}
 
 	c.pointCloudUpdated = true
+	return nil
+}
+
+func (c *commandContext) ImportSubPCD(blob interface{}) error {
+	if c.editor.pp == nil {
+		return errors.New("must have base cloud")
+	}
+	p, err := c.pcdIO.importPCD(blob)
+	if err != nil {
+		return err
+	}
+	if err := c.editor.SetPointCloud(p, cloudSub); err != nil {
+		return err
+	}
+
+	c.selectMode = selectModeInsert
+	c.selected = []mat.Vec3{
+		{},
+		{1, 0, 0},
+		{0, 1, 0},
+		{0, 0, 1},
+	}
+	c.updateRect()
+
+	c.subPointCloudUpdated = true
+	return nil
+}
+
+func (c *commandContext) Do() error {
+	switch c.selectMode {
+	case selectModeInsert:
+		it, err := c.editor.ppSub.Vec3Iterator()
+		if err != nil {
+			return err
+		}
+		trans := cursorsToTrans(c.selected)
+		for ; it.IsValid(); it.Incr() {
+			it.SetVec3(trans.Transform(it.Vec3()))
+		}
+		c.editor.merge(c.editor.ppSub)
+		c.pointCloudUpdated = true
+		c.UnsetCursors()
+	}
 	return nil
 }
 

@@ -1,6 +1,8 @@
 package main
 
 import (
+	"math"
+
 	"github.com/seqsense/pcgol/mat"
 	"github.com/seqsense/pcgol/pc"
 )
@@ -154,5 +156,65 @@ func boxFrom4(p0, p1, p2, p3 mat.Vec3) [8]mat.Vec3 {
 	return [8]mat.Vec3{
 		pp[0], pp[1], pp[2], pp[3],
 		pp[0].Add(v3), pp[1].Add(v3), pp[2].Add(v3), pp[3].Add(v3),
+	}
+}
+
+func boxFromRect(min, max mat.Vec3) [8]mat.Vec3 {
+	return [8]mat.Vec3{
+		min,
+		{min[0], max[1], min[2]},
+		{max[0], max[1], min[2]},
+		{max[0], min[1], min[2]},
+		{min[0], min[1], max[2]},
+		{min[0], max[1], max[2]},
+		max,
+		{max[0], min[1], max[2]},
+	}
+}
+
+func dragTranslation(s, e mat.Vec3) mat.Mat4 {
+	diff := e.Sub(s)
+	return mat.Translate(diff[0], diff[1], diff[2])
+}
+
+func dragRotation(s, e mat.Vec3, rect []mat.Vec3, modelView *mat.Mat4) mat.Mat4 {
+	if len(rect) <= 1 {
+		return mat.Translate(0, 0, 0)
+	}
+	var center mat.Vec3
+	for _, p := range rect {
+		center = center.Add(p)
+	}
+	center = center.Mul(1 / float32(len(rect)))
+
+	vCenter := modelView.Transform(center)
+	vS := modelView.Transform(s)
+	vE := modelView.Transform(e)
+	vS[2], vE[2] = vCenter[2], vCenter[2]
+
+	viewInv := modelView.Inv()
+	camera := viewInv.Transform(mat.Vec3{})
+	cameraFront := viewInv.Transform(mat.Vec3{0, 0, 1})
+	dir := cameraFront.Sub(camera)
+
+	vSRel := vS.Sub(vCenter).Normalized()
+	vERel := vE.Sub(vCenter).Normalized()
+	ang0 := float32(math.Atan2(float64(vSRel[1]), float64(vSRel[0])))
+	ang1 := float32(math.Atan2(float64(vERel[1]), float64(vERel[0])))
+	return mat.Translate(center[0], center[1], center[2]).
+		Mul(mat.Rotate(dir[0], dir[1], dir[2], ang0-ang1)).
+		Mul(mat.Translate(-center[0], -center[1], -center[2]))
+}
+
+func cursorsToTrans(curs []mat.Vec3) mat.Mat4 {
+	o := curs[0]
+	x := curs[1].Sub(o)
+	y := curs[2].Sub(o)
+	z := curs[3].Sub(o)
+	return mat.Mat4{
+		x[0], x[1], x[2], 0,
+		y[0], y[1], y[2], 0,
+		z[0], z[1], z[2], 0,
+		o[0], o[1], o[2], 1,
 	}
 }
