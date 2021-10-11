@@ -184,14 +184,6 @@ func (pe *pcdeditor) Run(ctx context.Context) {
 		e.PreventDefault()
 		e.StopPropagation()
 	})
-	canvas.OnKeyDown(func(e webgl.KeyboardEvent) {
-		e.PreventDefault()
-		e.StopPropagation()
-		select {
-		case pe.chKey <- e:
-		default:
-		}
-	})
 
 	wheelHandler := func(e webgl.WheelEvent) {
 		e.PreventDefault()
@@ -256,11 +248,13 @@ func (pe *pcdeditor) Run(ctx context.Context) {
 		default:
 		}
 	})
+	var lastDragEvent *webgl.MouseEvent
 	canvas.OnMouseMove(func(e webgl.MouseEvent) {
 		e.PreventDefault()
 		e.StopPropagation()
 		if mouseDragging != webgl.MouseButtonNull {
 			e.Button = mouseDragging
+			lastDragEvent = &e
 			select {
 			case pe.chMouseDrag <- e:
 			default:
@@ -271,6 +265,36 @@ func (pe *pcdeditor) Run(ctx context.Context) {
 			default:
 			}
 		}
+	})
+
+	updateDrag := func(e webgl.KeyboardEvent) {
+		if lastDragEvent != nil && mouseDragging != webgl.MouseButtonNull &&
+			(e.ShiftKey != lastDragEvent.ShiftKey ||
+				e.CtrlKey != lastDragEvent.CtrlKey ||
+				e.AltKey != lastDragEvent.AltKey) {
+			// State of shift/ctrl/alt key is changed during drag
+			lastDragEvent.ShiftKey = e.ShiftKey
+			lastDragEvent.CtrlKey = e.CtrlKey
+			lastDragEvent.AltKey = e.AltKey
+			select {
+			case pe.chMouseDrag <- *lastDragEvent:
+			default:
+			}
+		}
+	}
+	canvas.OnKeyDown(func(e webgl.KeyboardEvent) {
+		e.PreventDefault()
+		e.StopPropagation()
+		select {
+		case pe.chKey <- e:
+		default:
+		}
+		updateDrag(e)
+	})
+	canvas.OnKeyUp(func(e webgl.KeyboardEvent) {
+		e.PreventDefault()
+		e.StopPropagation()
+		updateDrag(e)
 	})
 
 	canvas.OnWebGLContextLost(func(e webgl.WebGLContextEvent) {
