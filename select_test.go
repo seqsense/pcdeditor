@@ -83,7 +83,7 @@ func TestSelectPoint(t *testing.T) {
 				pp, tt.mask, ProjectionPerspective,
 				&model,
 				&proj,
-				100, 100, 200, 200,
+				100, 100, 200, 200, pointSelectRange,
 			)
 			if !ok {
 				if tt.selected {

@@ -104,7 +104,7 @@ const vsSelectSource = `#version 300 es
 			gl_PointSize = clamp(1.5 * uPointSizeBase / length(viewPosition), 6.0, uPointSizeBase);
 		} else {
 			// Orthographic mode
-			gl_PointSize = 1.5 * uPointSizeBase / 20.0;
+			gl_PointSize = 3.0 * uPointSizeBase / 20.0;
 		}
 
 		vColor = vec4(1.0, 1.0, 1.0, 0.8);

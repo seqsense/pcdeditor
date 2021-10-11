@@ -837,7 +837,7 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 			}
 			return selectPoint(
 				pcCursor, nil, projectionType, &modelViewMatrix, &projectionMatrix,
-				scaled(e.OffsetX), scaled(e.OffsetY), width, height,
+				scaled(e.OffsetX), scaled(e.OffsetY), width, height, rectSelectRange,
 			)
 		}
 
@@ -1020,7 +1020,8 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 			switch projectionType {
 			case ProjectionPerspective:
 				p, ok = selectPoint(
-					pp, pe.cmd.SelectMask(), projectionType, &modelViewMatrix, &projectionMatrix, scaled(e.OffsetX), scaled(e.OffsetY), width, height,
+					pp, pe.cmd.SelectMask(), projectionType, &modelViewMatrix, &projectionMatrix,
+					scaled(e.OffsetX), scaled(e.OffsetY), width, height, pointSelectRange,
 				)
 			case ProjectionOrthographic:
 				p = selectPointOrtho(

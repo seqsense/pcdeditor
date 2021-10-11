@@ -16,6 +16,11 @@ const (
 	selectBitmaskSegmentSelected = 0x00000010
 )
 
+const (
+	pointSelectRange = 0.1
+	rectSelectRange  = 0.2
+)
+
 func selectPointOrtho(modelViewMatrix, projectionMatrix *mat.Mat4, x, y, width, height int, depth *mat.Vec3) *mat.Vec3 {
 	a := projectionMatrix.Mul(*modelViewMatrix)
 
@@ -56,7 +61,7 @@ func perspectiveOriginDir(x, y, width, height int, projectionMatrix, modelViewMa
 	return perspectiveOriginDirFromPosVec(pos, a, modelViewMatrix)
 }
 
-func selectPoint(pp *pc.PointCloud, selMask []uint32, projectionType ProjectionType, modelViewMatrix, projectionMatrix *mat.Mat4, x, y, width, height int) (*mat.Vec3, bool) {
+func selectPoint(pp *pc.PointCloud, selMask []uint32, projectionType ProjectionType, modelViewMatrix, projectionMatrix *mat.Mat4, x, y, width, height int, rangeMax float32) (*mat.Vec3, bool) {
 	pos, a := screenPosVec(x, y, width, height, projectionMatrix, modelViewMatrix)
 
 	it, err := pp.Vec3Iterator()
@@ -65,6 +70,8 @@ func selectPoint(pp *pc.PointCloud, selMask []uint32, projectionType ProjectionT
 	}
 
 	var selected *mat.Vec3
+
+	rangeMaxSq := rangeMax * rangeMax
 
 	switch projectionType {
 	case ProjectionPerspective:
@@ -94,7 +101,7 @@ func selectPoint(pp *pc.PointCloud, selMask []uint32, projectionType ProjectionT
 					distSq := pRel.NormSq()
 					dSq := distSq - dot*dot
 					v := dSq + distSq/10000
-					if v < vMin && dSq < 0.1*0.1 && distSq > 1.0 {
+					if v < vMin && dSq < rangeMaxSq && distSq > 1.0 {
 						vMin, selected = v, &p
 					}
 				}
@@ -106,7 +113,7 @@ func selectPoint(pp *pc.PointCloud, selMask []uint32, projectionType ProjectionT
 		oDiff := o2.Sub(o1)
 		oDiffNormSq := oDiff.NormSq()
 
-		dSqMin := float32(0.1 * 0.1)
+		dSqMin := rangeMaxSq
 		for i := 0; it.IsValid(); func() {
 			it.Incr()
 			i++
