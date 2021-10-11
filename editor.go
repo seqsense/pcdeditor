@@ -11,12 +11,25 @@ const (
 	maxHistoryDefault = 4
 )
 
+type rect struct {
+	min, max mat.Vec3
+}
+
 type editor struct {
 	history
-	pp *pc.PointCloud
+	pp        *pc.PointCloud
+	ppSub     *pc.PointCloud
+	ppSubRect rect
 
 	cropMatrix mat.Mat4
 }
+
+type cloudID int
+
+const (
+	cloudMain cloudID = iota
+	cloudSub
+)
 
 func newEditor() *editor {
 	return &editor{
@@ -44,52 +57,74 @@ func (e *editor) Crop(origin mat.Mat4) {
 	e.cropMatrix = origin
 }
 
-func (e *editor) SetPointCloud(pp *pc.PointCloud) error {
-	if len(pp.Fields) == 4 && pp.Fields[0] == "x" && pp.Fields[1] == "y" && pp.Fields[2] == "z" && pp.Fields[3] == "label" {
-		e.pp = e.push(pp)
+func (e *editor) SetPointCloud(pp *pc.PointCloud, id cloudID) error {
+	if pp == nil && id == cloudSub {
+		e.ppSub = nil
 		runtime.GC()
 		return nil
 	}
-	i, err := pp.Vec3Iterator()
-	if err != nil {
-		return err
-	}
-	iL, _ := pp.Uint32Iterator("label")
+	var pcNew *pc.PointCloud
+	if len(pp.Fields) == 4 && pp.Fields[0] == "x" && pp.Fields[1] == "y" && pp.Fields[2] == "z" && pp.Fields[3] == "label" {
+		pcNew = pp
+	} else {
+		i, err := pp.Vec3Iterator()
+		if err != nil {
+			return err
+		}
+		iL, _ := pp.Uint32Iterator("label")
 
-	pcNew := &pc.PointCloud{
-		PointCloudHeader: pc.PointCloudHeader{
-			Version:   pp.Version,
-			Fields:    []string{"x", "y", "z", "label"},
-			Size:      []int{4, 4, 4, 4},
-			Type:      []string{"F", "F", "F", "U"},
-			Count:     []int{1, 1, 1, 1},
-			Viewpoint: pp.Viewpoint,
-			Width:     pp.Points,
-			Height:    1,
-		},
-		Points: pp.Points,
-	}
-	pcNew.Data = make([]byte, pp.Points*pcNew.Stride())
+		pcNew = &pc.PointCloud{
+			PointCloudHeader: pc.PointCloudHeader{
+				Version:   pp.Version,
+				Fields:    []string{"x", "y", "z", "label"},
+				Size:      []int{4, 4, 4, 4},
+				Type:      []string{"F", "F", "F", "U"},
+				Count:     []int{1, 1, 1, 1},
+				Viewpoint: pp.Viewpoint,
+				Width:     pp.Points,
+				Height:    1,
+			},
+			Points: pp.Points,
+		}
+		pcNew.Data = make([]byte, pp.Points*pcNew.Stride())
 
-	j, err := pcNew.Vec3Iterator()
-	if err != nil {
-		return err
-	}
-	jL, err := pcNew.Uint32Iterator("label")
-	if err != nil {
-		return err
-	}
-	for i.IsValid() && j.IsValid() {
-		j.SetVec3(i.Vec3())
-		j.Incr()
-		i.Incr()
-		if iL != nil {
-			jL.SetUint32(iL.Uint32())
-			jL.Incr()
-			iL.Incr()
+		j, err := pcNew.Vec3Iterator()
+		if err != nil {
+			return err
+		}
+		jL, err := pcNew.Uint32Iterator("label")
+		if err != nil {
+			return err
+		}
+		for i.IsValid() && j.IsValid() {
+			j.SetVec3(i.Vec3())
+			j.Incr()
+			i.Incr()
+			if iL != nil {
+				jL.SetUint32(iL.Uint32())
+				jL.Incr()
+				iL.Incr()
+			}
 		}
 	}
-	e.pp = e.push(pcNew)
+	switch id {
+	case cloudMain:
+		e.pp = e.push(pcNew)
+	case cloudSub:
+		e.ppSub = pcNew
+		it, err := pcNew.Vec3Iterator()
+		if err != nil {
+			return err
+		}
+		min, max, err := pc.MinMaxVec3(it)
+		if err != nil {
+			return err
+		}
+		e.ppSubRect = rect{
+			min: min,
+			max: max,
+		}
+	}
 	runtime.GC()
 	return nil
 }

@@ -11,6 +11,8 @@ const (
 	cursorText      cursor = "text"
 	cursorWait      cursor = "wait"
 	cursorHelp      cursor = "help"
+	cursorGrab      cursor = "grab"
+	cursorGrabbing  cursor = "grabbing"
 	cursorNResize   cursor = "n-resize"
 	cursorSResize   cursor = "s-resize"
 	cursorWResize   cursor = "w-resize"

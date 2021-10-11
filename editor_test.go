@@ -142,7 +142,7 @@ func TestSetPointCloud(t *testing.T) {
 	indices := []int{0, 1, 2}
 
 	for _, pp := range pps {
-		if err := e.SetPointCloud(pp); err != nil {
+		if err := e.SetPointCloud(pp, cloudMain); err != nil {
 			t.Fatal(err)
 		}
 		check(t, e.pp, indices)

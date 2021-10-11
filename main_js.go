@@ -47,6 +47,7 @@ type pcdeditor struct {
 	canvas            js.Value
 	logPrint          func(msg interface{})
 	chImportPCD       chan promiseCommand
+	chImportSubPCD    chan promiseCommand
 	chImport2D        chan promiseCommand
 	chExportPCD       chan promiseCommand
 	chCommand         chan promiseCommand
@@ -75,6 +76,7 @@ func newPCDEditor(this js.Value, args []js.Value) interface{} {
 			fmt.Println(msg)
 		},
 		chImportPCD:       make(chan promiseCommand, 1),
+		chImportSubPCD:    make(chan promiseCommand, 1),
 		chImport2D:        make(chan promiseCommand, 1),
 		chExportPCD:       make(chan promiseCommand, 1),
 		chCommand:         make(chan promiseCommand, 1),
@@ -110,6 +112,9 @@ func newPCDEditor(this js.Value, args []js.Value) interface{} {
 	return js.ValueOf(map[string]interface{}{
 		"importPCD": js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			return newCommandPromise(pe.chImportPCD, args[0])
+		}),
+		"importSubPCD": js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			return newCommandPromise(pe.chImportSubPCD, args[0])
 		}),
 		"import2D": js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			return newCommandPromise(pe.chImport2D, [2]js.Value{args[0], args[1]})
@@ -179,14 +184,6 @@ func (pe *pcdeditor) Run(ctx context.Context) {
 		e.PreventDefault()
 		e.StopPropagation()
 	})
-	canvas.OnKeyDown(func(e webgl.KeyboardEvent) {
-		e.PreventDefault()
-		e.StopPropagation()
-		select {
-		case pe.chKey <- e:
-		default:
-		}
-	})
 
 	wheelHandler := func(e webgl.WheelEvent) {
 		e.PreventDefault()
@@ -251,11 +248,11 @@ func (pe *pcdeditor) Run(ctx context.Context) {
 		default:
 		}
 	})
-	canvas.OnMouseMove(func(e webgl.MouseEvent) {
-		e.PreventDefault()
-		e.StopPropagation()
-		if mouseDragging != webgl.MouseButtonNull {
-			e.Button = mouseDragging
+
+	var lastMoveEvent *webgl.MouseEvent
+
+	dispatchMoveEvent := func(e webgl.MouseEvent) {
+		if e.Button == mouseDragging {
 			select {
 			case pe.chMouseDrag <- e:
 			default:
@@ -266,6 +263,42 @@ func (pe *pcdeditor) Run(ctx context.Context) {
 			default:
 			}
 		}
+	}
+	canvas.OnMouseMove(func(e webgl.MouseEvent) {
+		e.PreventDefault()
+		e.StopPropagation()
+		if mouseDragging != webgl.MouseButtonNull {
+			e.Button = mouseDragging
+		}
+		lastMoveEvent = &e
+		dispatchMoveEvent(e)
+	})
+
+	updateMove := func(e webgl.KeyboardEvent) {
+		if lastMoveEvent != nil &&
+			(e.ShiftKey != lastMoveEvent.ShiftKey ||
+				e.CtrlKey != lastMoveEvent.CtrlKey ||
+				e.AltKey != lastMoveEvent.AltKey) {
+			// State of shift/ctrl/alt key is changed during drag
+			lastMoveEvent.ShiftKey = e.ShiftKey
+			lastMoveEvent.CtrlKey = e.CtrlKey
+			lastMoveEvent.AltKey = e.AltKey
+			dispatchMoveEvent(*lastMoveEvent)
+		}
+	}
+	canvas.OnKeyDown(func(e webgl.KeyboardEvent) {
+		e.PreventDefault()
+		e.StopPropagation()
+		select {
+		case pe.chKey <- e:
+		default:
+		}
+		updateMove(e)
+	})
+	canvas.OnKeyUp(func(e webgl.KeyboardEvent) {
+		e.PreventDefault()
+		e.StopPropagation()
+		updateMove(e)
 	})
 
 	canvas.OnWebGLContextLost(func(e webgl.WebGLContextEvent) {
@@ -311,6 +344,10 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	vsSub, err := initVertexShader(gl, vsSubSource)
+	if err != nil {
+		return err
+	}
 	vsSel, err := initVertexShader(gl, vsSelectSource)
 	if err != nil {
 		return err
@@ -340,6 +377,10 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	programSub, err := linkShaders(gl, nil, vsSub, fs)
+	if err != nil {
+		return err
+	}
 	programSel, err := linkShaders(gl, nil, vsSel, fs)
 	if err != nil {
 		return err
@@ -365,6 +406,10 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 	uPointSizeBase := gl.GetUniformLocation(program, "uPointSizeBase")
 	uUseSelectMask := gl.GetUniformLocation(program, "uUseSelectMask")
 
+	uProjectionMatrixLocationSub := gl.GetUniformLocation(programSub, "uProjectionMatrix")
+	uModelViewMatrixLocationSub := gl.GetUniformLocation(programSub, "uModelViewMatrix")
+	uPointSizeBaseSub := gl.GetUniformLocation(programSub, "uPointSizeBase")
+
 	uProjectionMatrixLocationSel := gl.GetUniformLocation(programSel, "uProjectionMatrix")
 	uModelViewMatrixLocationSel := gl.GetUniformLocation(programSel, "uModelViewMatrix")
 	uPointSizeBaseSel := gl.GetUniformLocation(programSel, "uPointSizeBase")
@@ -385,6 +430,7 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 	gl.DepthFunc(gl.LEQUAL)
 
 	posBuf := gl.CreateBuffer()
+	posSubBuf := gl.CreateBuffer()
 	mapBuf := gl.CreateBuffer()
 	selectResultBuf := gl.CreateBuffer()
 	selectMaskBuf := gl.CreateBuffer()
@@ -488,7 +534,6 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 
 			gl.Canvas.SetWidth(width)
 			gl.Canvas.SetHeight(height)
-			gl.UseProgram(program)
 			switch projectionType {
 			case ProjectionPerspective:
 				projectionMatrix = mat.Perspective(
@@ -505,7 +550,10 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 					-1000, 1000.0,
 				)
 			}
+			gl.UseProgram(program)
 			gl.UniformMatrix4fv(uProjectionMatrixLocation, false, projectionMatrix)
+			gl.UseProgram(programSub)
+			gl.UniformMatrix4fv(uProjectionMatrixLocationSub, false, projectionMatrix)
 			gl.UseProgram(programSel)
 			gl.UniformMatrix4fv(uProjectionMatrixLocationSel, false, projectionMatrix)
 			gl.UseProgram(programMap)
@@ -628,6 +676,13 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 			updateSelectMask()
 		}
 
+		ppSub, updatedSubPointCloud, hasSubPointCloud := pe.cmd.SubPointCloud()
+		if hasSubPointCloud && (updatedSubPointCloud || forceReload) && ppSub.Points > 0 {
+			// Send PointCloud vertices to GPU
+			gl.BindBuffer(gl.ARRAY_BUFFER, posSubBuf)
+			gl.BufferData(gl.ARRAY_BUFFER, webgl.ByteArrayBuffer(ppSub.Data), gl.STATIC_DRAW)
+		}
+
 		render := func() {
 			gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
@@ -640,7 +695,7 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 				clean := enableVertexAttribs(gl, aVertexPosition, aVertexLabel, aSelectMask)
 
 				switch selectMode {
-				case selectModeRect:
+				case selectModeRect, selectModeInsert:
 					gl.Uniform1i(uUseSelectMask, 0)
 				case selectModeMask:
 					gl.Uniform1i(uUseSelectMask, 1)
@@ -668,7 +723,29 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 				clean()
 			}
 
-			if nRectPoints > 0 && selectMode == selectModeRect {
+			if hasSubPointCloud && ppSub.Points > 0 && selectMode == selectModeInsert {
+				// Render sub PointCloud
+				cursors := pe.cmd.Cursors()
+
+				gl.Enable(gl.BLEND)
+				gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+				gl.UseProgram(programSub)
+				clean := enableVertexAttribs(gl, aVertexPosition)
+				gl.BindBuffer(gl.ARRAY_BUFFER, posSubBuf)
+				gl.VertexAttribPointer(aVertexPosition, 3, gl.FLOAT, false, ppSub.Stride(), 0)
+				trans := cursorsToTrans(cursors)
+				gl.UniformMatrix4fv(
+					uModelViewMatrixLocationSub, false,
+					modelViewMatrix.Mul(trans),
+				)
+				gl.Uniform1f(uPointSizeBaseSub, pointSize)
+				gl.DrawArrays(gl.POINTS, 0, ppSub.Points-1)
+
+				gl.Disable(gl.BLEND)
+				clean()
+			}
+
+			if nRectPoints > 0 && (selectMode == selectModeRect || selectMode == selectModeInsert) {
 				// Render select box
 				gl.Enable(gl.BLEND)
 				gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
@@ -788,7 +865,7 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 			}
 			return selectPoint(
 				pcCursor, nil, projectionType, &modelViewMatrix, &projectionMatrix,
-				scaled(e.OffsetX), scaled(e.OffsetY), width, height,
+				scaled(e.OffsetX), scaled(e.OffsetY), width, height, rectSelectRange,
 			)
 		}
 
@@ -803,6 +880,14 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 				break
 			}
 			pe.logPrint("pcd file loaded")
+			promise.resolved("loaded")
+		case promise := <-pe.chImportSubPCD:
+			pe.logPrint("importing sub pcd file")
+			if err := pe.cmd.ImportSubPCD(promise.data); err != nil {
+				promise.rejected(err)
+				break
+			}
+			pe.logPrint("sub pcd file loaded")
 			promise.resolved("loaded")
 		case promise := <-pe.chImport2D:
 			pe.logPrint("loading 2D map file")
@@ -908,9 +993,15 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 					&modelViewMatrix, &projectionMatrix,
 					scaled(e.OffsetX), scaled(e.OffsetY), width, height, moveStart,
 				)
-				diff := moveEnd.Sub(*moveStart)
-				pe.cmd.TransformCursors(mat.Translate(diff[0], diff[1], diff[2]))
-
+				var trans mat.Mat4
+				switch {
+				case e.ShiftKey:
+					rect, _ := pe.cmd.Rect()
+					trans = dragRotation(*moveStart, *moveEnd, rect, &modelViewMatrix)
+				default:
+					trans = dragTranslation(*moveStart, *moveEnd)
+				}
+				pe.cmd.TransformCursors(trans)
 				moveStart = nil
 				continue
 			}
@@ -921,19 +1012,35 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 				pe.cmd.PopCursors()
 				pe.cmd.PushCursors()
 
+				if e.ShiftKey {
+					pe.SetCursor(cursorGrabbing)
+				} else {
+					pe.SetCursor(cursorMove)
+				}
+
 				moveEnd := selectPointOrtho(
 					&modelViewMatrix, &projectionMatrix,
 					scaled(e.OffsetX), scaled(e.OffsetY), width, height, moveStart,
 				)
-				diff := moveEnd.Sub(*moveStart)
-				pe.cmd.TransformCursors(mat.Translate(diff[0], diff[1], diff[2]))
-
+				var trans mat.Mat4
+				switch {
+				case e.ShiftKey:
+					rect, _ := pe.cmd.Rect()
+					trans = dragRotation(*moveStart, *moveEnd, rect, &modelViewMatrix)
+				default:
+					trans = dragTranslation(*moveStart, *moveEnd)
+				}
+				pe.cmd.TransformCursors(trans)
 				continue
 			}
 			pe.vi.mouseDrag(&e)
 		case e := <-pe.chMouseMove:
 			if _, ok := cursorOnSelect(e); ok {
-				pe.SetCursor(cursorMove)
+				if e.ShiftKey {
+					pe.SetCursor(cursorGrab)
+				} else {
+					pe.SetCursor(cursorMove)
+				}
 			} else {
 				pe.SetCursor(cursorAuto)
 			}
@@ -951,7 +1058,8 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 			switch projectionType {
 			case ProjectionPerspective:
 				p, ok = selectPoint(
-					pp, pe.cmd.SelectMask(), projectionType, &modelViewMatrix, &projectionMatrix, scaled(e.OffsetX), scaled(e.OffsetY), width, height,
+					pp, pe.cmd.SelectMask(), projectionType, &modelViewMatrix, &projectionMatrix,
+					scaled(e.OffsetX), scaled(e.OffsetY), width, height, pointSelectRange,
 				)
 			case ProjectionOrthographic:
 				p = selectPointOrtho(
@@ -989,7 +1097,16 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 		case e := <-pe.chKey:
 			switch e.Code {
 			case "Escape":
-				pe.cmd.UnsetCursors()
+				if moveStart != nil {
+					pe.cmd.PopCursors()
+					moveStart = nil
+				} else {
+					pe.cmd.UnsetCursors()
+				}
+			case "Enter":
+				if err := pe.cmd.FinalizeCurrentMode(); err != nil {
+					pe.logPrint("Failed: " + err.Error())
+				}
 			case "Delete", "Backspace", "Digit0", "Digit1":
 				switch e.Code {
 				case "Delete", "Backspace":

@@ -94,6 +94,30 @@ const vsSource = `#version 300 es
 	}
 `
 
+const vsSubSource = `#version 300 es
+	layout (location = 0) in vec4 aVertexPosition;
+	uniform mat4 uModelViewMatrix;
+	uniform mat4 uProjectionMatrix;
+	uniform float uPointSizeBase;
+	vec4 viewPosition;
+	out lowp vec4 vColor;
+
+	void main(void) {
+		viewPosition = uModelViewMatrix * aVertexPosition;
+		gl_Position = uProjectionMatrix * viewPosition;
+
+		if (uProjectionMatrix[3][3] == 0.0) {
+			// Perspective mode
+			gl_PointSize = clamp(uPointSizeBase / length(viewPosition), 1.0, uPointSizeBase);
+		} else {
+			// Orthographic mode
+			gl_PointSize = uPointSizeBase / 20.0;
+		}
+
+		vColor = vec4(0.8, 0.8, 0.8, 0.5);
+	}
+`
+
 const vsSelectSource = `#version 300 es
 	layout (location = 0) in vec4 aVertexPosition;
 	uniform mat4 uModelViewMatrix;
@@ -110,7 +134,7 @@ const vsSelectSource = `#version 300 es
 			gl_PointSize = clamp(1.5 * uPointSizeBase / length(viewPosition), 6.0, uPointSizeBase);
 		} else {
 			// Orthographic mode
-			gl_PointSize = 1.5 * uPointSizeBase / 20.0;
+			gl_PointSize = 3.0 * uPointSizeBase / 20.0;
 		}
 
 		vColor = vec4(1.0, 1.0, 1.0, 0.8);
