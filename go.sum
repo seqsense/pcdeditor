@@ -1,7 +1,7 @@
 github.com/seqsense/pcgol v0.0.0-20211009164548-b259a6cdccd4 h1:MLXlvWMnafUbskq/N0jE0/9sAE9QfUvrDL+t820QxvY=
 github.com/seqsense/pcgol v0.0.0-20211009164548-b259a6cdccd4/go.mod h1:w8LffJCFuzmJsqCRLWNB2SXOVHlEPtHBCHmlisG2w+0=
-github.com/seqsense/webgl-go v0.0.0-20211011104635-2714af49c349 h1:0FIyRXDWEORpp1siNvLqO3VPKcNFkn42Ifn8+Yft2Ag=
-github.com/seqsense/webgl-go v0.0.0-20211011104635-2714af49c349/go.mod h1:0maLEllOLyHaTnNFVivXfh1zXII/kSrvwY8F2sVCu7s=
+github.com/seqsense/webgl-go v0.0.0-20211011111443-75221b4fde6f h1:qmQAIjNRgd26j28NjiGwB6nA3v4Q8SuoLG10Iqm16S8=
+github.com/seqsense/webgl-go v0.0.0-20211011111443-75221b4fde6f/go.mod h1:0maLEllOLyHaTnNFVivXfh1zXII/kSrvwY8F2sVCu7s=
 github.com/zhuyie/golzf v0.0.0-20161112031142-8387b0307ade h1:bafvQukPrIYwYWcft4rl3WpHo3qO0/voaAgnCwgdhi0=
 github.com/zhuyie/golzf v0.0.0-20161112031142-8387b0307ade/go.mod h1:juNhYdla04C276MyU4zR0BA7t90ziLKPwkjDgddGYV0=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405 h1:yhCVgyC4o1eVCa2tZl7eS0r+SDo693bJlVdllGtEeKM=
