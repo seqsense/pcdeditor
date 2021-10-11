@@ -14,6 +14,13 @@ class PCDEditor {
       idPrefix: '',
       logId: '#log',
       canvasId: '#mapCanvas',
+      onKeyDownHook: (e) => {
+        if (e.code === 'KeyC' && e.ctrlKey) {
+          this.qs('#clipboardCopy').click()
+        } else if (e.code === 'KeyV' && e.ctrlKey) {
+          this.qs('#clipboardPaste').click()
+        }
+      },
     }
     if (opts) {
       Object.keys(opts).forEach((key) => {
@@ -280,7 +287,10 @@ class PCDEditor {
       /** main */
       const loadWasm = async () => {
         document.onPCDEditorLoaded = async (e) => {
-          this.pcdeditor = e.attach(this.canvas, { logger: this.logger })
+          this.pcdeditor = e.attach(this.canvas, {
+            logger: this.logger,
+            onKeyDownHook: this.opts.onKeyDownHook,
+          })
           setupControls(this.pcdeditor)
           resolve()
         }

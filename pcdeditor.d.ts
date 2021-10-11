@@ -4,6 +4,7 @@ interface PCDEditorOptions {
   idPrefix?: string
   logId?: string
   canvasId?: string
+  onKeyDownHook?: (KeyboardEvent) => void
 }
 
 declare class PCDEditor {
@@ -19,6 +20,7 @@ declare class PCDEditor {
 
   pcdeditor: {
     exportPCD(): Promise<Blob>
+    exportSelectedPCD(): Promise<Blob>
     loadPCD(a: string): Promise<null>
     load2D(a, b: string): Promise<null>
     exit(): void
@@ -29,6 +31,8 @@ declare class PCDEditor {
   canvas: HTMLCanvasElement
 
   log: HTMLDivElement
+
+  localClipboard: Blob
 }
 
 export default PCDEditor

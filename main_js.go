@@ -67,6 +67,8 @@ type pcdeditor struct {
 	cg  *clickGuard
 	cmd *commandContext
 	cs  *console
+
+	onKeyDownHook func(webgl.KeyboardEvent)
 }
 
 func newPCDEditor(this js.Value, args []js.Value) interface{} {
@@ -104,6 +106,11 @@ func newPCDEditor(this js.Value, args []js.Value) interface{} {
 		if logger := init.Get("logger"); !logger.IsUndefined() {
 			pe.logPrint = func(msg interface{}) {
 				logger.Invoke(fmt.Sprintf("%v", msg))
+			}
+		}
+		if onKeyDownHook := init.Get("onKeyDownHook"); !onKeyDownHook.IsUndefined() {
+			pe.onKeyDownHook = func(e webgl.KeyboardEvent) {
+				onKeyDownHook.Invoke(e.JS())
 			}
 		}
 	}
@@ -292,6 +299,9 @@ func (pe *pcdeditor) Run(ctx context.Context) {
 		}
 	}
 	canvas.OnKeyDown(func(e webgl.KeyboardEvent) {
+		if pe.onKeyDownHook != nil {
+			pe.onKeyDownHook(e)
+		}
 		e.PreventDefault()
 		e.StopPropagation()
 		select {
