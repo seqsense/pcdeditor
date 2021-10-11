@@ -38,7 +38,7 @@ F                    | 面作成
 V                    | 3点目を垂直スナップ
 H                    | 2, 3点目を水平スナップ
 0, 1                 | ラベル設定
-U, Ctrl+Z            | Undo
+U, Ctrl+Z            | Undo [\*3](#footnote2)
 
 <dl>
   <dt><a id="footnote1">[1] 左クリック</a></dt><dd>
@@ -47,6 +47,9 @@ U, Ctrl+Z            | Undo
   </dd>
   <dt><a id="footnote2">[2] Alt + 左クリック</a></dt><dd>
     透視投影モードでのみ有効。Gnome3移行以前のUbuntuでは、Alt+Win+左クリック。
+  </dd>
+  <dt><a id="footnote2">[3] Undo</a></dt><dd>
+    ポイントクラウドに対する編集のみUndoバッファに記録される。選択範囲の移動・回転操作はUndo非対応。
   </dd>
 </dl>
 
@@ -63,7 +66,8 @@ PageUp/Down        | 選択領域を上下移動
 
 <dl>
   <dt><a id="footnoteSelect1">[1] マウス操作による移動・回転</a></dt><dd>
-    マウスのボタンを離した時点でのShiftキーの押下状態で、移動か回転か決定する
+    マウスのボタンを離した時点でのShiftキーの押下状態で、移動か回転か決定する。
+    ドラッグ中にESCキーで現在の移動・回転操作をキャンセル。
   </dd>
 </dl>
 
