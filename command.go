@@ -307,6 +307,7 @@ func (c *commandContext) Cursors() []mat.Vec3 {
 
 func (c *commandContext) UnsetCursors() {
 	if c.selectMode == selectModeInsert {
+		// Clear sub cloud to leave insert mode
 		_ = c.editor.SetPointCloud(nil, cloudSub)
 	}
 	c.selectMode = selectModeRect

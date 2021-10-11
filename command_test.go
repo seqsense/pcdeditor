@@ -85,39 +85,74 @@ func TestImportPCD(t *testing.T) {
 		}
 	}
 
-	c := newCommandContext(&dummyPCDIO{}, nil)
-	if err := c.ImportPCD(pp0); err != nil {
-		t.Fatal(err)
-	}
-	if err := c.ImportSubPCD(pp1); err != nil {
-		t.Fatal(err)
-	}
+	t.Run("ImportPCD", func(t *testing.T) {
+		c := newCommandContext(&dummyPCDIO{}, nil)
+		if err := c.ImportPCD(pp0); err != nil {
+			t.Fatal(err)
+		}
 
-	out0, _, hasOut0 := c.PointCloud()
-	if !hasOut0 {
-		t.Fatal("PointCloud is not stored")
-	}
-	expectPointCloud(t, out0, []mat.Vec3{{1, 2, 3}})
+		out, _, hasOut := c.PointCloud()
+		if !hasOut {
+			t.Fatal("PointCloud is not stored")
+		}
+		expectPointCloud(t, out, []mat.Vec3{{1, 2, 3}})
+	})
+	t.Run("ImportSubPCD", func(t *testing.T) {
+		c := newCommandContext(&dummyPCDIO{}, nil)
+		if err := c.ImportPCD(pp0); err != nil {
+			t.Fatal(err)
+		}
+		if err := c.ImportSubPCD(pp1); err != nil {
+			t.Fatal(err)
+		}
 
-	outSub0, _, hasOutSub0 := c.SubPointCloud()
-	if !hasOutSub0 {
-		t.Fatal("Sub PointCloud is not stored")
-	}
-	expectPointCloud(t, outSub0, []mat.Vec3{{4, 5, 6}})
+		outSub0, _, hasOutSub0 := c.SubPointCloud()
+		if !hasOutSub0 {
+			t.Fatal("Sub PointCloud is not stored")
+		}
+		expectPointCloud(t, outSub0, []mat.Vec3{{4, 5, 6}})
 
-	if err := c.Do(); err != nil {
-		t.Fatal(err)
-	}
+		if err := c.Do(); err != nil {
+			t.Fatal(err)
+		}
 
-	out1, _, hasOut1 := c.PointCloud()
-	if !hasOut1 {
-		t.Fatal("PointCloud is not stored")
-	}
-	expectPointCloud(t, out1, []mat.Vec3{{1, 2, 3}, {4, 5, 6}})
+		out, _, hasOut := c.PointCloud()
+		if !hasOut {
+			t.Fatal("PointCloud is not stored")
+		}
+		expectPointCloud(t, out, []mat.Vec3{{1, 2, 3}, {4, 5, 6}})
 
-	if _, _, hasOutSub1 := c.SubPointCloud(); hasOutSub1 {
-		t.Fatal("Sub PointCloud must be cleared")
-	}
+		if _, _, hasOutSub1 := c.SubPointCloud(); hasOutSub1 {
+			t.Fatal("Sub PointCloud must be cleared")
+		}
+	})
+	t.Run("CancelImportSubPCD", func(t *testing.T) {
+		c := newCommandContext(&dummyPCDIO{}, nil)
+		if err := c.ImportPCD(pp0); err != nil {
+			t.Fatal(err)
+		}
+		if err := c.ImportSubPCD(pp1); err != nil {
+			t.Fatal(err)
+		}
+
+		outSub0, _, hasOutSub0 := c.SubPointCloud()
+		if !hasOutSub0 {
+			t.Fatal("Sub PointCloud is not stored")
+		}
+		expectPointCloud(t, outSub0, []mat.Vec3{{4, 5, 6}})
+
+		c.UnsetCursors()
+
+		out, _, hasOut := c.PointCloud()
+		if !hasOut {
+			t.Fatal("PointCloud is not stored")
+		}
+		expectPointCloud(t, out, []mat.Vec3{{1, 2, 3}})
+
+		if _, _, hasOutSub1 := c.SubPointCloud(); hasOutSub1 {
+			t.Fatal("Sub PointCloud must be cleared")
+		}
+	})
 }
 
 type dummyPCDIO struct{}
