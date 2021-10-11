@@ -30,6 +30,8 @@ class PCDEditor {
         }`
       }
     }
+
+    this.localClipboard = new Blob()
   }
 
   wrapId(q) {
@@ -215,6 +217,34 @@ class PCDEditor {
               insertSubPcdFile.value = ''
               this.canvas.focus()
             })
+        this.qs('#clipboardCopy').onclick = async () => {
+          try {
+            const blob = await pcdeditor.exportSelectedPCD()
+            const text = await blob.text()
+            if (navigator?.clipboard) {
+              await navigator.clipboard.writeText(text)
+            } else {
+              // Clipboard can't be used on insecure context
+              this.localClipboard = blob
+            }
+            this.canvas.focus()
+          } catch (e) {
+            this.logger(e)
+          }
+        }
+        this.qs('#clipboardPaste').onclick = async () => {
+          try {
+            if (navigator?.clipboard) {
+              const text = await navigator.clipboard.readText()
+              await this.loadSubPCD(URL.createObjectURL(new Blob(text)))
+            } else {
+              await this.loadSubPCD(URL.createObjectURL(this.localClipboard))
+            }
+            this.canvas.focus()
+          } catch (e) {
+            this.logger(e)
+          }
+        }
 
         // Debug menu
         this.qs('#resetContext').onclick = () => {
@@ -674,6 +704,12 @@ class PCDEditor {
         style="display: none;"
       />
       <button id="${id('insertSubPcd')}">Select file</button>
+    </div>
+    <hr/>
+    <div class="${id('foldMenuElem')}">
+      <label class="${id('inputLabel')}">Clipboard</label>
+      <button id="${id('clipboardCopy')}">Copy</button>
+      <button id="${id('clipboardPaste')}">Paste</button>
     </div>
   </div>
 </span>
