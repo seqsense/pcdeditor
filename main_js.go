@@ -1097,7 +1097,12 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 		case e := <-pe.chKey:
 			switch e.Code {
 			case "Escape":
-				pe.cmd.UnsetCursors()
+				if moveStart != nil {
+					pe.cmd.PopCursors()
+					moveStart = nil
+				} else {
+					pe.cmd.UnsetCursors()
+				}
 			case "Enter":
 				if err := pe.cmd.FinalizeCurrentMode(); err != nil {
 					pe.logPrint("Failed: " + err.Error())
