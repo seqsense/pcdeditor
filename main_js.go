@@ -248,13 +248,11 @@ func (pe *pcdeditor) Run(ctx context.Context) {
 		default:
 		}
 	})
-	var lastDragEvent *webgl.MouseEvent
-	canvas.OnMouseMove(func(e webgl.MouseEvent) {
-		e.PreventDefault()
-		e.StopPropagation()
-		if mouseDragging != webgl.MouseButtonNull {
-			e.Button = mouseDragging
-			lastDragEvent = &e
+
+	var lastMoveEvent *webgl.MouseEvent
+
+	dispatchMoveEvent := func(e webgl.MouseEvent) {
+		if e.Button == mouseDragging {
 			select {
 			case pe.chMouseDrag <- e:
 			default:
@@ -265,21 +263,27 @@ func (pe *pcdeditor) Run(ctx context.Context) {
 			default:
 			}
 		}
+	}
+	canvas.OnMouseMove(func(e webgl.MouseEvent) {
+		e.PreventDefault()
+		e.StopPropagation()
+		if mouseDragging != webgl.MouseButtonNull {
+			e.Button = mouseDragging
+		}
+		lastMoveEvent = &e
+		dispatchMoveEvent(e)
 	})
 
-	updateDrag := func(e webgl.KeyboardEvent) {
-		if lastDragEvent != nil && mouseDragging != webgl.MouseButtonNull &&
-			(e.ShiftKey != lastDragEvent.ShiftKey ||
-				e.CtrlKey != lastDragEvent.CtrlKey ||
-				e.AltKey != lastDragEvent.AltKey) {
+	updateMove := func(e webgl.KeyboardEvent) {
+		if lastMoveEvent != nil &&
+			(e.ShiftKey != lastMoveEvent.ShiftKey ||
+				e.CtrlKey != lastMoveEvent.CtrlKey ||
+				e.AltKey != lastMoveEvent.AltKey) {
 			// State of shift/ctrl/alt key is changed during drag
-			lastDragEvent.ShiftKey = e.ShiftKey
-			lastDragEvent.CtrlKey = e.CtrlKey
-			lastDragEvent.AltKey = e.AltKey
-			select {
-			case pe.chMouseDrag <- *lastDragEvent:
-			default:
-			}
+			lastMoveEvent.ShiftKey = e.ShiftKey
+			lastMoveEvent.CtrlKey = e.CtrlKey
+			lastMoveEvent.AltKey = e.AltKey
+			dispatchMoveEvent(*lastMoveEvent)
 		}
 	}
 	canvas.OnKeyDown(func(e webgl.KeyboardEvent) {
@@ -289,12 +293,12 @@ func (pe *pcdeditor) Run(ctx context.Context) {
 		case pe.chKey <- e:
 		default:
 		}
-		updateDrag(e)
+		updateMove(e)
 	})
 	canvas.OnKeyUp(func(e webgl.KeyboardEvent) {
 		e.PreventDefault()
 		e.StopPropagation()
-		updateDrag(e)
+		updateMove(e)
 	})
 
 	canvas.OnWebGLContextLost(func(e webgl.WebGLContextEvent) {
