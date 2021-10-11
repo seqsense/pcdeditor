@@ -599,7 +599,7 @@ func (c *commandContext) ImportSubPCD(blob interface{}) error {
 	return nil
 }
 
-func (c *commandContext) Do() error {
+func (c *commandContext) FinalizeCurrentMode() error {
 	switch c.selectMode {
 	case selectModeInsert:
 		it, err := c.editor.ppSub.Vec3Iterator()

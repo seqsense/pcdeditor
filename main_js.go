@@ -1099,7 +1099,7 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 			case "Escape":
 				pe.cmd.UnsetCursors()
 			case "Enter":
-				if err := pe.cmd.Do(); err != nil {
+				if err := pe.cmd.FinalizeCurrentMode(); err != nil {
 					pe.logPrint("Failed: " + err.Error())
 				}
 			case "Delete", "Backspace", "Digit0", "Digit1":

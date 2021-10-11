@@ -112,7 +112,7 @@ func TestImportPCD(t *testing.T) {
 		}
 		expectPointCloud(t, outSub0, []mat.Vec3{{4, 5, 6}})
 
-		if err := c.Do(); err != nil {
+		if err := c.FinalizeCurrentMode(); err != nil {
 			t.Fatal(err)
 		}
 
