@@ -984,6 +984,12 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 				pe.cmd.PopCursors()
 				pe.cmd.PushCursors()
 
+				if e.ShiftKey {
+					pe.SetCursor(cursorGrabbing)
+				} else {
+					pe.SetCursor(cursorMove)
+				}
+
 				moveEnd := selectPointOrtho(
 					&modelViewMatrix, &projectionMatrix,
 					scaled(e.OffsetX), scaled(e.OffsetY), width, height, moveStart,
@@ -1002,7 +1008,11 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 			pe.vi.mouseDrag(&e)
 		case e := <-pe.chMouseMove:
 			if _, ok := cursorOnSelect(e); ok {
-				pe.SetCursor(cursorMove)
+				if e.ShiftKey {
+					pe.SetCursor(cursorGrab)
+				} else {
+					pe.SetCursor(cursorMove)
+				}
 			} else {
 				pe.SetCursor(cursorAuto)
 			}
