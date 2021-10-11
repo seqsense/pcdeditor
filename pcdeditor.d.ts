@@ -19,12 +19,12 @@ declare class PCDEditor {
   private wrapId: (q: string) => string
 
   pcdeditor: {
-    importPCD(a: Blob): Promise<null>
-    importSubPCD(a: Blob): Promise<null>
-    import2D(a, b: Blob): Promise<null>
+    importPCD(a: Blob): Promise<string>
+    importSubPCD(a: Blob): Promise<string>
+    import2D(a, b: Blob): Promise<string>
     exportPCD(): Promise<Blob>
-    command(cmd: string): Promise<null>
-    show2D(show: boolean): Promise<null>
+    command(cmd: string): Promise<number[][]>
+    show2D(show: boolean): Promise<string>
     exit(): void
   }
 
