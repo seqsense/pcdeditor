@@ -42,9 +42,9 @@ const vsSource = `#version 300 es
 		else if (idx == 17) c = vec3(128.0, 128.0, 0.0);
 		else if (idx == 18) c = vec3(255.0, 216.0, 177.0);
 		else if (idx == 19) c = vec3(0.0, 0.0, 117.0);
-		else c = vec3(255.0, 255.0, 255.0);
+		else c = vec3(128.0, 128.0, 128.0);
+		c = mix(c, vec3(255.0, 255.0, 255.0), cSelected);
 		c /= 255.0;
-		c -= cSelected;
 		return vec4(c, 1.0);
 	}
 
