@@ -40,7 +40,10 @@ jobs:
           path: ~/.npm
           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
           restore-keys: ${{ runner.os }}-node-
-      - name: install
+      - name: Install
+        run: npm install
+      - name: Type check
+        run: npm run typecheck
         run: npm install
       - name: Set PACKAGE_VERSION
         run: |

@@ -23,8 +23,8 @@ const vsSource = `#version 300 es
 		int idx = label % 20;
 		vec3 c;
 		if (idx == 0) c = vec3(128.0, 128.0, 128.0);
-		else if (idx == 1) c = vec3(230.0, 25.0, 75.0);
-		else if (idx == 2) c = vec3(60.0, 180.0, 75.0);
+		else if (idx == 1) c = vec3(60.0, 180.0, 75.0);
+		else if (idx == 2) c = vec3(230.0, 25.0, 75.0);
 		else if (idx == 3) c = vec3(255.0, 225.0, 25.0);
 		else if (idx == 4) c = vec3(67.0, 99.0, 216.0);
 		else if (idx == 5) c = vec3(245.0, 130.0, 49.0);
