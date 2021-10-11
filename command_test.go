@@ -164,3 +164,59 @@ func (dummyPCDIO) importPCD(blob interface{}) (*pc.PointCloud, error) {
 func (dummyPCDIO) exportPCD(pp *pc.PointCloud) (interface{}, error) {
 	panic("unimplemented")
 }
+
+func TestBaseFileter(t *testing.T) {
+	c := &commandContext{
+		selectMask: []uint32{
+			0,
+			selectBitmaskCropped | selectBitmaskSelected,
+			selectBitmaskSelected,
+			selectBitmaskSegmentSelected,
+			selectBitmaskCropped | selectBitmaskSegmentSelected,
+		},
+	}
+	check := func(t *testing.T, expected map[int]bool, f func(int, mat.Vec3) bool) {
+		t.Helper()
+		for id, val := range expected {
+			if out := f(id, mat.Vec3{}); out != val {
+				t.Errorf("%d is expected to be %v, got %v", id, val, out)
+			}
+		}
+	}
+	t.Run("ExtractSelected", func(t *testing.T) {
+		check(t, map[int]bool{
+			0: false,
+			1: false,
+			2: true,
+			3: false,
+			4: false,
+		}, c.baseFilter(true))
+	})
+	t.Run("ExtractNotSelected", func(t *testing.T) {
+		check(t, map[int]bool{
+			0: true,
+			1: true,
+			2: false,
+			3: true,
+			4: true,
+		}, c.baseFilter(false))
+	})
+	t.Run("ExtractSegmentSelected", func(t *testing.T) {
+		check(t, map[int]bool{
+			0: false,
+			1: false,
+			2: false,
+			3: true,
+			4: false,
+		}, c.baseFilterByMask(true))
+	})
+	t.Run("ExtractSegmentNotSelected", func(t *testing.T) {
+		check(t, map[int]bool{
+			0: true,
+			1: true,
+			2: true,
+			3: false,
+			4: true,
+		}, c.baseFilterByMask(false))
+	})
+}
