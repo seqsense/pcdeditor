@@ -584,6 +584,8 @@ func (c *commandContext) ImportSubPCD(blob interface{}) error {
 	}
 
 	c.selectMode = selectModeInsert
+	// Put unit vectors to reconstruct final transformation easily
+	// by cursorsToTrans()
 	c.selected = []mat.Vec3{
 		{},
 		{1, 0, 0},

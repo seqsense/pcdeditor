@@ -187,16 +187,19 @@ func dragRotation(s, e mat.Vec3, rect []mat.Vec3, modelView *mat.Mat4) mat.Mat4 
 	}
 	center = center.Mul(1 / float32(len(rect)))
 
+	// Transform to view coordinate
 	vCenter := modelView.Transform(center)
 	vS := modelView.Transform(s)
 	vE := modelView.Transform(e)
 	vS[2], vE[2] = vCenter[2], vCenter[2]
 
+	// Get view direction
 	viewInv := modelView.Inv()
 	camera := viewInv.Transform(mat.Vec3{})
 	cameraFront := viewInv.Transform(mat.Vec3{0, 0, 1})
 	dir := cameraFront.Sub(camera)
 
+	// Calculate angle of dragged point around the center of the rect
 	vSRel := vS.Sub(vCenter).Normalized()
 	vERel := vE.Sub(vCenter).Normalized()
 	ang0 := float32(math.Atan2(float64(vSRel[1]), float64(vSRel[0])))
