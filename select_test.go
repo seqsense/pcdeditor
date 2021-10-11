@@ -99,3 +99,37 @@ func TestSelectPoint(t *testing.T) {
 		})
 	}
 }
+
+func TestDragTranslation(t *testing.T) {
+	s := mat.Vec3{1, 2, 3}
+	e := mat.Vec3{4, 5, 6}
+	trans := dragTranslation(s, e)
+	out := trans.Transform(s)
+	diff := out.Sub(e)
+	if !(diff.Norm() <= 0.01) {
+		t.Fatalf("dragTranslation must transform s to e, expected: %v, got: %v", e, out)
+	}
+}
+
+func TestDragRotation(t *testing.T) {
+	rect := []mat.Vec3{
+		{3, 4, 0},
+		{5, 6, 0},
+		{4, 5, 0},
+	} // center: (4, 5, 0)
+
+	view := mat.Translate(0, 0, -40)
+	s := (mat.Vec3{4, 5, 0}).Add(mat.Vec3{2, 2, 0})
+	e := (mat.Vec3{4, 5, 0}).Add(
+		mat.Rotate(0, 0, 1, 0.4).Transform(mat.Vec3{3, 3, 0}), // rotate 0.4 rad (distance from the center is further)
+	)
+	expected := (mat.Vec3{4, 5, 0}).Add(
+		mat.Rotate(0, 0, 1, 0.4).Transform(mat.Vec3{2, 2, 0}),
+	)
+	trans := dragRotation(s, e, rect, &view)
+	out := trans.Transform(s)
+	diff := out.Sub(expected)
+	if !(diff.Norm() <= 0.01) {
+		t.Fatalf("dragRotation must transform s to e, expected: %v, got: %v", expected, out)
+	}
+}
