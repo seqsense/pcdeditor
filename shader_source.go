@@ -19,6 +19,35 @@ const vsSource = `#version 300 es
 	lowp float cSelected;
 	out lowp vec4 vColor;
 
+	vec4 label2color(int label) {
+		int idx = label % 20;
+		vec3 c;
+		if (idx == 0) c = vec3(128.0, 128.0, 128.0);
+		else if (idx == 1) c = vec3(230.0, 25.0, 75.0);
+		else if (idx == 2) c = vec3(60.0, 180.0, 75.0);
+		else if (idx == 3) c = vec3(255.0, 225.0, 25.0);
+		else if (idx == 4) c = vec3(67.0, 99.0, 216.0);
+		else if (idx == 5) c = vec3(245.0, 130.0, 49.0);
+		else if (idx == 6) c = vec3(145.0, 30.0, 180.0);
+		else if (idx == 7) c = vec3(70.0, 240.0, 240.0);
+		else if (idx == 8) c = vec3(240.0, 50.0, 230.0);
+		else if (idx == 9) c = vec3(188.0, 246.0, 12.0);
+		else if (idx == 10) c = vec3(250.0, 190.0, 190.0);
+		else if (idx == 11) c = vec3(0.0, 128.0, 128.0);
+		else if (idx == 12) c = vec3(230.0, 190.0, 255.0);
+		else if (idx == 13) c = vec3(154.0, 99.0, 36.0);
+		else if (idx == 14) c = vec3(255.0, 250.0, 200.0);
+		else if (idx == 15) c = vec3(128.0, 0.0, 0.0);
+		else if (idx == 16) c = vec3(170.0, 255.0, 195.0);
+		else if (idx == 17) c = vec3(128.0, 128.0, 0.0);
+		else if (idx == 18) c = vec3(255.0, 216.0, 177.0);
+		else if (idx == 19) c = vec3(0.0, 0.0, 117.0);
+		else c = vec3(128.0, 128.0, 128.0);
+		c = mix(c, vec3(255.0, 255.0, 255.0), cSelected);
+		c /= 255.0;
+		return vec4(c, 1.0);
+	}
+
 	void main(void) {
 		cropPosition = uCropMatrix * aVertexPosition;
 		if (any(lessThan(vec3(cropPosition), vec3(0, 0, 0))) ||
@@ -55,11 +84,12 @@ const vsSource = `#version 300 es
 				cSelected = 0.0;
 			}
 		}
-		c = (aVertexPosition[2] - uZMin) / uZRange;
-		if (aVertexLabel == 0u) {
-			vColor = vec4(c, cSelected, 1.0 - c, 1.0);
+
+		if (aVertexLabel >= 1u) {
+			vColor = label2color(int(aVertexLabel));
 		} else {
-			vColor = vec4(1.0 - c, c, cSelected, 1.0);
+			c = (aVertexPosition[2] - uZMin) / uZRange;
+			vColor = vec4(c, cSelected, 1.0 - c, 1.0);
 		}
 	}
 `
