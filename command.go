@@ -654,11 +654,10 @@ func (c *commandContext) FitInserting() error {
 
 	const (
 		matchRange     = 0.2
-		regionPadding  = 0.4
+		regionPadding  = 0.5
 		maxPoints      = 25000
 		minSampleRatio = 0.01
 		gradientWeight = 0.15
-		gradientThresh = 0.005
 		maxIteration   = 50
 	)
 
@@ -725,10 +724,6 @@ func (c *commandContext) FitInserting() error {
 		GradientWeight: mat.Vec6{
 			gradientWeight, gradientWeight, gradientWeight,
 			0, 0, gradientWeight,
-		},
-		GradientThreshold: mat.Vec6{
-			gradientThresh, gradientThresh, gradientThresh,
-			gradientThresh, gradientThresh, gradientThresh,
 		},
 	}
 	transFit, stat, err := ppicp.Fit(kdt, target)
