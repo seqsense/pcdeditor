@@ -673,35 +673,32 @@ func (c *commandContext) FitInserting() error {
 	}
 	center := is.min.Add(is.max).Mul(0.5)
 
-	sample := func(ra pc.Vec3RandomAccessor, isIn func(mat.Vec3) bool, nMax int, name string) (pc.Vec3Slice, error) {
+	sample := func(ra pc.Vec3RandomAccessor, isIn func(mat.Vec3) bool) (pc.Vec3Slice, float32) {
 		var cnt int
 		for i := 0; i < ra.Len(); i++ {
 			if isIn(ra.Vec3At(i)) {
 				cnt++
 			}
 		}
-		ratio := float32(nMax) / float32(cnt)
-		if ratio < minSampleRatio {
-			return nil, fmt.Errorf("too many %s points", name)
-		}
-		out := make(pc.Vec3Slice, 0, nMax)
+		ratio := float32(maxPoints) / float32(cnt)
+		out := make(pc.Vec3Slice, 0, maxPoints)
 		for i := 0; i < ra.Len(); i++ {
-			if rand.Float32() > ratio {
-				continue
-			}
 			if p := ra.Vec3At(i); isIn(p) {
+				if rand.Float32() > ratio {
+					continue
+				}
 				out = append(out, p.Sub(center))
-				if len(out) >= nMax {
+				if len(out) >= maxPoints {
 					break
 				}
 			}
 		}
-		return out, nil
+		return out, ratio
 	}
 
-	base, err := sample(it, is.IsInside, maxPoints, "base")
-	if err != nil {
-		return err
+	base, ratioBase := sample(it, is.IsInside)
+	if ratioBase < minSampleRatio {
+		return errors.New("too many base points")
 	}
 	kdt := kdtree.New(base)
 
@@ -713,9 +710,9 @@ func (c *commandContext) FitInserting() error {
 		id, _ := kdt.Nearest(p.Sub(center), regionPadding)
 		return id >= 0
 	}
-	target, err := sample(itSub, targetFilter, maxPoints, "inserting")
-	if err != nil {
-		return err
+	target, ratioTarget := sample(itSub, targetFilter)
+	if ratioTarget < minSampleRatio {
+		return errors.New("too many inserting points")
 	}
 
 	// Registration
