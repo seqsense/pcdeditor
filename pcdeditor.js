@@ -269,10 +269,14 @@ class PCDEditor {
             this.logger(e)
           }
         }
-        this.qs('#fitInsertingXYZYaw').onclick = async () =>
+        this.qs('#fitInsertingXYZYaw').onclick = async () => {
+          this.canvas.focus()
           pcdeditor.command('fit_inserting 0 1 2 5').catch(this.logger)
-        this.qs('#fitInsertingXYZ').onclick = async () =>
+        }
+        this.qs('#fitInsertingXYZ').onclick = async () => {
+          this.canvas.focus()
           pcdeditor.command('fit_inserting 0 1 2').catch(this.logger)
+        }
 
         // Debug menu
         this.qs('#resetContext').onclick = () => {
