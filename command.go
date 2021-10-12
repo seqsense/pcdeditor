@@ -653,12 +653,15 @@ func (c *commandContext) FitInserting() error {
 	}
 
 	const (
-		matchRange     = 0.2
-		regionPadding  = 0.5
-		maxPoints      = 25000
-		minSampleRatio = 0.01
-		gradientWeight = 0.15
-		maxIteration   = 50
+		matchRange        = 0.4
+		regionPadding     = 0.8
+		maxBasePoints     = 100000
+		maxTargetPoints   = 10000
+		minSampleRatio    = 0.01
+		gradientWeight    = 0.15
+		gradientPosThresh = 0.001
+		gradientRotThresh = 0.002
+		maxIteration      = 100
 	)
 
 	is := rectIntersection(
@@ -672,22 +675,22 @@ func (c *commandContext) FitInserting() error {
 	}
 	center := is.min.Add(is.max).Mul(0.5)
 
-	sample := func(ra pc.Vec3RandomAccessor, isIn func(mat.Vec3) bool) (pc.Vec3Slice, float32) {
+	sample := func(ra pc.Vec3RandomAccessor, isIn func(mat.Vec3) bool, nMax int) (pc.Vec3Slice, float32) {
 		var cnt int
 		for i := 0; i < ra.Len(); i++ {
 			if isIn(ra.Vec3At(i)) {
 				cnt++
 			}
 		}
-		ratio := float32(maxPoints) / float32(cnt)
-		out := make(pc.Vec3Slice, 0, maxPoints)
+		ratio := float32(nMax) / float32(cnt)
+		out := make(pc.Vec3Slice, 0, nMax)
 		for i := 0; i < ra.Len(); i++ {
 			if p := ra.Vec3At(i); isIn(p) {
 				if rand.Float32() > ratio {
 					continue
 				}
 				out = append(out, p.Sub(center))
-				if len(out) >= maxPoints {
+				if len(out) >= nMax {
 					break
 				}
 			}
@@ -695,7 +698,7 @@ func (c *commandContext) FitInserting() error {
 		return out, ratio
 	}
 
-	base, ratioBase := sample(it, is.IsInside)
+	base, ratioBase := sample(it, is.IsInside, maxBasePoints)
 	if ratioBase < minSampleRatio {
 		return errors.New("too many base points")
 	}
@@ -709,7 +712,7 @@ func (c *commandContext) FitInserting() error {
 		id, _ := kdt.Nearest(p.Sub(center), regionPadding)
 		return id >= 0
 	}
-	target, ratioTarget := sample(itSub, targetFilter)
+	target, ratioTarget := sample(itSub, targetFilter, maxTargetPoints)
 	if ratioTarget < minSampleRatio {
 		return errors.New("too many inserting points")
 	}
@@ -719,17 +722,26 @@ func (c *commandContext) FitInserting() error {
 		Evaluator: &icp.PointToPointEvaluator{
 			Corresponder: &icp.NearestPointCorresponder{MaxDist: matchRange},
 			MinPairs:     32,
+			WeightFn: func(distSq float32) float32 {
+				a := (1 - distSq/(matchRange*matchRange))
+				return a * a
+			},
 		},
 		MaxIteration: maxIteration,
 		GradientWeight: mat.Vec6{
 			gradientWeight, gradientWeight, gradientWeight,
 			0, 0, gradientWeight,
 		},
+		GradientThreshold: mat.Vec6{
+			gradientPosThresh, gradientPosThresh, gradientPosThresh,
+			gradientRotThresh, gradientRotThresh, gradientRotThresh,
+		},
 	}
 	transFit, stat, err := ppicp.Fit(kdt, target)
 	if err != nil {
 		return fmt.Errorf("registration failed: %v, stat: %v", err, stat)
 	}
+	println(fmt.Sprintf("%v", stat))
 
 	transFit = mat.Translate(center[0], center[1], center[2]).
 		Mul(transFit).
