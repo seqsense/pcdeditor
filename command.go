@@ -2,12 +2,15 @@ package main
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/seqsense/pcgol/mat"
 	"github.com/seqsense/pcgol/pc"
 	"github.com/seqsense/pcgol/pc/filter/voxelgrid"
+	"github.com/seqsense/pcgol/pc/registration/icp"
 	"github.com/seqsense/pcgol/pc/sac"
 	vgs "github.com/seqsense/pcgol/pc/segmentation/voxelgrid"
+	"github.com/seqsense/pcgol/pc/storage/kdtree"
 )
 
 const (
@@ -619,6 +622,78 @@ func (c *commandContext) FinalizeCurrentMode() error {
 		c.pointCloudUpdated = true
 		c.UnsetCursors()
 	}
+	return nil
+}
+
+func (c *commandContext) FitInserting() error {
+	if c.selectMode != selectModeInsert {
+		return errors.New("not in insert mode")
+	}
+	it, err := c.editor.pp.Vec3Iterator()
+	if err != nil {
+		return err
+	}
+	itSubOrig, err := c.editor.ppSub.Vec3Iterator()
+	if err != nil {
+		return err
+	}
+	trans := cursorsToTrans(c.selected)
+	itSub := &transformedVec3RandomAccessor{
+		Vec3RandomAccessor: itSubOrig,
+		trans:              trans,
+	}
+	minMain, maxMain, err := pc.MinMaxVec3(it)
+	if err != nil {
+		return err
+	}
+	minSub, maxSub, err := pc.MinMaxVec3(itSub)
+	if err != nil {
+		return err
+	}
+
+	is := rectIntersection(
+		rect{minMain, maxMain},
+		rect{minSub, maxSub},
+	)
+	is.min = is.min.Sub(mat.Vec3{1, 1, 1})
+	is.max = is.max.Add(mat.Vec3{1, 1, 1})
+	if !is.IsValid() {
+		return errors.New("no intersection")
+	}
+
+	indiceBase := make([]int, 0, 1024*1024)
+	for i := 0; i < it.Len(); i++ {
+		if is.IsInside(it.Vec3At(i)) {
+			indiceBase = append(indiceBase, i)
+		}
+	}
+	base := pc.NewIndiceVec3RandomAccessor(it, indiceBase)
+
+	sub := make(pc.Vec3Slice, 0, 1024*1024)
+	for i := 0; i < itSub.Len(); i++ {
+		if i%32 != 0 {
+			continue
+		}
+		p := itSub.Vec3At(i)
+		if is.IsInside(p) {
+			sub = append(sub, p)
+		}
+	}
+
+	kdt := kdtree.New(base)
+
+	ppicp := &icp.PointToPointICPGradient{
+		Evaluator: &icp.PointToPointEvaluator{
+			Corresponder: &icp.NearestPointCorresponder{MaxDist: 0.5},
+			MinPairs:     32,
+		},
+	}
+	transFit, stat, err := ppicp.Fit(kdt, sub)
+	if err != nil {
+		return fmt.Errorf("registration failed: %v, stat: %v", err, stat)
+	}
+	c.TransformCursors(transFit)
+
 	return nil
 }
 

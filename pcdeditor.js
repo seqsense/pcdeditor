@@ -269,6 +269,8 @@ class PCDEditor {
             this.logger(e)
           }
         }
+        this.qs('#fitInserting').onclick = async () =>
+          pcdeditor.command('fit_inserting').catch(this.logger)
 
         // Debug menu
         this.qs('#resetContext').onclick = () => {
@@ -737,6 +739,7 @@ class PCDEditor {
       <label class="${id('inputLabel')}">Clipboard</label>
       <button id="${id('clipboardCopy')}">Copy</button>
       <button id="${id('clipboardPaste')}">Paste</button>
+      <button id="${id('fitInserting')}">Fit</button>
     </div>
   </div>
 </span>
