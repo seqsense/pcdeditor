@@ -653,10 +653,11 @@ func (c *commandContext) FitInserting() error {
 	}
 
 	const (
-		matchRange     = 0.4
+		matchRange     = 0.2
+		regionPadding  = 0.4
 		maxPoints      = 25000
 		minSampleRatio = 0.01
-		gradientWeight = 0.2
+		gradientWeight = 0.15
 		gradientThresh = 0.005
 		maxIteration   = 50
 	)
@@ -665,8 +666,8 @@ func (c *commandContext) FitInserting() error {
 		rect{minMain, maxMain},
 		rect{minSub, maxSub},
 	)
-	is.min = is.min.Sub(mat.Vec3{matchRange, matchRange, matchRange})
-	is.max = is.max.Add(mat.Vec3{matchRange, matchRange, matchRange})
+	is.min = is.min.Sub(mat.Vec3{regionPadding, regionPadding, regionPadding})
+	is.max = is.max.Add(mat.Vec3{regionPadding, regionPadding, regionPadding})
 	if !is.IsValid() {
 		return errors.New("no intersection")
 	}
@@ -709,7 +710,7 @@ func (c *commandContext) FitInserting() error {
 		if !is.IsInside(p) {
 			return false
 		}
-		id, _ := kdt.Nearest(p.Sub(center), matchRange)
+		id, _ := kdt.Nearest(p.Sub(center), regionPadding)
 		return id >= 0
 	}
 	target, err := sample(itSub, targetFilter, maxPoints, "inserting")
