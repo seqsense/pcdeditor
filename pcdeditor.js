@@ -739,7 +739,7 @@ class PCDEditor {
       <label class="${id('inputLabel')}">Clipboard</label>
       <button id="${id('clipboardCopy')}">Copy</button>
       <button id="${id('clipboardPaste')}">Paste</button>
-      <button id="${id('fitInserting')}">Fit</button>
+      <button id="${id('fitInserting')}">Fit (experimental)</button>
     </div>
   </div>
 </span>
