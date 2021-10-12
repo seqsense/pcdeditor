@@ -269,8 +269,10 @@ class PCDEditor {
             this.logger(e)
           }
         }
-        this.qs('#fitInserting').onclick = async () =>
-          pcdeditor.command('fit_inserting').catch(this.logger)
+        this.qs('#fitInsertingXYZYaw').onclick = async () =>
+          pcdeditor.command('fit_inserting 0 1 2 5').catch(this.logger)
+        this.qs('#fitInsertingXYZ').onclick = async () =>
+          pcdeditor.command('fit_inserting 0 1 2').catch(this.logger)
 
         // Debug menu
         this.qs('#resetContext').onclick = () => {
@@ -739,7 +741,11 @@ class PCDEditor {
       <label class="${id('inputLabel')}">Clipboard</label>
       <button id="${id('clipboardCopy')}">Copy</button>
       <button id="${id('clipboardPaste')}">Paste</button>
-      <button id="${id('fitInserting')}">Fit (experimental)</button>
+    </div>
+    <div class="${id('foldMenuElem')}">
+      <label class="${id('inputLabel')}">Fitting (experimental)</label>
+      <button id="${id('fitInsertingXYZYaw')}">Fit X, Y, Z, Yaw</button>
+      <button id="${id('fitInsertingXYZ')}">Fit X, Y, Z</button>
     </div>
   </div>
 </span>

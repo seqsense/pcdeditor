@@ -626,7 +626,7 @@ func (c *commandContext) FinalizeCurrentMode() error {
 	return nil
 }
 
-func (c *commandContext) FitInserting() error {
+func (c *commandContext) FitInserting(axes [6]bool) error {
 	if c.selectMode != selectModeInsert {
 		return errors.New("not in insert mode")
 	}
@@ -717,6 +717,16 @@ func (c *commandContext) FitInserting() error {
 		return errors.New("too many inserting points")
 	}
 
+	gradientWeightVec := mat.Vec6{
+		gradientWeight, gradientWeight, gradientWeight,
+		gradientWeight, gradientWeight, gradientWeight,
+	}
+	for i, v := range axes {
+		if !v {
+			gradientWeightVec[i] = 0
+		}
+	}
+
 	// Registration
 	ppicp := &icp.PointToPointICPGradient{
 		Evaluator: &icp.PointToPointEvaluator{
@@ -727,11 +737,8 @@ func (c *commandContext) FitInserting() error {
 				return a * a
 			},
 		},
-		MaxIteration: maxIteration,
-		GradientWeight: mat.Vec6{
-			gradientWeight, gradientWeight, gradientWeight,
-			0, 0, gradientWeight,
-		},
+		MaxIteration:   maxIteration,
+		GradientWeight: gradientWeightVec,
 		GradientThreshold: mat.Vec6{
 			gradientPosThresh, gradientPosThresh, gradientPosThresh,
 			gradientRotThresh, gradientRotThresh, gradientRotThresh,
