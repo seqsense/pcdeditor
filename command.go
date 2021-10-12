@@ -238,6 +238,17 @@ func (c *commandContext) RectCenter() []mat.Vec3 {
 	return c.rectCenter
 }
 
+func (c *commandContext) RectCenterPos() mat.Vec3 {
+	if len(c.rect) == 0 {
+		return mat.Vec3{}
+	}
+	var center mat.Vec3
+	for _, p := range c.rect {
+		center = center.Add(p)
+	}
+	return center.Mul(1 / float32(len(c.rect)))
+}
+
 func (c *commandContext) SetSelectRange(t rangeType, r float32) {
 	if r < 0 {
 		r = 0
