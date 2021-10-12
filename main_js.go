@@ -44,28 +44,31 @@ type promiseCommand struct {
 }
 
 type pcdeditor struct {
-	canvas            js.Value
-	logPrint          func(msg interface{})
-	chImportPCD       chan promiseCommand
-	chImportSubPCD    chan promiseCommand
-	chImport2D        chan promiseCommand
-	chExportPCD       chan promiseCommand
-	chCommand         chan promiseCommand
-	chWheel           chan webgl.WheelEvent
-	chClick           chan webgl.MouseEvent
-	chMouseDown       chan webgl.MouseEvent
-	chMouseDrag       chan webgl.MouseEvent
-	chMouseMove       chan webgl.MouseEvent
-	chMouseUp         chan webgl.MouseEvent
-	chKey             chan webgl.KeyboardEvent
-	ch2D              chan promiseCommand
-	chContextLost     chan webgl.WebGLContextEvent
-	chContextRestored chan webgl.WebGLContextEvent
+	canvas              js.Value
+	logPrint            func(msg interface{})
+	chImportPCD         chan promiseCommand
+	chImportSubPCD      chan promiseCommand
+	chImport2D          chan promiseCommand
+	chExportPCD         chan promiseCommand
+	chExportSelectedPCD chan promiseCommand
+	chCommand           chan promiseCommand
+	chWheel             chan webgl.WheelEvent
+	chClick             chan webgl.MouseEvent
+	chMouseDown         chan webgl.MouseEvent
+	chMouseDrag         chan webgl.MouseEvent
+	chMouseMove         chan webgl.MouseEvent
+	chMouseUp           chan webgl.MouseEvent
+	chKey               chan webgl.KeyboardEvent
+	ch2D                chan promiseCommand
+	chContextLost       chan webgl.WebGLContextEvent
+	chContextRestored   chan webgl.WebGLContextEvent
 
 	vi  *viewImpl
 	cg  *clickGuard
 	cmd *commandContext
 	cs  *console
+
+	onKeyDownHook func(webgl.KeyboardEvent)
 }
 
 func newPCDEditor(this js.Value, args []js.Value) interface{} {
@@ -75,21 +78,22 @@ func newPCDEditor(this js.Value, args []js.Value) interface{} {
 		logPrint: func(msg interface{}) {
 			fmt.Println(msg)
 		},
-		chImportPCD:       make(chan promiseCommand, 1),
-		chImportSubPCD:    make(chan promiseCommand, 1),
-		chImport2D:        make(chan promiseCommand, 1),
-		chExportPCD:       make(chan promiseCommand, 1),
-		chCommand:         make(chan promiseCommand, 1),
-		chWheel:           make(chan webgl.WheelEvent, 10),
-		chClick:           make(chan webgl.MouseEvent, 10),
-		chMouseDown:       make(chan webgl.MouseEvent, 10),
-		chMouseDrag:       make(chan webgl.MouseEvent, 10),
-		chMouseMove:       make(chan webgl.MouseEvent, 10),
-		chMouseUp:         make(chan webgl.MouseEvent, 10),
-		chKey:             make(chan webgl.KeyboardEvent, 10),
-		ch2D:              make(chan promiseCommand, 1),
-		chContextLost:     make(chan webgl.WebGLContextEvent, 1),
-		chContextRestored: make(chan webgl.WebGLContextEvent, 1),
+		chImportPCD:         make(chan promiseCommand, 1),
+		chImportSubPCD:      make(chan promiseCommand, 1),
+		chImport2D:          make(chan promiseCommand, 1),
+		chExportPCD:         make(chan promiseCommand, 1),
+		chExportSelectedPCD: make(chan promiseCommand, 1),
+		chCommand:           make(chan promiseCommand, 1),
+		chWheel:             make(chan webgl.WheelEvent, 10),
+		chClick:             make(chan webgl.MouseEvent, 10),
+		chMouseDown:         make(chan webgl.MouseEvent, 10),
+		chMouseDrag:         make(chan webgl.MouseEvent, 10),
+		chMouseMove:         make(chan webgl.MouseEvent, 10),
+		chMouseUp:           make(chan webgl.MouseEvent, 10),
+		chKey:               make(chan webgl.KeyboardEvent, 10),
+		ch2D:                make(chan promiseCommand, 1),
+		chContextLost:       make(chan webgl.WebGLContextEvent, 1),
+		chContextRestored:   make(chan webgl.WebGLContextEvent, 1),
 
 		vi:  newView(),
 		cg:  &clickGuard{},
@@ -102,6 +106,11 @@ func newPCDEditor(this js.Value, args []js.Value) interface{} {
 		if logger := init.Get("logger"); !logger.IsUndefined() {
 			pe.logPrint = func(msg interface{}) {
 				logger.Invoke(fmt.Sprintf("%v", msg))
+			}
+		}
+		if onKeyDownHook := init.Get("onKeyDownHook"); !onKeyDownHook.IsUndefined() {
+			pe.onKeyDownHook = func(e webgl.KeyboardEvent) {
+				onKeyDownHook.Invoke(e.JS())
 			}
 		}
 	}
@@ -121,6 +130,9 @@ func newPCDEditor(this js.Value, args []js.Value) interface{} {
 		}),
 		"exportPCD": js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			return newCommandPromise(pe.chExportPCD, nil)
+		}),
+		"exportSelectedPCD": js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			return newCommandPromise(pe.chExportSelectedPCD, nil)
 		}),
 		"command": js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			return newCommandPromise(pe.chCommand, args[0].String())
@@ -287,6 +299,9 @@ func (pe *pcdeditor) Run(ctx context.Context) {
 		}
 	}
 	canvas.OnKeyDown(func(e webgl.KeyboardEvent) {
+		if pe.onKeyDownHook != nil {
+			pe.onKeyDownHook(e)
+		}
 		e.PreventDefault()
 		e.StopPropagation()
 		select {
@@ -874,38 +889,50 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 		// Handle inputs
 		select {
 		case promise := <-pe.chImportPCD:
-			pe.logPrint("importing pcd file")
+			pe.logPrint("importing pcd")
 			if err := pe.cmd.ImportPCD(promise.data); err != nil {
 				promise.rejected(err)
 				break
 			}
-			pe.logPrint("pcd file loaded")
+			pe.logPrint("pcd loaded")
 			promise.resolved("loaded")
 		case promise := <-pe.chImportSubPCD:
-			pe.logPrint("importing sub pcd file")
+			pe.logPrint("importing sub pcd")
 			if err := pe.cmd.ImportSubPCD(promise.data); err != nil {
 				promise.rejected(err)
 				break
 			}
-			pe.logPrint("sub pcd file loaded")
+			pe.logPrint("sub pcd loaded")
 			promise.resolved("loaded")
 		case promise := <-pe.chImport2D:
-			pe.logPrint("loading 2D map file")
+			pe.logPrint("loading 2D map")
 			data := promise.data.([2]js.Value)
 			if err := pe.cmd.Import2D(data[0], data[1]); err != nil {
 				promise.rejected(err)
 				break
 			}
-			pe.logPrint("2D map file loaded")
+			pe.logPrint("2D map loaded")
 			promise.resolved("loaded")
 		case promise := <-pe.chExportPCD:
-			pe.logPrint("exporting pcd file")
+			pe.logPrint("exporting pcd")
 			blob, err := pe.cmd.ExportPCD()
 			if err != nil {
 				promise.rejected(err)
 				break
 			}
-			pe.logPrint("pcd file exported")
+			pe.logPrint("pcd exported")
+			promise.resolved(blob)
+		case promise := <-pe.chExportSelectedPCD:
+			pe.logPrint("exporting selected points as pcd")
+			if !scanSelection(0, 0) {
+				promise.rejected(errors.New("failed to scan selected points"))
+			}
+			blob, err := pe.cmd.ExportSelectedPCD()
+			if err != nil {
+				promise.rejected(err)
+				break
+			}
+			pe.logPrint("pcd exported")
 			promise.resolved(blob)
 		case promise := <-pe.chCommand:
 			res, err := pe.cs.Run(promise.data.(string), func() error {

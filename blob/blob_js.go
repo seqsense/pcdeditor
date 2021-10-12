@@ -9,12 +9,12 @@ type Blob js.Value
 
 var blobJS = js.Global().Get("Blob")
 
-func New(b []byte) Blob {
+func New(b []byte, typ string) Blob {
 	array := js.Global().Get("Uint8Array").New(len(b))
 	js.CopyBytesToJS(array, b)
 
 	return Blob(blobJS.New([]interface{}{array}, map[string]interface{}{
-		"type": "application.octet-stream",
+		"type": typ,
 	}))
 }
 

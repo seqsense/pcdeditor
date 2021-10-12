@@ -14,6 +14,18 @@ class PCDEditor {
       idPrefix: '',
       logId: '#log',
       canvasId: '#mapCanvas',
+      onKeyDownHook: (e) => {
+        if (e.ctrlKey) {
+          switch (e.code) {
+          case 'KeyC':
+            this.qs('#clipboardCopy').click()
+            break
+          case 'KeyV':
+            this.qs('#clipboardPaste').click()
+            break
+          }
+        }
+      },
     }
     if (opts) {
       Object.keys(opts).forEach((key) => {
@@ -30,6 +42,8 @@ class PCDEditor {
         }`
       }
     }
+
+    this.localClipboard = new Blob()
   }
 
   wrapId(q) {
@@ -215,6 +229,46 @@ class PCDEditor {
               insertSubPcdFile.value = ''
               this.canvas.focus()
             })
+        this.qs('#clipboardCopy').onclick = async () => {
+          this.canvas.focus()
+          try {
+            const blob = await pcdeditor.exportSelectedPCD()
+            // Clipboard can't be used on insecure context
+            this.localClipboard = blob
+
+            if (!navigator?.clipboard?.writeText) {
+              this.logger('clipped data is available only in this window')
+              return
+            }
+            const fr = new FileReader()
+            fr.onload = () => {
+              navigator.clipboard.writeText(fr.result)
+                .catch(() => this.logger('clipped data is available only in this window'))
+            }
+            fr.onabort = () => {
+              this.logger('failed to encode data')
+            }
+            fr.readAsDataURL(blob)
+          } catch (e) {
+            this.logger(e)
+          }
+        }
+        this.qs('#clipboardPaste').onclick = async () => {
+          this.canvas.focus()
+          try {
+            if (!navigator?.clipboard?.readText) {
+              // Fallback to the local data
+              await this.loadSubPCD(URL.createObjectURL(this.localClipboard))
+              return
+            }
+            const text = await navigator.clipboard.readText()
+            if (text.startsWith('data:application/x-pcd;base64,')) {
+              await this.loadSubPCD(text)
+            }
+          } catch (e) {
+            this.logger(e)
+          }
+        }
 
         // Debug menu
         this.qs('#resetContext').onclick = () => {
@@ -250,7 +304,10 @@ class PCDEditor {
       /** main */
       const loadWasm = async () => {
         document.onPCDEditorLoaded = async (e) => {
-          this.pcdeditor = e.attach(this.canvas, { logger: this.logger })
+          this.pcdeditor = e.attach(this.canvas, {
+            logger: this.logger,
+            onKeyDownHook: this.opts.onKeyDownHook,
+          })
           setupControls(this.pcdeditor)
           resolve()
         }
@@ -674,6 +731,12 @@ class PCDEditor {
         style="display: none;"
       />
       <button id="${id('insertSubPcd')}">Select file</button>
+    </div>
+    <hr/>
+    <div class="${id('foldMenuElem')}">
+      <label class="${id('inputLabel')}">Clipboard</label>
+      <button id="${id('clipboardCopy')}">Copy</button>
+      <button id="${id('clipboardPaste')}">Paste</button>
     </div>
   </div>
 </span>

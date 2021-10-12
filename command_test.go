@@ -37,6 +37,23 @@ func TestSelectRange(t *testing.T) {
 	}
 }
 
+func expectPointCloud(t *testing.T, pp *pc.PointCloud, vecs []mat.Vec3) {
+	t.Helper()
+	it, err := pp.Vec3Iterator()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(vecs) != it.Len() {
+		t.Fatalf("Expected %d points, has %d points", len(vecs), it.Len())
+	}
+	for i, v := range vecs {
+		if !v.Equal(it.Vec3()) {
+			t.Fatalf("Expected %v, got %v at %d", v, it.Vec3(), i)
+		}
+		it.Incr()
+	}
+}
+
 func TestImportPCD(t *testing.T) {
 	header := pc.PointCloudHeader{
 		Fields: []string{"x", "y", "z"},
@@ -67,23 +84,6 @@ func TestImportPCD(t *testing.T) {
 		t.Fatal(err)
 	}
 	it1.SetVec3(mat.Vec3{4, 5, 6})
-
-	expectPointCloud := func(t *testing.T, pp *pc.PointCloud, vecs []mat.Vec3) {
-		t.Helper()
-		it, err := pp.Vec3Iterator()
-		if err != nil {
-			t.Fatal(err)
-		}
-		if len(vecs) != it.Len() {
-			t.Fatalf("Expected %d points, has %d points", len(vecs), it.Len())
-		}
-		for i, v := range vecs {
-			if !v.Equal(it.Vec3()) {
-				t.Fatalf("Expected %v, got %v at %d", v, it.Vec3(), i)
-			}
-			it.Incr()
-		}
-	}
 
 	t.Run("ImportPCD", func(t *testing.T) {
 		c := newCommandContext(&dummyPCDIO{}, nil)
@@ -155,6 +155,70 @@ func TestImportPCD(t *testing.T) {
 	})
 }
 
+func TestExportPCD(t *testing.T) {
+	header := pc.PointCloudHeader{
+		Fields: []string{"x", "y", "z"},
+		Size:   []int{4, 4, 4},
+		Type:   []string{"F", "F", "F"},
+		Count:  []int{1, 1, 1},
+		Width:  4,
+		Height: 1,
+	}
+	pp := &pc.PointCloud{
+		PointCloudHeader: header,
+		Points:           4,
+		Data:             make([]byte, 4*3*4),
+	}
+	it, err := pp.Vec3Iterator()
+	if err != nil {
+		t.Fatal(err)
+	}
+	it.SetVec3(mat.Vec3{1, 2, 3})
+	it.Incr()
+	it.SetVec3(mat.Vec3{4, 5, 6})
+	it.Incr()
+	it.SetVec3(mat.Vec3{7, 8, 9})
+	it.Incr()
+	it.SetVec3(mat.Vec3{10, 11, 12})
+
+	c := newCommandContext(&dummyPCDIO{}, nil)
+	c.SetPointCloud(pp, cloudMain)
+	c.SetSelectMask([]uint32{
+		0,
+		selectBitmaskSegmentSelected,
+		selectBitmaskSegmentSelected,
+		0,
+	})
+	c.selectMode = selectModeMask
+
+	t.Run("ExportPCD", func(t *testing.T) {
+		blob, err := c.ExportPCD()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		out := blob.(*pc.PointCloud)
+		expectPointCloud(t, out, []mat.Vec3{
+			{1, 2, 3},
+			{4, 5, 6},
+			{7, 8, 9},
+			{10, 11, 12},
+		})
+	})
+	t.Run("ExportSelectedPCD", func(t *testing.T) {
+		blob, err := c.ExportSelectedPCD()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		out := blob.(*pc.PointCloud)
+		expectPointCloud(t, out, []mat.Vec3{
+			{4, 5, 6},
+			{7, 8, 9},
+		})
+	})
+}
+
 type dummyPCDIO struct{}
 
 func (dummyPCDIO) importPCD(blob interface{}) (*pc.PointCloud, error) {
@@ -162,5 +226,61 @@ func (dummyPCDIO) importPCD(blob interface{}) (*pc.PointCloud, error) {
 }
 
 func (dummyPCDIO) exportPCD(pp *pc.PointCloud) (interface{}, error) {
-	panic("unimplemented")
+	return pp, nil
+}
+
+func TestBaseFileter(t *testing.T) {
+	c := &commandContext{
+		selectMask: []uint32{
+			0,
+			selectBitmaskCropped | selectBitmaskSelected,
+			selectBitmaskSelected,
+			selectBitmaskSegmentSelected,
+			selectBitmaskCropped | selectBitmaskSegmentSelected,
+		},
+	}
+	check := func(t *testing.T, expected map[int]bool, f func(int, mat.Vec3) bool) {
+		t.Helper()
+		for id, val := range expected {
+			if out := f(id, mat.Vec3{}); out != val {
+				t.Errorf("%d is expected to be %v, got %v", id, val, out)
+			}
+		}
+	}
+	t.Run("ExtractSelected", func(t *testing.T) {
+		check(t, map[int]bool{
+			0: false,
+			1: false,
+			2: true,
+			3: false,
+			4: false,
+		}, c.baseFilter(true))
+	})
+	t.Run("ExtractNotSelected", func(t *testing.T) {
+		check(t, map[int]bool{
+			0: true,
+			1: true,
+			2: false,
+			3: true,
+			4: true,
+		}, c.baseFilter(false))
+	})
+	t.Run("ExtractSegmentSelected", func(t *testing.T) {
+		check(t, map[int]bool{
+			0: false,
+			1: false,
+			2: false,
+			3: true,
+			4: false,
+		}, c.baseFilterByMask(true))
+	})
+	t.Run("ExtractSegmentNotSelected", func(t *testing.T) {
+		check(t, map[int]bool{
+			0: true,
+			1: true,
+			2: true,
+			3: false,
+			4: true,
+		}, c.baseFilterByMask(false))
+	})
 }

@@ -31,5 +31,5 @@ func (*pcdIOImpl) exportPCD(pp *pc.PointCloud) (interface{}, error) {
 	if err := pc.Marshal(pp, &buf); err != nil {
 		return nil, err
 	}
-	return blob.New(buf.Bytes()).JS(), nil
+	return blob.New(buf.Bytes(), "application/x-pcd").JS(), nil
 }

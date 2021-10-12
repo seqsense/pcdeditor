@@ -403,19 +403,29 @@ func (c *commandContext) SelectMatrix() (mat.Mat4, bool) {
 	}
 }
 
-func (c *commandContext) baseFilter() func(int, mat.Vec3) bool {
+func (c *commandContext) baseFilter(selected bool) func(int, mat.Vec3) bool {
+	if selected {
+		return func(i int, p mat.Vec3) bool {
+			mask := c.selectMask[i]
+			return mask&selectBitmaskCropped == 0 && mask&selectBitmaskSelected != 0
+		}
+	}
 	return func(i int, p mat.Vec3) bool {
 		mask := c.selectMask[i]
-		return mask&selectBitmaskCropped != 0 ||
-			mask&selectBitmaskSelected == 0
+		return mask&selectBitmaskCropped != 0 || mask&selectBitmaskSelected == 0
 	}
 }
 
-func (c *commandContext) baseFilterByMask() func(int, mat.Vec3) bool {
+func (c *commandContext) baseFilterByMask(selected bool) func(int, mat.Vec3) bool {
+	if selected {
+		return func(i int, p mat.Vec3) bool {
+			mask := c.selectMask[i]
+			return mask&selectBitmaskCropped == 0 && mask&selectBitmaskSegmentSelected != 0
+		}
+	}
 	return func(i int, p mat.Vec3) bool {
 		mask := c.selectMask[i]
-		return mask&selectBitmaskCropped != 0 ||
-			mask&selectBitmaskSegmentSelected == 0
+		return mask&selectBitmaskCropped != 0 || mask&selectBitmaskSegmentSelected == 0
 	}
 }
 
@@ -469,7 +479,7 @@ func (c *commandContext) AddSurface(resolution float32) bool {
 func (c *commandContext) Delete() bool {
 	switch c.SelectMode() {
 	case selectModeRect:
-		filter := c.baseFilter()
+		filter := c.baseFilter(false) // keep unselected points
 		c.editor.passThrough(filter)
 		c.pointCloudUpdated = true
 	case selectModeMask:
@@ -485,17 +495,12 @@ func (c *commandContext) VoxelFilter(resolution float32) error {
 		return errors.New("VoxelFilter is not supported on segment based select")
 	}
 
-	var filter, filterInv func(int, mat.Vec3) bool
 	var pp *pc.PointCloud
 
 	_, selected := c.SelectMatrix()
 	if selected {
-		filter = c.baseFilter()
-		filterInv = func(i int, p mat.Vec3) bool {
-			return !filter(i, p)
-		}
 		var err error
-		if pp, err = passThrough(c.editor.pp, filterInv); err != nil {
+		if pp, err = passThrough(c.editor.pp, c.baseFilter(true)); err != nil {
 			return err
 		}
 	} else {
@@ -509,7 +514,7 @@ func (c *commandContext) VoxelFilter(resolution float32) error {
 	}
 
 	if selected {
-		c.editor.passThrough(filter)
+		c.editor.passThrough(c.baseFilter(false))
 		c.editor.pop()
 		c.editor.merge(pcFiltered)
 	} else {
@@ -526,17 +531,17 @@ func (c *commandContext) Label(l uint32) bool {
 	var filter func(int, mat.Vec3) bool
 	switch c.SelectMode() {
 	case selectModeRect:
-		filter = c.baseFilter()
+		filter = c.baseFilter(true)
 	case selectModeMask:
-		filter = c.baseFilterByMask()
+		filter = c.baseFilterByMask(true)
 	default:
 		return false
 	}
 	c.editor.label(func(i int, p mat.Vec3) (uint32, bool) {
 		if filter(i, p) {
-			return 0, false
+			return l, true
 		}
-		return l, true
+		return 0, false
 	})
 	c.pointCloudUpdated = true
 	return true
@@ -635,6 +640,37 @@ func (c *commandContext) ExportPCD() (interface{}, error) {
 		return nil, errors.New("no pointcloud")
 	}
 	blob, err := c.pcdIO.exportPCD(c.editor.pp)
+	if err != nil {
+		return nil, err
+	}
+	return blob, nil
+}
+
+func (c *commandContext) ExportSelectedPCD() (interface{}, error) {
+	if c.editor.pp == nil {
+		return nil, errors.New("no pointcloud")
+	}
+	var pp *pc.PointCloud
+	var err error
+
+	switch c.SelectMode() {
+	case selectModeRect:
+		pp, err = passThrough(c.editor.pp, c.baseFilter(true)) // extract selected
+	case selectModeMask:
+		pp, err = passThroughByMask(
+			c.editor.pp, c.selectMask,
+			selectBitmaskSegmentSelected, selectBitmaskSegmentSelected,
+		)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	if pp == nil || pp.Points == 0 {
+		return nil, errors.New("no points are selected")
+	}
+
+	blob, err := c.pcdIO.exportPCD(pp)
 	if err != nil {
 		return nil, err
 	}
