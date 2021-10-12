@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"math/rand"
 
 	"github.com/seqsense/pcgol/mat"
 	"github.com/seqsense/pcgol/pc"
@@ -663,6 +664,9 @@ func (c *commandContext) FitInserting() error {
 
 	indiceBase := make([]int, 0, 1024*1024)
 	for i := 0; i < it.Len(); i++ {
+		if rand.Int31n(16) != 0 {
+			continue
+		}
 		if is.IsInside(it.Vec3At(i)) {
 			indiceBase = append(indiceBase, i)
 		}
@@ -671,7 +675,7 @@ func (c *commandContext) FitInserting() error {
 
 	sub := make(pc.Vec3Slice, 0, 1024*1024)
 	for i := 0; i < itSub.Len(); i++ {
-		if i%32 != 0 {
+		if rand.Int31n(32) != 0 {
 			continue
 		}
 		p := itSub.Vec3At(i)
@@ -687,6 +691,8 @@ func (c *commandContext) FitInserting() error {
 			Corresponder: &icp.NearestPointCorresponder{MaxDist: 0.5},
 			MinPairs:     32,
 		},
+		MaxIteration:   100,
+		GradientWeight: mat.Vec6{0.1, 0.1, 0.1, 0, 0, 0.1},
 	}
 	transFit, stat, err := ppicp.Fit(kdt, sub)
 	if err != nil {
