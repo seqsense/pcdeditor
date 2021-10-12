@@ -40,7 +40,7 @@ H                    | 2, 3点目を水平スナップ
 0, 1                 | ラベル設定
 U, Ctrl+Z            | Undo [\*3](#footnote2)
 Ctrl+C               | 選択された点群をコピー
-Ctrl+V               | 点群を貼付
+Ctrl+V               | 点群を貼り付け
 
 <dl>
   <dt><a id="footnote1">[1] 左クリック</a></dt><dd>
@@ -51,7 +51,7 @@ Ctrl+V               | 点群を貼付
     透視投影モードでのみ有効。Gnome3移行以前のUbuntuでは、Alt+Win+左クリック。
   </dd>
   <dt><a id="footnote2">[3] Undo</a></dt><dd>
-    ポイントクラウドに対する編集のみUndoバッファに記録される。選択範囲の移動・回転操作はUndo非対応。
+    点群に対する編集のみUndoバッファに記録される。選択範囲の移動・回転操作はUndo非対応。
   </dd>
 </dl>
 
@@ -65,6 +65,7 @@ Ctrl+V               | 点群を貼付
 Shift + 左ドラッグ | 回転 [\*2](#footnoteSelect1)
 ↑/↓/←/→            | 選択領域を水平移動 (視点奥方向が↑)
 PageUp/Down        | 選択領域を上下移動
+Enter              | 貼り付けの確定
 
 <dl>
   <dt><a id="footnoteSelect1">[1] マウス操作による移動・回転</a></dt><dd>
