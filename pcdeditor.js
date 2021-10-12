@@ -230,29 +230,39 @@ class PCDEditor {
               this.canvas.focus()
             })
         this.qs('#clipboardCopy').onclick = async () => {
+          this.canvas.focus()
           try {
             const blob = await pcdeditor.exportSelectedPCD()
-            const text = await blob.text()
-            if (navigator?.clipboard) {
-              await navigator.clipboard.writeText(text)
-            } else {
-              // Clipboard can't be used on insecure context
-              this.localClipboard = blob
+            // Clipboard can't be used on insecure context
+            this.localClipboard = blob
+
+            if (navigator?.clipboard?.writeText) {
+              const fr = new FileReader()
+              fr.onload = () => {
+                navigator.clipboard.writeText(fr.result)
+                  .catch(() => this.logger('clipped data is available only in this window'))
+              }
+              fr.onabort = () => {
+                this.logger('failed to encode date')
+              }
+              fr.readAsDataURL(blob)
             }
-            this.canvas.focus()
           } catch (e) {
             this.logger(e)
           }
         }
         this.qs('#clipboardPaste').onclick = async () => {
+          this.canvas.focus()
           try {
-            if (navigator?.clipboard) {
+            if (navigator?.clipboard?.readText) {
               const text = await navigator.clipboard.readText()
-              await this.loadSubPCD(URL.createObjectURL(new Blob(text)))
-            } else {
-              await this.loadSubPCD(URL.createObjectURL(this.localClipboard))
+              if (text.startsWith('data:application/x-pcd;base64,')) {
+                await this.loadSubPCD(text)
+                return
+              }
             }
-            this.canvas.focus()
+            // Fallback to the local data
+            await this.loadSubPCD(URL.createObjectURL(this.localClipboard))
           } catch (e) {
             this.logger(e)
           }
