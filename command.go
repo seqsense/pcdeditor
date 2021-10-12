@@ -652,52 +652,95 @@ func (c *commandContext) FitInserting() error {
 		return err
 	}
 
+	const (
+		matchRange     = 0.4
+		maxPoints      = 25000
+		minSampleRatio = 0.01
+		gradientWeight = 0.2
+		gradientThresh = 0.005
+		maxIteration   = 50
+	)
+
 	is := rectIntersection(
 		rect{minMain, maxMain},
 		rect{minSub, maxSub},
 	)
-	is.min = is.min.Sub(mat.Vec3{1, 1, 1})
-	is.max = is.max.Add(mat.Vec3{1, 1, 1})
+	is.min = is.min.Sub(mat.Vec3{matchRange, matchRange, matchRange})
+	is.max = is.max.Add(mat.Vec3{matchRange, matchRange, matchRange})
 	if !is.IsValid() {
 		return errors.New("no intersection")
 	}
+	center := is.min.Add(is.max).Mul(0.5)
 
-	indiceBase := make([]int, 0, 1024*1024)
-	for i := 0; i < it.Len(); i++ {
-		if rand.Int31n(16) != 0 {
-			continue
+	sample := func(ra pc.Vec3RandomAccessor, isIn func(mat.Vec3) bool, nMax int, name string) (pc.Vec3Slice, error) {
+		var cnt int
+		for i := 0; i < ra.Len(); i++ {
+			if isIn(ra.Vec3At(i)) {
+				cnt++
+			}
 		}
-		if is.IsInside(it.Vec3At(i)) {
-			indiceBase = append(indiceBase, i)
+		ratio := float32(nMax) / float32(cnt)
+		if ratio < minSampleRatio {
+			return nil, fmt.Errorf("too many %s points", name)
 		}
+		out := make(pc.Vec3Slice, 0, nMax)
+		for i := 0; i < ra.Len(); i++ {
+			if rand.Float32() > ratio {
+				continue
+			}
+			if p := ra.Vec3At(i); isIn(p) {
+				out = append(out, p.Sub(center))
+				if len(out) >= nMax {
+					break
+				}
+			}
+		}
+		return out, nil
 	}
-	base := pc.NewIndiceVec3RandomAccessor(it, indiceBase)
 
-	sub := make(pc.Vec3Slice, 0, 1024*1024)
-	for i := 0; i < itSub.Len(); i++ {
-		if rand.Int31n(32) != 0 {
-			continue
-		}
-		p := itSub.Vec3At(i)
-		if is.IsInside(p) {
-			sub = append(sub, p)
-		}
+	base, err := sample(it, is.IsInside, maxPoints, "base")
+	if err != nil {
+		return err
 	}
-
 	kdt := kdtree.New(base)
 
+	// Sample points near the base cloud
+	targetFilter := func(p mat.Vec3) bool {
+		if !is.IsInside(p) {
+			return false
+		}
+		id, _ := kdt.Nearest(p.Sub(center), matchRange)
+		return id >= 0
+	}
+	target, err := sample(itSub, targetFilter, maxPoints, "inserting")
+	if err != nil {
+		return err
+	}
+
+	// Registration
 	ppicp := &icp.PointToPointICPGradient{
 		Evaluator: &icp.PointToPointEvaluator{
-			Corresponder: &icp.NearestPointCorresponder{MaxDist: 0.5},
+			Corresponder: &icp.NearestPointCorresponder{MaxDist: matchRange},
 			MinPairs:     32,
 		},
-		MaxIteration:   100,
-		GradientWeight: mat.Vec6{0.1, 0.1, 0.1, 0, 0, 0.1},
+		MaxIteration: maxIteration,
+		GradientWeight: mat.Vec6{
+			gradientWeight, gradientWeight, gradientWeight,
+			0, 0, gradientWeight,
+		},
+		GradientThreshold: mat.Vec6{
+			gradientThresh, gradientThresh, gradientThresh,
+			gradientThresh, gradientThresh, gradientThresh,
+		},
 	}
-	transFit, stat, err := ppicp.Fit(kdt, sub)
+	transFit, stat, err := ppicp.Fit(kdt, target)
 	if err != nil {
 		return fmt.Errorf("registration failed: %v, stat: %v", err, stat)
 	}
+
+	transFit = mat.Translate(center[0], center[1], center[2]).
+		Mul(transFit).
+		Mul(mat.Translate(-center[0], -center[1], -center[2]))
 	c.TransformCursors(transFit)
 
 	return nil
