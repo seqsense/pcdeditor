@@ -236,17 +236,19 @@ class PCDEditor {
             // Clipboard can't be used on insecure context
             this.localClipboard = blob
 
-            if (navigator?.clipboard?.writeText) {
-              const fr = new FileReader()
-              fr.onload = () => {
-                navigator.clipboard.writeText(fr.result)
-                  .catch(() => this.logger('clipped data is available only in this window'))
-              }
-              fr.onabort = () => {
-                this.logger('failed to encode date')
-              }
-              fr.readAsDataURL(blob)
+            if (!navigator?.clipboard?.writeText) {
+              this.logger('clipped data is available only in this window')
+              return
             }
+            const fr = new FileReader()
+            fr.onload = () => {
+              navigator.clipboard.writeText(fr.result)
+                .catch(() => this.logger('clipped data is available only in this window'))
+            }
+            fr.onabort = () => {
+              this.logger('failed to encode date')
+            }
+            fr.readAsDataURL(blob)
           } catch (e) {
             this.logger(e)
           }
@@ -254,15 +256,15 @@ class PCDEditor {
         this.qs('#clipboardPaste').onclick = async () => {
           this.canvas.focus()
           try {
-            if (navigator?.clipboard?.readText) {
-              const text = await navigator.clipboard.readText()
-              if (text.startsWith('data:application/x-pcd;base64,')) {
-                await this.loadSubPCD(text)
-                return
-              }
+            if (!navigator?.clipboard?.readText) {
+              // Fallback to the local data
+              await this.loadSubPCD(URL.createObjectURL(this.localClipboard))
+              return
             }
-            // Fallback to the local data
-            await this.loadSubPCD(URL.createObjectURL(this.localClipboard))
+            const text = await navigator.clipboard.readText()
+            if (text.startsWith('data:application/x-pcd;base64,')) {
+              await this.loadSubPCD(text)
+            }
           } catch (e) {
             this.logger(e)
           }
