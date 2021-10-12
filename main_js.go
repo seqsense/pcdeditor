@@ -889,41 +889,41 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 		// Handle inputs
 		select {
 		case promise := <-pe.chImportPCD:
-			pe.logPrint("importing pcd file")
+			pe.logPrint("importing pcd")
 			if err := pe.cmd.ImportPCD(promise.data); err != nil {
 				promise.rejected(err)
 				break
 			}
-			pe.logPrint("pcd file loaded")
+			pe.logPrint("pcd loaded")
 			promise.resolved("loaded")
 		case promise := <-pe.chImportSubPCD:
-			pe.logPrint("importing sub pcd file")
+			pe.logPrint("importing sub pcd")
 			if err := pe.cmd.ImportSubPCD(promise.data); err != nil {
 				promise.rejected(err)
 				break
 			}
-			pe.logPrint("sub pcd file loaded")
+			pe.logPrint("sub pcd loaded")
 			promise.resolved("loaded")
 		case promise := <-pe.chImport2D:
-			pe.logPrint("loading 2D map file")
+			pe.logPrint("loading 2D map")
 			data := promise.data.([2]js.Value)
 			if err := pe.cmd.Import2D(data[0], data[1]); err != nil {
 				promise.rejected(err)
 				break
 			}
-			pe.logPrint("2D map file loaded")
+			pe.logPrint("2D map loaded")
 			promise.resolved("loaded")
 		case promise := <-pe.chExportPCD:
-			pe.logPrint("exporting pcd file")
+			pe.logPrint("exporting pcd")
 			blob, err := pe.cmd.ExportPCD()
 			if err != nil {
 				promise.rejected(err)
 				break
 			}
-			pe.logPrint("pcd file exported")
+			pe.logPrint("pcd exported")
 			promise.resolved(blob)
 		case promise := <-pe.chExportSelectedPCD:
-			pe.logPrint("exporting selected points as pcd file")
+			pe.logPrint("exporting selected points as pcd")
 			if !scanSelection(0, 0) {
 				promise.rejected(errors.New("failed to scan selected points"))
 			}
@@ -932,7 +932,7 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 				promise.rejected(err)
 				break
 			}
-			pe.logPrint("pcd file exported")
+			pe.logPrint("pcd exported")
 			promise.resolved(blob)
 		case promise := <-pe.chCommand:
 			res, err := pe.cs.Run(promise.data.(string), func() error {
