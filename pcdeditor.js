@@ -246,7 +246,7 @@ class PCDEditor {
                 .catch(() => this.logger('clipped data is available only in this window'))
             }
             fr.onabort = () => {
-              this.logger('failed to encode date')
+              this.logger('failed to encode data')
             }
             fr.readAsDataURL(blob)
           } catch (e) {
