@@ -40,7 +40,7 @@ H                    | 2, 3点目を水平スナップ
 0, 1                 | ラベル設定
 U, Ctrl+Z            | Undo [\*3](#footnote2)
 Ctrl+C               | 選択された点群をコピー
-Ctrl+P               | 点群を貼付
+Ctrl+V               | 点群を貼付
 
 <dl>
   <dt><a id="footnote1">[1] 左クリック</a></dt><dd>
