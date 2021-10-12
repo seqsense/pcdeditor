@@ -407,14 +407,12 @@ func (c *commandContext) baseFilter(selected bool) func(int, mat.Vec3) bool {
 	if selected {
 		return func(i int, p mat.Vec3) bool {
 			mask := c.selectMask[i]
-			return (mask&selectBitmaskCropped == 0 &&
-				mask&selectBitmaskSelected != 0)
+			return mask&selectBitmaskCropped == 0 && mask&selectBitmaskSelected != 0
 		}
 	}
 	return func(i int, p mat.Vec3) bool {
 		mask := c.selectMask[i]
-		return (mask&selectBitmaskCropped != 0 ||
-			mask&selectBitmaskSelected == 0)
+		return mask&selectBitmaskCropped != 0 || mask&selectBitmaskSelected == 0
 	}
 }
 
@@ -422,14 +420,12 @@ func (c *commandContext) baseFilterByMask(selected bool) func(int, mat.Vec3) boo
 	if selected {
 		return func(i int, p mat.Vec3) bool {
 			mask := c.selectMask[i]
-			return (mask&selectBitmaskCropped == 0 &&
-				mask&selectBitmaskSegmentSelected != 0)
+			return mask&selectBitmaskCropped == 0 && mask&selectBitmaskSegmentSelected != 0
 		}
 	}
 	return func(i int, p mat.Vec3) bool {
 		mask := c.selectMask[i]
-		return (mask&selectBitmaskCropped != 0 ||
-			mask&selectBitmaskSegmentSelected == 0)
+		return mask&selectBitmaskCropped != 0 || mask&selectBitmaskSegmentSelected == 0
 	}
 }
 
