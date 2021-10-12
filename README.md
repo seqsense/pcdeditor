@@ -65,6 +65,7 @@ Ctrl+V               | 点群を貼り付け
 Shift + 左ドラッグ | 回転 [\*2](#footnoteSelect1)
 ↑/↓/←/→            | 選択領域を水平移動 (視点奥方向が↑)
 PageUp/Down        | 選択領域を上下移動
+Home/End           | 選択領域をYaw回転
 Enter              | 貼り付けの確定
 
 <dl>
