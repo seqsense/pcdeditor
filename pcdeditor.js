@@ -15,10 +15,15 @@ class PCDEditor {
       logId: '#log',
       canvasId: '#mapCanvas',
       onKeyDownHook: (e) => {
-        if (e.code === 'KeyC' && e.ctrlKey) {
-          this.qs('#clipboardCopy').click()
-        } else if (e.code === 'KeyV' && e.ctrlKey) {
-          this.qs('#clipboardPaste').click()
+        if (e.ctrlKey) {
+          switch (e.code) {
+          case 'KeyC':
+            this.qs('#clipboardCopy').click()
+            break
+          case 'KeyV':
+            this.qs('#clipboardPaste').click()
+            break
+          }
         }
       },
     }
