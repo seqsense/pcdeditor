@@ -1193,9 +1193,9 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 				var dyaw float32
 				switch e.Code {
 				case "Home":
-					dyaw = -0.005
-				case "End":
 					dyaw = 0.005
+				case "End":
+					dyaw = -0.005
 				}
 				center := pe.cmd.RectCenterPos()
 				pe.cmd.TransformCursors(
