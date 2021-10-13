@@ -578,8 +578,8 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 			gl.Viewport(0, 0, width, height)
 		}
 
-		modelViewMatrix = mat.Rotate(1, 0, 0, float32(pe.vi.pitch)).
-			MulAffine(mat.Rotate(0, 0, 1, float32(pe.vi.yaw))).
+		modelViewMatrix = mat.Rotate(1, 0, 0, -float32(pe.vi.pitch)).
+			MulAffine(mat.Rotate(0, 0, 1, -float32(pe.vi.yaw))).
 			MulAffine(mat.Translate(float32(pe.vi.x), float32(pe.vi.y), -1.5))
 		if projectionType == ProjectionPerspective {
 			modelViewMatrix =

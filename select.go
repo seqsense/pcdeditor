@@ -212,7 +212,7 @@ func dragRotation(s, e mat.Vec3, rect []mat.Vec3, modelView *mat.Mat4) mat.Mat4 
 	ang0 := float32(math.Atan2(float64(vSRel[1]), float64(vSRel[0])))
 	ang1 := float32(math.Atan2(float64(vERel[1]), float64(vERel[0])))
 	return mat.Translate(center[0], center[1], center[2]).
-		Mul(mat.Rotate(dir[0], dir[1], dir[2], ang0-ang1)).
+		Mul(mat.Rotate(dir[0], dir[1], dir[2], ang1-ang0)).
 		Mul(mat.Translate(-center[0], -center[1], -center[2]))
 }
 
