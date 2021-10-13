@@ -664,15 +664,15 @@ func (c *commandContext) FitInserting(axes [6]bool) error {
 	}
 
 	const (
-		matchRange        = 0.4
-		regionPadding     = 0.8
-		maxBasePoints     = 100000
+		matchRange        = 0.5
+		regionPadding     = 1.0
+		maxBasePoints     = 60000
 		maxTargetPoints   = 10000
 		minSampleRatio    = 0.01
-		gradientWeight    = 0.15
+		gradientWeight    = 0.25
 		gradientPosThresh = 0.001
 		gradientRotThresh = 0.002
-		maxIteration      = 100
+		maxIteration      = 50
 	)
 
 	is := rectIntersection(
