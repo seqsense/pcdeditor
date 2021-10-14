@@ -120,10 +120,18 @@ point\_size                   | 点の表示サイズを表示 [\*1](#footnoteKe
 point\_size `Size`            | 点の表示サイズを `Size` に設定
 segmentation\_param           | セグメンテーション時の分離距離を表示 [\*1](#footnoteKey1)
 segmentation\_param `D` `R`   | セグメンテーション時の分離距離を `D` \[メートル\]、適用範囲を `R` \[メートル\]に設定
+fit\_inserting `AXIS`...      | 貼り付け中の点群を既存の点群に位置合わせ (位置合わせを行う軸 `AXIS` をスペース区切りで複数指定) [\*2](#footnoteKey2)
 
 <dl>
   <dt><a id="footnoteKey1">[1] 数値の表示</a></dt><dd>
     小数点以下3桁まで表示
+  </dd>
+  <dt><a id="footnoteKey2">[2] 位置合わせを行う軸</a></dt><dd>
+
+AXIS | 0 | 1 | 2 | 3    | 4     | 5
+---- | - | - | - | ---- | ----- | ---
+軸   | x | y | z | roll | pitch | yaw
+
   </dd>
 </dl>
 
