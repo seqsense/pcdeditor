@@ -759,7 +759,6 @@ func (c *commandContext) FitInserting(axes [6]bool) error {
 	if err != nil {
 		return fmt.Errorf("registration failed: %v, stat: %v", err, stat)
 	}
-	println(fmt.Sprintf("%v", stat))
 
 	transFit = mat.Translate(center[0], center[1], center[2]).
 		Mul(transFit).
