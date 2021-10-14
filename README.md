@@ -128,7 +128,7 @@ fit\_inserting `AXIS`...      | 貼り付け中の点群を既存の点群に位
   </dd>
   <dt><a id="footnoteKey2">[2] 点群の位置合わせ</a></dt><dd>
     貼り付け中の点群を、最大で0.5m程度の範囲で、既存の点群と合致するように移動・回転する機能。
-    `too many base points` と表示される場合は既存の点群、 `too many inserting points` と表示される場合は貼り付ける点群の、両者が重なる部分で不要な点群を削除すると動作する場合がある。
+    <code>too many base points</code> と表示される場合は既存の点群、 <code>too many inserting points</code> と表示される場合は貼り付ける点群の、両者が重なる部分で不要な点群を削除すると動作する場合がある。
   </dd>
   <dt><a id="footnoteKey3">[3] 位置合わせを行う軸</a></dt><dd>
 
