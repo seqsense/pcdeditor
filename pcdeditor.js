@@ -593,6 +593,7 @@ class PCDEditor {
     align-items: center;
     justify-content: center;
     z-index: 2001;
+    cursor: wait;
   }
 </style>
 <button id="${id('exportPCD')}">export</button>
