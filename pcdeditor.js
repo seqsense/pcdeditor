@@ -76,6 +76,9 @@ class PCDEditor {
       const backdrop = document.createElement('div')
       backdrop.id = `${this.wrapId('foldMenuBackdrop')}`
       this.canvas.parentNode.insertBefore(backdrop, this.canvas.nextSibling)
+      const busyBackdrop = document.createElement('div')
+      busyBackdrop.id = `${this.wrapId('busyBackdrop')}`
+      this.canvas.parentNode.insertBefore(busyBackdrop, this.canvas.nextSibling)
 
       /** Sets up the control's event handlers */
       const setupControls = async (pcdeditor) => {
@@ -269,14 +272,19 @@ class PCDEditor {
             this.logger(e)
           }
         }
-        this.qs('#fitInsertingXYZYaw').onclick = async () => {
-          this.canvas.focus()
-          pcdeditor.command('fit_inserting 0 1 2 5').catch(this.logger)
+        const fitInserting = (args) => {
+          busyBackdrop.innerText = 'Processing'
+          busyBackdrop.style.display = 'flex'
+          setTimeout(() => {
+            pcdeditor.command(`fit_inserting ${args}`).catch(this.logger)
+            busyBackdrop.style.display = 'none'
+            this.canvas.focus()
+          }, 1)
         }
-        this.qs('#fitInsertingXYZ').onclick = async () => {
-          this.canvas.focus()
-          pcdeditor.command('fit_inserting 0 1 2').catch(this.logger)
-        }
+        this.qs('#fitInsertingXYZYaw').onclick = async () =>
+          fitInserting('0 1 2 5')
+        this.qs('#fitInsertingXYZ').onclick = async () =>
+          fitInserting('0 1 2')
 
         // Debug menu
         this.qs('#resetContext').onclick = () => {
@@ -572,6 +580,19 @@ class PCDEditor {
     right: 0;
     bottom: 0;
     background-color: rgba(0, 0, 0, 0.1);
+  }
+  ${id('#busyBackdrop')} {
+    display: none;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.3);
+    color: white;
+    align-items: center;
+    justify-content: center;
+    z-index: 2001;
   }
 </style>
 <button id="${id('exportPCD')}">export</button>
