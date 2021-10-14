@@ -669,7 +669,7 @@ func (c *commandContext) FitInserting(axes [6]bool) error {
 		maxBasePoints     = 60000
 		maxTargetPoints   = 10000
 		minSampleRatio    = 0.01
-		gradientWeight    = 0.25
+		gradientWeight    = 0.3
 		gradientPosThresh = 0.001
 		gradientRotThresh = 0.002
 		maxIteration      = 50
