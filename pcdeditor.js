@@ -279,7 +279,7 @@ class PCDEditor {
             pcdeditor.command(`fit_inserting ${args}`).catch(this.logger)
             busyBackdrop.style.display = 'none'
             this.canvas.focus()
-          }, 1)
+          }, 50)
         }
         this.qs('#fitInsertingXYZYaw').onclick = async () =>
           fitInserting('0 1 2 5')
