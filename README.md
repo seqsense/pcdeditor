@@ -40,7 +40,7 @@ H                    | 2, 3点目を水平スナップ
 0, 1                 | ラベル設定
 U, Ctrl+Z            | Undo [\*3](#footnote2)
 Ctrl+C               | 選択された点群をコピー
-Ctrl+V               | 点群を貼付
+Ctrl+V               | 点群を貼り付け
 
 <dl>
   <dt><a id="footnote1">[1] 左クリック</a></dt><dd>
@@ -51,7 +51,7 @@ Ctrl+V               | 点群を貼付
     透視投影モードでのみ有効。Gnome3移行以前のUbuntuでは、Alt+Win+左クリック。
   </dd>
   <dt><a id="footnote2">[3] Undo</a></dt><dd>
-    ポイントクラウドに対する編集のみUndoバッファに記録される。選択範囲の移動・回転操作はUndo非対応。
+    点群に対する編集のみUndoバッファに記録される。選択範囲の移動・回転操作はUndo非対応。
   </dd>
 </dl>
 
@@ -65,6 +65,8 @@ Ctrl+V               | 点群を貼付
 Shift + 左ドラッグ | 回転 [\*2](#footnoteSelect1)
 ↑/↓/←/→            | 選択領域を水平移動 (視点奥方向が↑)
 PageUp/Down        | 選択領域を上下移動
+Home/End           | 選択領域をYaw回転
+Enter              | 貼り付けの確定
 
 <dl>
   <dt><a id="footnoteSelect1">[1] マウス操作による移動・回転</a></dt><dd>
@@ -118,10 +120,22 @@ point\_size                   | 点の表示サイズを表示 [\*1](#footnoteKe
 point\_size `Size`            | 点の表示サイズを `Size` に設定
 segmentation\_param           | セグメンテーション時の分離距離を表示 [\*1](#footnoteKey1)
 segmentation\_param `D` `R`   | セグメンテーション時の分離距離を `D` \[メートル\]、適用範囲を `R` \[メートル\]に設定
+fit\_inserting `AXIS`...      | 貼り付け中の点群を既存の点群に位置合わせ [\*2](#footnoteKey2) (位置合わせを行う軸 `AXIS` をスペース区切りで複数指定 [\*3](#footnoteKey3))
 
 <dl>
   <dt><a id="footnoteKey1">[1] 数値の表示</a></dt><dd>
     小数点以下3桁まで表示
+  </dd>
+  <dt><a id="footnoteKey2">[2] 点群の位置合わせ</a></dt><dd>
+    貼り付け中の点群を、最大で0.5m程度の範囲で、既存の点群と合致するように移動・回転する機能。
+    <code>too many base points</code> と表示される場合は既存の点群、 <code>too many inserting points</code> と表示される場合は貼り付ける点群の、両者が重なる部分で不要な点群を削除すると動作する場合がある。
+  </dd>
+  <dt><a id="footnoteKey3">[3] 位置合わせを行う軸</a></dt><dd>
+
+AXIS | 0 | 1 | 2 | 3    | 4     | 5
+---- | - | - | - | ---- | ----- | ---
+軸   | x | y | z | roll | pitch | yaw
+
   </dd>
 </dl>
 

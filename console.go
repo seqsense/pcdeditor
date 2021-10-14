@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"math"
 	"runtime"
 	"strconv"
 	"strings"
@@ -18,6 +19,7 @@ type console struct {
 var (
 	errArgumentNumber = errors.New("invalid number of arguments")
 	errInvalidCommand = errors.New("invalid command")
+	errOutOfRange     = errors.New("out of range")
 	errSetCursor      = errors.New("failed to set cursor")
 )
 
@@ -314,6 +316,17 @@ var consoleCommands = map[string]func(c *console, updateSel updateSelectionFn, a
 		default:
 			return nil, errArgumentNumber
 		}
+	},
+	"fit_inserting": func(c *console, updateSel updateSelectionFn, args []float32) ([][]float32, error) {
+		var axes [6]bool
+		for _, v := range args {
+			i := int(math.Round(float64(v)))
+			if i < 0 || 6 <= i {
+				return nil, errOutOfRange
+			}
+			axes[i] = true
+		}
+		return nil, c.cmd.FitInserting(axes)
 	},
 }
 

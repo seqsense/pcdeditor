@@ -2,12 +2,16 @@ package main
 
 import (
 	"errors"
+	"fmt"
+	"math/rand"
 
 	"github.com/seqsense/pcgol/mat"
 	"github.com/seqsense/pcgol/pc"
 	"github.com/seqsense/pcgol/pc/filter/voxelgrid"
+	"github.com/seqsense/pcgol/pc/registration/icp"
 	"github.com/seqsense/pcgol/pc/sac"
 	vgs "github.com/seqsense/pcgol/pc/segmentation/voxelgrid"
+	"github.com/seqsense/pcgol/pc/storage/kdtree"
 )
 
 const (
@@ -232,6 +236,17 @@ func (c *commandContext) Rect() ([]mat.Vec3, bool) {
 
 func (c *commandContext) RectCenter() []mat.Vec3 {
 	return c.rectCenter
+}
+
+func (c *commandContext) RectCenterPos() mat.Vec3 {
+	if len(c.rect) == 0 {
+		return mat.Vec3{}
+	}
+	var center mat.Vec3
+	for _, p := range c.rect {
+		center = center.Add(p)
+	}
+	return center.Mul(1 / float32(len(c.rect)))
 }
 
 func (c *commandContext) SetSelectRange(t rangeType, r float32) {
@@ -619,6 +634,137 @@ func (c *commandContext) FinalizeCurrentMode() error {
 		c.pointCloudUpdated = true
 		c.UnsetCursors()
 	}
+	return nil
+}
+
+func (c *commandContext) FitInserting(axes [6]bool) error {
+	if c.selectMode != selectModeInsert {
+		return errors.New("not in insert mode")
+	}
+	it, err := c.editor.pp.Vec3Iterator()
+	if err != nil {
+		return err
+	}
+	itSubOrig, err := c.editor.ppSub.Vec3Iterator()
+	if err != nil {
+		return err
+	}
+	trans := cursorsToTrans(c.selected)
+	itSub := &transformedVec3RandomAccessor{
+		Vec3RandomAccessor: itSubOrig,
+		trans:              trans,
+	}
+	minMain, maxMain, err := pc.MinMaxVec3(it)
+	if err != nil {
+		return err
+	}
+	minSub, maxSub, err := pc.MinMaxVec3(itSub)
+	if err != nil {
+		return err
+	}
+
+	const (
+		matchRange        = 0.5
+		regionPadding     = 1.0
+		maxBasePoints     = 60000
+		maxTargetPoints   = 10000
+		minSampleRatio    = 0.01
+		gradientWeight    = 0.3
+		gradientPosThresh = 0.001
+		gradientRotThresh = 0.002
+		maxIteration      = 50
+	)
+
+	is := rectIntersection(
+		rect{minMain, maxMain},
+		rect{minSub, maxSub},
+	)
+	is.min = is.min.Sub(mat.Vec3{regionPadding, regionPadding, regionPadding})
+	is.max = is.max.Add(mat.Vec3{regionPadding, regionPadding, regionPadding})
+	if !is.IsValid() {
+		return errors.New("no intersection")
+	}
+	center := is.min.Add(is.max).Mul(0.5)
+
+	sample := func(ra pc.Vec3RandomAccessor, isIn func(mat.Vec3) bool, nMax int) (pc.Vec3Slice, float32) {
+		var cnt int
+		for i := 0; i < ra.Len(); i++ {
+			if isIn(ra.Vec3At(i)) {
+				cnt++
+			}
+		}
+		ratio := float32(nMax) / float32(cnt)
+		out := make(pc.Vec3Slice, 0, nMax)
+		for i := 0; i < ra.Len(); i++ {
+			if p := ra.Vec3At(i); isIn(p) {
+				if rand.Float32() > ratio {
+					continue
+				}
+				out = append(out, p.Sub(center))
+				if len(out) >= nMax {
+					break
+				}
+			}
+		}
+		return out, ratio
+	}
+
+	base, ratioBase := sample(it, is.IsInside, maxBasePoints)
+	if ratioBase < minSampleRatio {
+		return errors.New("too many base points")
+	}
+	kdt := kdtree.New(base)
+
+	// Sample points near the base cloud
+	targetFilter := func(p mat.Vec3) bool {
+		if !is.IsInside(p) {
+			return false
+		}
+		id, _ := kdt.Nearest(p.Sub(center), regionPadding)
+		return id >= 0
+	}
+	target, ratioTarget := sample(itSub, targetFilter, maxTargetPoints)
+	if ratioTarget < minSampleRatio {
+		return errors.New("too many inserting points")
+	}
+
+	gradientWeightVec := mat.Vec6{
+		gradientWeight, gradientWeight, gradientWeight,
+		gradientWeight, gradientWeight, gradientWeight,
+	}
+	for i, v := range axes {
+		if !v {
+			gradientWeightVec[i] = 0
+		}
+	}
+
+	// Registration
+	ppicp := &icp.PointToPointICPGradient{
+		Evaluator: &icp.PointToPointEvaluator{
+			Corresponder: &icp.NearestPointCorresponder{MaxDist: matchRange},
+			MinPairs:     32,
+			WeightFn: func(distSq float32) float32 {
+				a := (1 - distSq/(matchRange*matchRange))
+				return a * a
+			},
+		},
+		MaxIteration:   maxIteration,
+		GradientWeight: gradientWeightVec,
+		GradientThreshold: mat.Vec6{
+			gradientPosThresh, gradientPosThresh, gradientPosThresh,
+			gradientRotThresh, gradientRotThresh, gradientRotThresh,
+		},
+	}
+	transFit, stat, err := ppicp.Fit(kdt, target)
+	if err != nil {
+		return fmt.Errorf("registration failed: %v, stat: %v", err, stat)
+	}
+
+	transFit = mat.Translate(center[0], center[1], center[2]).
+		Mul(transFit).
+		Mul(mat.Translate(-center[0], -center[1], -center[2]))
+	c.TransformCursors(transFit)
+
 	return nil
 }
 

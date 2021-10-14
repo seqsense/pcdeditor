@@ -1189,6 +1189,20 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 					float32(s)*dx+float32(c)*dy,
 					dz,
 				))
+			case "Home", "End":
+				var dyaw float32
+				switch e.Code {
+				case "Home":
+					dyaw = 0.005
+				case "End":
+					dyaw = -0.005
+				}
+				center := pe.cmd.RectCenterPos()
+				pe.cmd.TransformCursors(
+					mat.Translate(center[0], center[1], center[2]).
+						Mul(mat.Rotate(0, 0, 1, dyaw)).
+						Mul(mat.Translate(-center[0], -center[1], -center[2])),
+				)
 			case "KeyW", "KeyA", "KeyS", "KeyD", "KeyQ", "KeyE":
 				switch e.Code {
 				case "KeyW":

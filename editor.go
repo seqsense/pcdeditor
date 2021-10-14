@@ -11,10 +11,6 @@ const (
 	maxHistoryDefault = 4
 )
 
-type rect struct {
-	min, max mat.Vec3
-}
-
 type editor struct {
 	history
 	pp        *pc.PointCloud
