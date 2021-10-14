@@ -51,7 +51,7 @@ func TestRectIntersection(t *testing.T) {
 			b:        rect{mat.Vec3{4, 3, 2}, mat.Vec3{6, 4, 10}},
 			expected: rect{mat.Vec3{4, 3, 3}, mat.Vec3{5, 4, 7}},
 		},
-		"NoOverwrap": {
+		"NoOverlap": {
 			a:        rect{mat.Vec3{1, 2, 3}, mat.Vec3{3, 4, 5}},
 			b:        rect{mat.Vec3{6, 7, 8}, mat.Vec3{9, 10, 11}},
 			expected: rect{mat.Vec3{6, 7, 8}, mat.Vec3{3, 4, 5}},
