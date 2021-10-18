@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"math/rand"
 
 	"github.com/seqsense/pcgol/mat"
 	"github.com/seqsense/pcgol/pc"
@@ -664,15 +663,16 @@ func (c *commandContext) FitInserting(axes [6]bool) error {
 	}
 
 	const (
-		matchRange        = 0.5
-		regionPadding     = 1.0
-		maxBasePoints     = 60000
-		maxTargetPoints   = 10000
-		minSampleRatio    = 0.01
-		gradientWeight    = 0.3
-		gradientPosThresh = 0.001
-		gradientRotThresh = 0.002
-		maxIteration      = 50
+		matchRange         = 0.5
+		regionPadding      = 1.0
+		ratioTestMaxPoints = 20000
+		maxBasePoints      = 60000
+		maxTargetPoints    = 10000
+		minSampleRatio     = 0.01
+		gradientWeight     = 0.3
+		gradientPosThresh  = 0.001
+		gradientRotThresh  = 0.002
+		maxIteration       = 50
 	)
 
 	is := rectIntersection(
@@ -687,19 +687,18 @@ func (c *commandContext) FitInserting(axes [6]bool) error {
 	center := is.min.Add(is.max).Mul(0.5)
 
 	sample := func(ra pc.Vec3RandomAccessor, isIn func(mat.Vec3) bool, nMax int) (pc.Vec3Slice, float32) {
+		n := ra.Len()
+		testRatio := float32(ratioTestMaxPoints) / float32(n)
 		var cnt int
-		for i := 0; i < ra.Len(); i++ {
-			if isIn(ra.Vec3At(i)) {
+		for it := pc.NewVec3RandomSampleIterator(ra, testRatio); it.IsValid(); it.Incr() {
+			if isIn(it.Vec3()) {
 				cnt++
 			}
 		}
-		ratio := float32(nMax) / float32(cnt)
+		ratio := float32(nMax) / (float32(cnt) / testRatio)
 		out := make(pc.Vec3Slice, 0, nMax)
-		for i := 0; i < ra.Len(); i++ {
-			if p := ra.Vec3At(i); isIn(p) {
-				if rand.Float32() > ratio {
-					continue
-				}
+		for it := pc.NewVec3RandomSampleIterator(ra, ratio); it.IsValid(); it.Incr() {
+			if p := it.Vec3(); isIn(p) {
 				out = append(out, p.Sub(center))
 				if len(out) >= nMax {
 					break
@@ -720,8 +719,8 @@ func (c *commandContext) FitInserting(axes [6]bool) error {
 		if !is.IsInside(p) {
 			return false
 		}
-		id, _ := kdt.Nearest(p.Sub(center), regionPadding)
-		return id >= 0
+		nn := kdt.Nearest(p.Sub(center), regionPadding)
+		return nn.ID >= 0
 	}
 	target, ratioTarget := sample(itSub, targetFilter, maxTargetPoints)
 	if ratioTarget < minSampleRatio {
