@@ -720,8 +720,8 @@ func (c *commandContext) FitInserting(axes [6]bool) error {
 		if !is.IsInside(p) {
 			return false
 		}
-		id, _ := kdt.Nearest(p.Sub(center), regionPadding)
-		return id >= 0
+		nn := kdt.Nearest(p.Sub(center), regionPadding)
+		return nn.ID >= 0
 	}
 	target, ratioTarget := sample(itSub, targetFilter, maxTargetPoints)
 	if ratioTarget < minSampleRatio {
