@@ -748,11 +748,13 @@ func (c *commandContext) FitInserting(axes [6]bool) error {
 				return a * a
 			},
 		},
-		MaxIteration:   maxIteration,
-		GradientWeight: gradientWeightVec,
-		GradientThreshold: mat.Vec6{
-			gradientPosThresh, gradientPosThresh, gradientPosThresh,
-			gradientRotThresh, gradientRotThresh, gradientRotThresh,
+		UpdaterFactory: &icp.GradientDescentUpdaterFactory{
+			MaxIteration: maxIteration,
+			Weight:       gradientWeightVec,
+			Threshold: mat.Vec6{
+				gradientPosThresh, gradientPosThresh, gradientPosThresh,
+				gradientRotThresh, gradientRotThresh, gradientRotThresh,
+			},
 		},
 	}
 	transFit, stat, err := ppicp.Fit(kdt, target)
