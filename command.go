@@ -663,16 +663,17 @@ func (c *commandContext) FitInserting(axes [6]bool) error {
 	}
 
 	const (
-		matchRange         = 0.5
-		regionPadding      = 1.0
-		ratioTestMaxPoints = 20000
-		maxBasePoints      = 60000
-		maxTargetPoints    = 10000
-		minSampleRatio     = 0.01
-		gradientWeight     = 0.3
-		gradientPosThresh  = 0.001
-		gradientRotThresh  = 0.002
-		maxIteration       = 50
+		ratioTestMaxPoints = 20000 // number of the sample points used to determine sampling ratio
+		maxBasePoints      = 60000 // number of the sample points of the base cloud
+		maxTargetPoints    = 10000 // number of the sample points of the inserting cloud
+		minSampleRatio     = 0.01  // minimum sampling ratio to avoid losing feature of the original cloud
+
+		matchRange        = 0.5
+		regionPadding     = 1.0
+		gradientWeight    = 0.3
+		gradientPosThresh = 0.001
+		gradientRotThresh = 0.002
+		maxIteration      = 50
 	)
 
 	is := rectIntersection(
