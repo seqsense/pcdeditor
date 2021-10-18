@@ -281,6 +281,8 @@ class PCDEditor {
             this.canvas.focus()
           }, 50)
         }
+        this.qs('#fitInsertingXYZRollPitchYaw').onclick = async () =>
+          fitInserting('0 1 2 3 4 5')
         this.qs('#fitInsertingXYZYaw').onclick = async () =>
           fitInserting('0 1 2 5')
         this.qs('#fitInsertingXYZ').onclick = async () =>
@@ -770,6 +772,7 @@ class PCDEditor {
     <hr/>
     <div class="${id('foldMenuElem')}">
       <label class="${id('inputLabel')}">Fitting (experimental)</label>
+      <button id="${id('fitInsertingXYZRollPitchYaw')}">Fit X, Y, Z, Roll, Pitch, Yaw</button>
       <button id="${id('fitInsertingXYZYaw')}">Fit X, Y, Z, Yaw</button>
       <button id="${id('fitInsertingXYZ')}">Fit X, Y, Z</button>
     </div>
