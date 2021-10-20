@@ -9,6 +9,7 @@ import (
 	"github.com/seqsense/pcgol/pc/filter/voxelgrid"
 	"github.com/seqsense/pcgol/pc/registration/icp"
 	"github.com/seqsense/pcgol/pc/sac"
+	"github.com/seqsense/pcgol/pc/segmentation/regiongrowing"
 	vgs "github.com/seqsense/pcgol/pc/segmentation/voxelgrid"
 	"github.com/seqsense/pcgol/pc/storage/kdtree"
 )
@@ -23,6 +24,7 @@ const (
 	defaultPointSize              = 40.0
 	defaultSegmentationDistance   = 0.08
 	defaultSegmentationRange      = 5.0
+	defaultLabelSegmentationRange = 0.25
 
 	sacIterationCnt     = 20
 	sacSurfacePointsMin = 50
@@ -86,6 +88,8 @@ type commandContext struct {
 	selectMode selectMode
 
 	segmentationDistance, segmentationRange float32
+
+	labelSegmentationRange float32
 }
 
 func newCommandContext(pcdio pcdIO, mapio mapIO) *commandContext {
@@ -102,6 +106,7 @@ func newCommandContext(pcdio pcdIO, mapio mapIO) *commandContext {
 		pointSize:              defaultPointSize,
 		segmentationDistance:   defaultSegmentationDistance,
 		segmentationRange:      defaultSegmentationRange,
+		labelSegmentationRange: defaultLabelSegmentationRange,
 	}
 	c.selectRange = &c.selectRangePerspective
 	return c
@@ -161,6 +166,18 @@ func (c *commandContext) SetSegmentationParam(dist, r float32) error {
 		return errors.New("invalid segmentation param (R/D must be 1-256)")
 	}
 	c.segmentationDistance, c.segmentationRange = dist, r
+	return nil
+}
+
+func (c *commandContext) LabelSegmentationParam() float32 {
+	return c.labelSegmentationRange
+}
+
+func (c *commandContext) SetLabelSegmentationParam(r float32) error {
+	if r <= 0 {
+		return errors.New("invalid label segmentation param (R must be >0)")
+	}
+	c.labelSegmentationRange = r
 	return nil
 }
 
@@ -895,4 +912,64 @@ func (c *commandContext) SelectSegment(p mat.Vec3) {
 	}
 	c.UnsetCursors()
 	c.selectMode = selectModeMask
+}
+
+func (c *commandContext) SelectLabelSegment(p mat.Vec3) error {
+	it, err := c.editor.pp.Vec3Iterator()
+	if err != nil {
+		return err
+	}
+	lt, err := c.editor.pp.Uint32Iterator("label")
+	if err != nil {
+		return err
+	}
+
+	res := float32(c.segmentationDistance)
+	w := int(c.segmentationRange / c.segmentationDistance)
+	half := float32(w) * res / 2
+	v := vgs.New(res, [3]int{w, w, w}, p.Sub(mat.Vec3{half, half, half}))
+
+	n := c.editor.pp.Points
+	for i := 0; i < n; i++ {
+		c.selectMask[i] &= ^uint32(selectBitmaskSegmentSelected)
+		a, ok := v.Addr(it.Vec3())
+		if ok {
+			if c.selectMask[i]&(selectBitmaskCropped|selectBitmaskOnScreen) == selectBitmaskOnScreen {
+				v.AddByAddr(a, i)
+			}
+		}
+		it.Incr()
+	}
+	if it, err = c.editor.pp.Vec3Iterator(); err != nil {
+		return err
+	}
+
+	vIndice := v.Storage().Indice()
+	raIn := pc.NewIndiceVec3RandomAccessor(it, vIndice)
+	raLIn := pc.NewIndiceUint32RandomAccessor(lt, vIndice)
+
+	maxRange := c.labelSegmentationRange
+	kdt := kdtree.New(raIn)
+	nn := kdt.Nearest(p, maxRange)
+	if nn.ID < 0 {
+		return fmt.Errorf("no point close to %v", p)
+	}
+
+	l := raLIn.Uint32At(nn.ID)
+	if l == 0 {
+		return fmt.Errorf("%v is not labeled", p)
+	}
+
+	rg := regiongrowing.New(kdt, raLIn)
+	indice := rg.Segment(p, maxRange)
+	for _, ii := range indice {
+		i := vIndice[ii]
+		if c.selectMask[i]&selectBitmaskExclude == 0 {
+			c.selectMask[i] |= selectBitmaskSegmentSelected
+		}
+	}
+
+	c.UnsetCursors()
+	c.selectMode = selectModeMask
+	return nil
 }
