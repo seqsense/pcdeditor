@@ -24,7 +24,9 @@ const (
 	defaultPointSize              = 40.0
 	defaultSegmentationDistance   = 0.08
 	defaultSegmentationRange      = 5.0
-	defaultLabelSegmentationRange = 0.25
+
+	defaultLabelSegmentationRange          = 3.0
+	defaultLabelSegmentationSearchDistance = 0.25
 
 	sacIterationCnt     = 20
 	sacSurfacePointsMin = 50
@@ -89,24 +91,25 @@ type commandContext struct {
 
 	segmentationDistance, segmentationRange float32
 
-	labelSegmentationRange float32
+	labelSegmentationRange, labelSegmentationSearchDistance float32
 }
 
 func newCommandContext(pcdio pcdIO, mapio mapIO) *commandContext {
 	c := &commandContext{
-		selectRangeOrtho:       defaultSelectRangeOrtho,
-		selectRangePerspective: defaultSelectRangePerspective,
-		editor:                 newEditor(),
-		pcdIO:                  pcdio,
-		mapIO:                  mapio,
-		mapAlpha:               defaultMapAlpha,
-		zMin:                   defaultZMin,
-		zMax:                   defaultZMax,
-		projectionType:         ProjectionPerspective,
-		pointSize:              defaultPointSize,
-		segmentationDistance:   defaultSegmentationDistance,
-		segmentationRange:      defaultSegmentationRange,
-		labelSegmentationRange: defaultLabelSegmentationRange,
+		selectRangeOrtho:                defaultSelectRangeOrtho,
+		selectRangePerspective:          defaultSelectRangePerspective,
+		editor:                          newEditor(),
+		pcdIO:                           pcdio,
+		mapIO:                           mapio,
+		mapAlpha:                        defaultMapAlpha,
+		zMin:                            defaultZMin,
+		zMax:                            defaultZMax,
+		projectionType:                  ProjectionPerspective,
+		pointSize:                       defaultPointSize,
+		segmentationDistance:            defaultSegmentationDistance,
+		segmentationRange:               defaultSegmentationRange,
+		labelSegmentationRange:          defaultLabelSegmentationRange,
+		labelSegmentationSearchDistance: defaultLabelSegmentationSearchDistance,
 	}
 	c.selectRange = &c.selectRangePerspective
 	return c
@@ -169,14 +172,15 @@ func (c *commandContext) SetSegmentationParam(dist, r float32) error {
 	return nil
 }
 
-func (c *commandContext) LabelSegmentationParam() float32 {
-	return c.labelSegmentationRange
+func (c *commandContext) LabelSegmentationParam() (float32, float32) {
+	return c.labelSegmentationSearchDistance, c.labelSegmentationRange
 }
 
-func (c *commandContext) SetLabelSegmentationParam(r float32) error {
-	if r <= 0 {
-		return errors.New("invalid label segmentation param (R must be >0)")
+func (c *commandContext) SetLabelSegmentationParam(d, r float32) error {
+	if dist <= 0 || r <= 0 {
+		return errors.New("invalid label segmentation param (D and R must be >0)")
 	}
+	c.labelSegmentationSearchDistance = d
 	c.labelSegmentationRange = r
 	return nil
 }
@@ -924,27 +928,27 @@ func (c *commandContext) SelectLabelSegment(p mat.Vec3) error {
 		return err
 	}
 
-	vIndice := make([]int, 0, ??)
+	vIndice := make([]int, 0, 8192)
 	n := c.editor.pp.Points
 	for i := 0; i < n; i++ {
 		c.selectMask[i] &= ^uint32(selectBitmaskSegmentSelected)
 		if c.selectMask[i]&(selectBitmaskCropped|selectBitmaskOnScreen) == selectBitmaskOnScreen {
-			continue
+			v := it.Vec3At(i).Sub(p)
+			if v[0] < -c.labelSegmentationRange || c.labelSegmentationRange < v[0] ||
+				v[1] < -c.labelSegmentationRange || c.labelSegmentationRange < v[1] ||
+				v[2] < -c.labelSegmentationRange || c.labelSegmentationRange < v[2] {
+				continue
+			}
+			vIndice = append(vIndice, i)
 		}
-		v := it.Vec3At(i).Sub(p)
-		if v[0] < -c.segmentationRange || c.segmentationRange < v[0] ||
-			v[1] < -c.segmentationRange || c.segmentationRange < v[1] ||
-			v[2] < -c.segmentationRange || c.segmentationRange < v[2] {
-			continue
-		}
-		vIndice = append(vIndice, i)
 	}
+
 	raIn := pc.NewIndiceVec3RandomAccessor(it, vIndice)
 	raLIn := pc.NewIndiceUint32RandomAccessor(lt, vIndice)
 
-	maxRange := c.labelSegmentationRange
+	searchDistance := c.labelSegmentationSearchDistance
 	kdt := kdtree.New(raIn)
-	nn := kdt.Nearest(p, maxRange)
+	nn := kdt.Nearest(p, searchDistance)
 	if nn.ID < 0 {
 		return fmt.Errorf("no point close to %v", p)
 	}
@@ -955,7 +959,7 @@ func (c *commandContext) SelectLabelSegment(p mat.Vec3) error {
 	}
 
 	rg := regiongrowing.New(kdt, raLIn)
-	indice := rg.Segment(p, maxRange)
+	indice := rg.Segment(p, searchDistance)
 	for _, ii := range indice {
 		i := vIndice[ii]
 		if c.selectMask[i]&selectBitmaskExclude == 0 {
