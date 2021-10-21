@@ -177,7 +177,7 @@ func (c *commandContext) LabelSegmentationParam() (float32, float32) {
 }
 
 func (c *commandContext) SetLabelSegmentationParam(d, r float32) error {
-	if dist <= 0 || r <= 0 {
+	if d <= 0 || r <= 0 {
 		return errors.New("invalid label segmentation param (D and R must be >0)")
 	}
 	c.labelSegmentationSearchDistance = d
