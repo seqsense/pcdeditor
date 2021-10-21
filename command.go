@@ -924,27 +924,21 @@ func (c *commandContext) SelectLabelSegment(p mat.Vec3) error {
 		return err
 	}
 
-	res := float32(c.segmentationDistance)
-	w := int(c.segmentationRange / c.segmentationDistance)
-	half := float32(w) * res / 2
-	v := vgs.New(res, [3]int{w, w, w}, p.Sub(mat.Vec3{half, half, half}))
-
+	vIndice := make([]int, 0, ??)
 	n := c.editor.pp.Points
 	for i := 0; i < n; i++ {
 		c.selectMask[i] &= ^uint32(selectBitmaskSegmentSelected)
-		a, ok := v.Addr(it.Vec3())
-		if ok {
-			if c.selectMask[i]&(selectBitmaskCropped|selectBitmaskOnScreen) == selectBitmaskOnScreen {
-				v.AddByAddr(a, i)
-			}
+		if c.selectMask[i]&(selectBitmaskCropped|selectBitmaskOnScreen) == selectBitmaskOnScreen {
+			continue
 		}
-		it.Incr()
+		v := it.Vec3At(i).Sub(p)
+		if v[0] < -c.segmentationRange || c.segmentationRange < v[0] ||
+			v[1] < -c.segmentationRange || c.segmentationRange < v[1] ||
+			v[2] < -c.segmentationRange || c.segmentationRange < v[2] {
+			continue
+		}
+		vIndice = append(vIndice, i)
 	}
-	if it, err = c.editor.pp.Vec3Iterator(); err != nil {
-		return err
-	}
-
-	vIndice := v.Storage().Indice()
 	raIn := pc.NewIndiceVec3RandomAccessor(it, vIndice)
 	raLIn := pc.NewIndiceUint32RandomAccessor(lt, vIndice)
 
