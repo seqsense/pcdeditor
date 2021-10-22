@@ -1114,6 +1114,18 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 					pe.cmd.SelectSegment(*p)
 					updateSelectMask()
 				}
+			case e.CtrlKey:
+				if projectionType != ProjectionPerspective {
+					break
+				}
+				if ok := scanSelection(scaled(e.OffsetX), scaled(e.OffsetY)); ok {
+					err := pe.cmd.SelectLabelSegment(*p)
+					if err != nil {
+						pe.logPrint("Selection by label failed: " + err.Error())
+					} else {
+						updateSelectMask()
+					}
+				}
 			default:
 				if len(pe.cmd.Cursors()) < 2 {
 					pe.cmd.SetCursor(0, *p)

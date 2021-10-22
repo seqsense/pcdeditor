@@ -21,6 +21,7 @@ Shift + 左クリック   | 2番目、4点目の点選択 [\*1](#footnote1)
 中ドラッグ           | 視点移動
 Shift + 左ドラッグ   | 視点移動
 Alt + 左クリック     | 隣接する点群を選択 [\*2](#footnote2)
+Ctrl + 左クリック    | 同じラベルの隣接する点群を選択
 Q/E                  | 視点回転
 W/A/S/D              | 視点移動
 Wheel                | 視点距離
@@ -121,6 +122,8 @@ point\_size `Size`            | 点の表示サイズを `Size` に設定
 segmentation\_param           | セグメンテーション時の分離距離を表示 [\*1](#footnoteKey1)
 segmentation\_param `D` `R`   | セグメンテーション時の分離距離を `D` \[メートル\]、適用範囲を `R` \[メートル\]に設定
 fit\_inserting `AXIS`...      | 貼り付け中の点群を既存の点群に位置合わせ [\*2](#footnoteKey2) (位置合わせを行う軸 `AXIS` をスペース区切りで複数指定 [\*3](#footnoteKey3))
+label_segmentation\_param         | ラベルを元にしてのセグメンテーション時の範囲と隣接する点群の最大距離を表示 [\*1](#footnoteKey1)
+label_segmentation\_param `D` `R` | ラベルを元にしてのセグメンテーション時の隣接する点群の最大距離を `D` \[メートル\]、範囲を `R` \[メートル\]に設定
 
 <dl>
   <dt><a id="footnoteKey1">[1] 数値の表示</a></dt><dd>

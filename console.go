@@ -328,6 +328,17 @@ var consoleCommands = map[string]func(c *console, updateSel updateSelectionFn, a
 		}
 		return nil, c.cmd.FitInserting(axes)
 	},
+	"label_segmentation_param": func(c *console, updateSel updateSelectionFn, args []float32) ([][]float32, error) {
+		switch len(args) {
+		case 0:
+			p0, p1 := c.cmd.LabelSegmentationParam()
+			return [][]float32{{p0, p1}}, nil
+		case 2:
+			return nil, c.cmd.SetLabelSegmentationParam(args[0], args[1])
+		default:
+			return nil, errArgumentNumber
+		}
+	},
 }
 
 func (c *console) Run(line string, updateSel updateSelectionFn) ([][]float32, error) {
