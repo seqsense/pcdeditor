@@ -419,6 +419,18 @@ class PCDEditor {
     })
   }
 
+  reset() {
+    return new Promise((resolve, reject) => {
+      this.pcdeditor.reset()
+      .then(() => {
+        resolve()
+      })
+      .catch((e) => {
+        reject(e)
+      })
+    })
+  }
+
   appendDefaultMenuboxTo(selector) {
     const menuHeight = '28px'
     const id = this.wrapId.bind(this)
