@@ -17,7 +17,7 @@ import (
 const (
 	defaultResolution             = 0.05
 	defaultSelectRangePerspective = 0.05
-	defaultSelectRangeOrtho       = 500.0
+	defaultSelectRangeOrtho       = 0.5
 	defaultMapAlpha               = 0.3
 	defaultZMin                   = -5.0
 	defaultZMax                   = 5.0
