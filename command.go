@@ -953,11 +953,6 @@ func (c *commandContext) SelectLabelSegment(p mat.Vec3) error {
 		return fmt.Errorf("no point close to %v", p)
 	}
 
-	l := raLIn.Uint32At(nn.ID)
-	if l == 0 {
-		return fmt.Errorf("%v is not labeled", p)
-	}
-
 	rg := regiongrowing.New(kdt, raLIn)
 	indice := rg.Segment(p, searchDistance)
 	for _, ii := range indice {
