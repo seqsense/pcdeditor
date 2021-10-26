@@ -686,7 +686,7 @@ func (c *commandContext) FitInserting(axes [6]bool) error {
 	const (
 		ratioTestMaxPoints = 20000 // number of the sample points used to determine sampling ratio
 		maxBasePoints      = 60000 // number of the sample points of the base cloud
-		maxTargetPoints    = 10000 // number of the sample points of the inserting cloud
+		maxTargetPoints    = 20000 // number of the sample points of the inserting cloud
 		minSampleRatio     = 0.01  // minimum sampling ratio to avoid losing feature of the original cloud
 
 		matchRange        = 0.5
