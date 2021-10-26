@@ -27,13 +27,13 @@ func TestWheelNormalizer(t *testing.T) {
 			pre:       []float64{2, 4, 3, 0, -1, 2},
 			input:     []float64{3, -2, 0},
 			expected:  []float64{3, -2, 0},
-			tolerance: 0.5,
+			tolerance: 1,
 		},
 		"AnalogWheel30": {
 			pre:       []float64{20, 40, 30, 0, -10, 20},
 			input:     []float64{30, -20, 0},
 			expected:  []float64{3, -2, 0},
-			tolerance: 0.5,
+			tolerance: 1,
 		},
 	}
 
