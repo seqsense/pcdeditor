@@ -117,10 +117,9 @@ func (c *commandContext) Reset() {
 	c.rectCenter = nil
 	c.mapInfo = nil
 	c.mapImg = nil
-	c.projectionType = ProjectionOrthographic
 	c.selectRangeOrtho = defaultSelectRangeOrtho
 	c.selectRangePerspective = defaultSelectRangePerspective
-	c.selectRange = c.selectRangeOrtho
+	c.SetProjectionType(ProjectionOrthographic)
 	c.mapAlpha = defaultMapAlpha
 	c.zMin = defaultZMin
 	c.zMax = defaultZMax
