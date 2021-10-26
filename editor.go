@@ -39,6 +39,7 @@ type history interface {
 	push(pp *pc.PointCloud) *pc.PointCloud
 	pop() *pc.PointCloud
 	undo() (*pc.PointCloud, bool)
+	clear()
 }
 
 func (e *editor) Undo() bool {
@@ -47,6 +48,14 @@ func (e *editor) Undo() bool {
 		e.pp = pp
 	}
 	return ok
+}
+
+func (e *editor) Reset() {
+	e.clear()
+	e.pp = nil
+	e.ppSub = nil
+	e.ppSubRect = rect{}
+	e.cropMatrix = mat.Mat4{}
 }
 
 func (e *editor) Crop(origin mat.Mat4) {

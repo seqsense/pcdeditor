@@ -72,3 +72,8 @@ func (h *historyJS) reconstructPointCloud(header pc.PointCloudHeader, dataJS js.
 	js.CopyBytesToGo(pp.Data, dataJS)
 	return pp
 }
+
+func (h *historyJS) clear() {
+	h.history = h.history[:0]
+	h.historyHeader = h.historyHeader[:0]
+}
