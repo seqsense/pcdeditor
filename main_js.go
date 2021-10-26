@@ -940,7 +940,7 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 			pe.logPrint("pcd exported")
 			promise.resolved(blob)
 		case promise := <-pe.chReset:
-			pe.cmd = newCommandContext(&pcdIOImpl{}, &mapIOImpl{})
+			pe.cmd.Reset()
 			promise.resolved("resetted")
 		case promise := <-pe.chCommand:
 			res, err := pe.cs.Run(promise.data.(string), func() error {

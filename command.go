@@ -96,23 +96,39 @@ type commandContext struct {
 
 func newCommandContext(pcdio pcdIO, mapio mapIO) *commandContext {
 	c := &commandContext{
-		selectRangeOrtho:                defaultSelectRangeOrtho,
-		selectRangePerspective:          defaultSelectRangePerspective,
-		editor:                          newEditor(),
-		pcdIO:                           pcdio,
-		mapIO:                           mapio,
-		mapAlpha:                        defaultMapAlpha,
-		zMin:                            defaultZMin,
-		zMax:                            defaultZMax,
-		projectionType:                  ProjectionPerspective,
-		pointSize:                       defaultPointSize,
-		segmentationDistance:            defaultSegmentationDistance,
-		segmentationRange:               defaultSegmentationRange,
-		labelSegmentationRange:          defaultLabelSegmentationRange,
-		labelSegmentationSearchDistance: defaultLabelSegmentationSearchDistance,
+		editor: newEditor(),
+		pcdIO:  pcdio,
+		mapIO:  mapio,
 	}
-	c.selectRange = &c.selectRangePerspective
+	c.Reset()
 	return c
+}
+
+func (c *commandContext) Reset() {
+	c.editor.Reset()
+	c.pointCloudUpdated = true
+	c.subPointCloudUpdated = true
+	c.mapUpdated = true
+	c.selected = nil
+	c.selectedStack = nil
+	c.selectMask = nil
+	c.rectUpdated = true
+	c.rect = nil
+	c.rectCenter = nil
+	c.mapInfo = nil
+	c.mapImg = nil
+	c.projectionType = ProjectionOrthographic
+	c.selectRangeOrtho = defaultSelectRangeOrtho
+	c.selectRangePerspective = defaultSelectRangePerspective
+	c.selectRange = c.selectRangeOrtho
+	c.mapAlpha = defaultMapAlpha
+	c.zMin = defaultZMin
+	c.zMax = defaultZMax
+	c.pointSize = defaultPointSize
+	c.segmentationDistance = defaultSegmentationDistance
+	c.segmentationRange = defaultSegmentationRange
+	c.labelSegmentationRange = defaultLabelSegmentationRange
+	c.labelSegmentationSearchDistance = defaultLabelSegmentationSearchDistance
 }
 
 func (c *commandContext) SelectMask() []uint32 {
