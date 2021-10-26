@@ -34,3 +34,7 @@ func (h *historyDummy) pop() *pc.PointCloud {
 func (historyDummy) undo() (*pc.PointCloud, bool) {
 	return nil, false
 }
+
+func (h *historyDummy) clear() {
+	h.latest = nil
+}
