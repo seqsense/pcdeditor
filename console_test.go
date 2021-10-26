@@ -8,6 +8,7 @@ func TestConsole_SelectRange(t *testing.T) {
 	c := &console{
 		cmd: newCommandContext(nil, nil),
 	}
+	c.cmd.SetProjectionType(ProjectionPerspective)
 
 	c.Run("select_range 123", nil)
 	if v := c.cmd.SelectRange(rangeTypeAuto); v != 123 {
