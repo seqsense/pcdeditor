@@ -51,6 +51,7 @@ type pcdeditor struct {
 	chImport2D          chan promiseCommand
 	chExportPCD         chan promiseCommand
 	chExportSelectedPCD chan promiseCommand
+	chReset             chan promiseCommand
 	chCommand           chan promiseCommand
 	chWheel             chan webgl.WheelEvent
 	chClick             chan webgl.MouseEvent
@@ -83,6 +84,7 @@ func newPCDEditor(this js.Value, args []js.Value) interface{} {
 		chImport2D:          make(chan promiseCommand, 1),
 		chExportPCD:         make(chan promiseCommand, 1),
 		chExportSelectedPCD: make(chan promiseCommand, 1),
+		chReset:             make(chan promiseCommand, 1),
 		chCommand:           make(chan promiseCommand, 1),
 		chWheel:             make(chan webgl.WheelEvent, 10),
 		chClick:             make(chan webgl.MouseEvent, 10),
@@ -139,6 +141,9 @@ func newPCDEditor(this js.Value, args []js.Value) interface{} {
 		}),
 		"show2D": js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			return newCommandPromise(pe.ch2D, args[0].Bool())
+		}),
+		"reset": js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			return newCommandPromise(pe.chReset, nil)
 		}),
 		"exit": js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			cancel()
@@ -934,6 +939,9 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 			}
 			pe.logPrint("pcd exported")
 			promise.resolved(blob)
+		case promise := <-pe.chReset:
+			pe.cmd.Reset()
+			promise.resolved("resetted")
 		case promise := <-pe.chCommand:
 			res, err := pe.cs.Run(promise.data.(string), func() error {
 				if scanSelection(0, 0) {

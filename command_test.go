@@ -9,6 +9,7 @@ import (
 
 func TestSelectRange(t *testing.T) {
 	c := newCommandContext(nil, nil)
+	c.SetProjectionType(ProjectionPerspective)
 
 	c.SetSelectRange(rangeTypeAuto, 123)
 	if v := c.SelectRange(rangeTypeAuto); v != 123 {

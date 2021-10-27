@@ -419,6 +419,10 @@ class PCDEditor {
     })
   }
 
+  reset() {
+    return this.pcdeditor.reset()
+  }
+
   appendDefaultMenuboxTo(selector) {
     const menuHeight = '28px'
     const id = this.wrapId.bind(this)

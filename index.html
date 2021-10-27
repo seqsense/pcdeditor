@@ -61,7 +61,13 @@
     <div id="container">
       <canvas id="mapCanvas" tabindex="0"></canvas>
       <div id="menubox">
-        <button id="loadPCD">load</button>
+        <input id="loadFromFile"
+          accept=".pcd, .png, .yaml"
+          type="file" multiple
+          style="display: none;"
+        />
+        <button id="load">load</button>
+        <button id="loadFrom">load from...</button>
       </div>
       <div id="log"></div>
     </div>
@@ -70,13 +76,42 @@
     import PCDEditor from './pcdeditor.esm.js'
     const editor = new PCDEditor()
     editor.appendDefaultMenuboxTo('#menubox')
+
     editor.attach().then(() => {
-      const pcdPath = '/fixture/map.pcd'
-      const yamlPath = '/fixture/map.yaml'
-      const imgPath = '/fixture/map.png'
-      document.querySelector('#loadPCD').onclick = () => {
+      document.querySelector('#load').onclick = () => {
+        const pcdPath = '/fixture/map.pcd'
+        const yamlPath = '/fixture/map.yaml'
+        const imgPath = '/fixture/map.png'
+        editor.reset().catch(editor.logger)
         editor.loadPCD(pcdPath).catch(editor.logger)
         editor.load2D(yamlPath, imgPath).catch(editor.logger)
+      }
+
+      const loadFromFile = document.querySelector('#loadFromFile')
+      document.querySelector('#loadFrom').onclick = () => {
+        // to make sure onchange is called even if the same files are selected
+        loadFromFile.value = ''
+        loadFromFile.click()
+      }
+      loadFromFile.onchange = async (e) => {
+        let [pcdPath, yamlPath, imgPath] = [undefined, undefined, undefined]
+        Array.from(e.target.files).forEach(f => {
+          const url = URL.createObjectURL(f)
+          if (f.name.endsWith('.pcd')) {
+            pcdPath = url
+          } else if (f.name.endsWith('.png')) {
+            imgPath = url
+          } else if (f.name.endsWith('.yaml')) {
+            yamlPath = url
+          }
+        })
+        editor.reset().catch(editor.logger)
+        if (pcdPath) {
+          editor.loadPCD(pcdPath).catch(editor.logger)
+        }
+        if (imgPath && yamlPath) {
+          editor.load2D(yamlPath, imgPath).catch(editor.logger)
+        }
       }
     })
   </script>
