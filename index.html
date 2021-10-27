@@ -92,12 +92,9 @@
         loadFromFile.click()
       }
       loadFromFile.onchange = async (e) => {
-        var pcdPath = ''
-        var yamlPath = ''
-        var imgPath = ''
-        for(var i=0; i<e.target.files.length; i++) {
-          var f = e.target.files[i];
-          var url = URL.createObjectURL(f)
+        let [pcdPath, yamlPath, imgPath] = [undefined, undefined, undefined]
+        e.target.files.forEach((f) => {
+          const url = URL.createObjectURL(f)
           if (f.name.endsWith('.pcd')) {
             pcdPath = url
           } else if (f.name.endsWith('.png')) {
@@ -105,13 +102,12 @@
           } else if (f.name.endsWith('.yaml')) {
             yamlPath = url
           }
-        }
+        })
         editor.reset().catch(editor.logger)
-        if (pcdPath != '') {
+        if (!pcdPath) {
           editor.loadPCD(pcdPath).catch(editor.logger)
         }
-
-        if (imgPath != '' && yamlPath != '') {
+        if (!imgPath && !yamlPath) {
           editor.load2D(yamlPath, imgPath).catch(editor.logger)
         }
       }
