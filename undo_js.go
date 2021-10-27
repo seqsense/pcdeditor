@@ -74,6 +74,6 @@ func (h *historyJS) reconstructPointCloud(header pc.PointCloudHeader, dataJS js.
 }
 
 func (h *historyJS) clear() {
-	h.history = h.history[:0]
-	h.historyHeader = h.historyHeader[:0]
+	h.history = nil
+	h.historyHeader = nil
 }
