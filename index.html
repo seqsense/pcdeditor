@@ -104,7 +104,7 @@
           } else if (f.name.endsWith('.yaml')) {
             yamlPath = url
           }
-        });
+        })
         editor.reset().catch(editor.logger)
         if (pcdPath) {
           editor.loadPCD(pcdPath).catch(editor.logger)
