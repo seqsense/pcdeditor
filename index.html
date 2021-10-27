@@ -106,10 +106,10 @@
           }
         });
         editor.reset().catch(editor.logger)
-        if (pcdPath !== undefined) {
+        if (pcdPath) {
           editor.loadPCD(pcdPath).catch(editor.logger)
         }
-        if (imgPath !== undefined && yamlPath !== undefined) {
+        if (imgPath && yamlPath) {
           editor.load2D(yamlPath, imgPath).catch(editor.logger)
         }
       }
