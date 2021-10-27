@@ -20,7 +20,7 @@ declare class PCDEditor {
   private wrapId: (q: string) => string
 
   pcdeditor: {
-    reset(): void
+    reset(): Promise<string>
     importPCD(a: Blob): Promise<string>
     importSubPCD(a: Blob): Promise<string>
     import2D(a, b: Blob): Promise<string>
