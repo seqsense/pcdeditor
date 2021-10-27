@@ -89,11 +89,13 @@
 
       const loadFromFile = document.querySelector('#loadFromFile')
       document.querySelector('#loadFrom').onclick = () => {
+        // to make sure onchange is called even if the same files are selected
+        loadFromFile.value = ''
         loadFromFile.click()
       }
       loadFromFile.onchange = async (e) => {
         let [pcdPath, yamlPath, imgPath] = [undefined, undefined, undefined]
-        e.target.files.forEach((f) => {
+        Array.from(e.target.files).forEach(f => {
           const url = URL.createObjectURL(f)
           if (f.name.endsWith('.pcd')) {
             pcdPath = url
@@ -102,12 +104,12 @@
           } else if (f.name.endsWith('.yaml')) {
             yamlPath = url
           }
-        })
+        });
         editor.reset().catch(editor.logger)
-        if (!pcdPath) {
+        if (pcdPath !== undefined) {
           editor.loadPCD(pcdPath).catch(editor.logger)
         }
-        if (!imgPath && !yamlPath) {
+        if (imgPath !== undefined && yamlPath !== undefined) {
           editor.load2D(yamlPath, imgPath).catch(editor.logger)
         }
       }
