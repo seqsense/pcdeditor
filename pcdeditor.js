@@ -420,15 +420,7 @@ class PCDEditor {
   }
 
   reset() {
-    return new Promise((resolve, reject) => {
-      this.pcdeditor.reset()
-      .then(() => {
-        resolve()
-      })
-      .catch((e) => {
-        reject(e)
-      })
-    })
+    return this.pcdeditor.reset()
   }
 
   appendDefaultMenuboxTo(selector) {
