@@ -1,5 +1,4 @@
 import React, { useEffect } from 'react'
-import styled from 'styled-components'
 
 import PCDEditor from '../'
 
@@ -55,50 +54,58 @@ const Editor: React.FC<Props> = ({
   }, [wasmPath, wasmExecPath, appendDefaultMenu])
 
   return (
-    <Container>
-      <canvas id={canvasId} tabIndex={0} />
-      <div id={menuboxId} className="pcdeditorMenubox">
+    <div
+      style={{
+        borderWidth: 0,
+        width: '100%',
+        height: '100%',
+        position: 'relative',
+        color: 'black',
+        overflow: 'visible',
+      }}
+    >
+      <canvas
+        id={canvasId}
+        tabIndex={0}
+        style={{
+          width: '100%',
+          height: '100%',
+          touchAction: 'none',
+        }}
+      />
+      <div
+        id={menuboxId}
+        className="pcdeditorMenubox"
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'stretch',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          padding: '2px',
+          boxSizing: 'border-box',
+        }}
+      >
         {customMenu}
       </div>
-      <div id={logId} className="pcdeditorLog" />
-    </Container>
+      <div
+        id={logId}
+        className="pcdeditorLog"
+        style={{
+          fontSize: '0.6em',
+          maxHeight: '20em',
+          position: 'absolute',
+          bottom: '1em',
+          left: '1em',
+          zIndex: 2,
+          color: 'white',
+          pointerEvents: 'none',
+          overflow: 'hidden',
+        }}
+      />
+    </div>
   )
 }
-
-const Container = styled.div`
-  border-width: 0;
-  width: 100%;
-  height: 100%;
-  position: relative;
-  color: black;
-  overflow: visible;
-
-  canvas {
-    width: 100%;
-    height: 100%;
-    touch-action: none;
-  }
-  div.pcdeditorMenubox {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: stretch;
-    position: absolute;
-    top: 0;
-    left: 0;
-    padding: 2px;
-    box-sizing: border-box;
-  }
-  div.pcdeditorLog {
-    font-size: 0.6em;
-    max-height: 20em;
-    position: absolute;
-    bottom: 1em;
-    left: 1em;
-    z-index: 2;
-    color: white;
-    pointer-events: none;
-    overflow: hidden;
-  }
-`
 
 export default Editor
