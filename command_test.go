@@ -285,3 +285,34 @@ func TestBaseFileter(t *testing.T) {
 		}, c.baseFilterByMask(false))
 	})
 }
+
+func TestAddSurface(t *testing.T) {
+	var selectRange float32 = 1.0
+	t.Run("NotSelected", func(t *testing.T) {
+		c := &commandContext{
+			selected: []mat.Vec3{
+				{0, 0, 0},
+				{0.1, 0, 0},
+			},
+			selectRange: &selectRange,
+		}
+		c.updateRect()
+		if ok := c.AddSurface(0.11); ok {
+			t.Fatal("AddSurface must success (but do nothing) if surface has zero points")
+		}
+	})
+	t.Run("ZeroPoints", func(t *testing.T) {
+		c := &commandContext{
+			selected: []mat.Vec3{
+				{0, 0, 0},
+				{0.1, 0, 0},
+				{0.1, 0.1, 0},
+			},
+			selectRange: &selectRange,
+		}
+		c.updateRect()
+		if ok := c.AddSurface(0.11); !ok {
+			t.Fatal("AddSurface must fail if region is not selected")
+		}
+	})
+}
