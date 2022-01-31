@@ -504,6 +504,11 @@ func (c *commandContext) AddSurface(resolution float32) bool {
 
 	w := int(l0 / resolution)
 	h := int(l1 / resolution)
+
+	if w*h == 0 {
+		return true
+	}
+
 	pcNew := &pc.PointCloud{
 		PointCloudHeader: c.editor.pp.PointCloudHeader.Clone(),
 		Points:           w * h,
