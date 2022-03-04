@@ -13,7 +13,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
       - name: Setup Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
       - name: Collect licenses
         run: |
           mkdir -p ${GITHUB_WORKSPACE}/licenses
