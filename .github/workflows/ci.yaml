@@ -33,7 +33,7 @@ jobs:
       - name: Build WASM
         run: make pcdeditor.wasm
 
-      - uses: codecov/codecov-action@v2
+      - uses: codecov/codecov-action@v3
         with:
           file: ./cover.out
 
