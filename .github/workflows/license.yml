@@ -18,15 +18,15 @@ jobs:
         uses: actions/checkout@v3
       - name: Setup Go
         uses: actions/setup-go@v3
+      - name: Install go-licenses
+        run: |
+          go install github.com/google/go-licenses@latest
+          echo "$(go env GOPATH)/bin" >> ${GITHUB_PATH}
       - name: Check licenses
         run: |
           for mod in $(find . -name go.mod); do
-            echo 'replace github.com/google/go-licenses v0.0.0-20201026145851-73411c8fa237 => github.com/at-wat/go-licenses v0.0.0-20201126113030-93f9da6ba9f8' >> ${mod}
-
             (
               cd $(dirname ${mod})
-              go install github.com/google/go-licenses
-              export PATH=$PATH:$(go env GOPATH)/bin
               go-licenses check ./... \
                   --ignore github.com/golang/freetype \
                   --ignore github.com/seqsense 2>&1 \
