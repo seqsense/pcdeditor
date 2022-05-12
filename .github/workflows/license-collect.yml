@@ -15,7 +15,9 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v3
       - name: Install go-licenses
-        run: go install github.com/google/go-licenses@latest
+        run: |
+          go install github.com/google/go-licenses@latest
+          echo "$(go env GOPATH)/bin" >> ${GITHUB_PATH}
       - name: Collect licenses
         run: |
           mkdir -p ${GITHUB_WORKSPACE}/licenses
