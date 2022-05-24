@@ -34,11 +34,6 @@ jobs:
           done
           tar czf licenses.tar.gz ./licenses
       - name: Upload
-        uses: actions/upload-release-asset@v1
+        run: gh release upload ${{ github.event.release.tag_name }} licenses.tar.gz --clobber
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./licenses.tar.gz
-          asset_name: licenses.tar.gz
-          asset_content_type: application/gzip
