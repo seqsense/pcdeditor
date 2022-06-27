@@ -339,6 +339,17 @@ var consoleCommands = map[string]func(c *console, updateSel updateSelectionFn, a
 			return nil, errArgumentNumber
 		}
 	},
+	"render_label_range": func(c *console, updateSel updateSelectionFn, args []float32) ([][]float32, error) {
+		switch len(args) {
+		case 0:
+			p0, p1 := c.cmd.RenderLabelRange()
+			return [][]float32{{float32(p0), float32(p1)}}, nil
+		case 2:
+			return nil, c.cmd.SetRenderLabelRange(uint32(args[0]), uint32(args[1]))
+		default:
+			return nil, errArgumentNumber
+		}
+	},
 }
 
 func (c *console) Run(line string, updateSel updateSelectionFn) ([][]float32, error) {
