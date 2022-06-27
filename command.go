@@ -198,7 +198,7 @@ func (c *commandContext) RenderLabelRange() (uint32, uint32) {
 
 func (c *commandContext) SetRenderLabelRange(min, max uint32) error {
 	if min > max {
-		return errors.New("invalid view label range param (max must be > min)")
+		return errors.New("invalid view label range param (max must be >= min)")
 	}
 	c.renderLabelMin = min
 	c.renderLabelMax = max
