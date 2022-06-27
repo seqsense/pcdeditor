@@ -425,6 +425,8 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 	uZRangeLocation := gl.GetUniformLocation(program, "uZRange")
 	uPointSizeBase := gl.GetUniformLocation(program, "uPointSizeBase")
 	uUseSelectMask := gl.GetUniformLocation(program, "uUseSelectMask")
+	uMinLabel := gl.GetUniformLocation(program, "uMinLabel")
+	uMaxLabel := gl.GetUniformLocation(program, "uMaxLabel")
 
 	uProjectionMatrixLocationSub := gl.GetUniformLocation(programSub, "uProjectionMatrix")
 	uModelViewMatrixLocationSub := gl.GetUniformLocation(programSub, "uModelViewMatrix")
@@ -720,6 +722,10 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 				case selectModeMask:
 					gl.Uniform1i(uUseSelectMask, 1)
 				}
+
+				renderLabelMin, renderLabelMax := pe.cmd.RenderLabelRange()
+				gl.Uniform1ui(uMinLabel, renderLabelMin)
+				gl.Uniform1ui(uMaxLabel, renderLabelMax)
 
 				gl.BindBuffer(gl.ARRAY_BUFFER, posBuf)
 				gl.VertexAttribPointer(aVertexPosition, 3, gl.FLOAT, false, pp.Stride(), 0)
