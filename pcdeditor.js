@@ -169,10 +169,10 @@ class PCDEditor {
             pcdeditor.command(`render_label_range ${min} ${max}`).catch(this.logger)
           }
         }
-        minLabelInput.oninput = (e) => onRenderLabelRangeChange()
-        minLabelInput.onchange = (e) => onRenderLabelRangeChange()
-        maxLabelInput.oninput = (e) => onRenderLabelRangeChange()
-        maxLabelInput.onchange = (e) => onRenderLabelRangeChange()
+        minLabelInput.oninput = () => onRenderLabelRangeChange()
+        minLabelInput.onchange = () => onRenderLabelRangeChange()
+        maxLabelInput.oninput = () => onRenderLabelRangeChange()
+        maxLabelInput.onchange = () => onRenderLabelRangeChange()
         onRenderLabelRangeChange()
 
 
