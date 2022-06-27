@@ -1004,3 +1004,21 @@ func (c *commandContext) SelectLabelSegment(p mat.Vec3) error {
 	c.selectMode = selectModeMask
 	return nil
 }
+
+func (c *commandContext) ReLabelPointsInLabelRange(minLabel, maxLabel, newLabel uint32) error {
+	lt, err := c.editor.pp.Uint32Iterator("label")
+	if err != nil {
+		return err
+	}
+
+	for ; lt.IsValid(); lt.Incr() {
+		l := lt.Uint32()
+		if l == newLabel || l < minLabel || l > maxLabel {
+			continue
+		}
+		lt.SetUint32(newLabel)
+	}
+	c.pointCloudUpdated = true
+
+	return nil
+}
