@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"math"
 
 	"github.com/seqsense/pcgol/mat"
 	"github.com/seqsense/pcgol/pc"
@@ -92,6 +93,8 @@ type commandContext struct {
 	segmentationDistance, segmentationRange float32
 
 	labelSegmentationRange, labelSegmentationSearchDistance float32
+
+	renderLabelMin, renderLabelMax uint32
 }
 
 func newCommandContext(pcdio pcdIO, mapio mapIO) *commandContext {
@@ -128,6 +131,8 @@ func (c *commandContext) Reset() {
 	c.segmentationRange = defaultSegmentationRange
 	c.labelSegmentationRange = defaultLabelSegmentationRange
 	c.labelSegmentationSearchDistance = defaultLabelSegmentationSearchDistance
+	c.renderLabelMin = 1
+	c.renderLabelMax = math.MaxUint32
 }
 
 func (c *commandContext) SelectMask() []uint32 {
@@ -184,6 +189,19 @@ func (c *commandContext) SetSegmentationParam(dist, r float32) error {
 		return errors.New("invalid segmentation param (R/D must be 1-256)")
 	}
 	c.segmentationDistance, c.segmentationRange = dist, r
+	return nil
+}
+
+func (c *commandContext) RenderLabelRange() (uint32, uint32) {
+	return c.renderLabelMin, c.renderLabelMax
+}
+
+func (c *commandContext) SetRenderLabelRange(min, max uint32) error {
+	if min > max {
+		return errors.New("invalid view label range param (max must be >= min)")
+	}
+	c.renderLabelMin = min
+	c.renderLabelMax = max
 	return nil
 }
 

@@ -12,6 +12,8 @@ const vsSource = `#version 300 es
 	uniform float uZRange;
 	uniform float uPointSizeBase;
 	uniform int uUseSelectMask;
+	uniform uint uMinLabel;
+	uniform uint uMaxLabel;
 	vec4 viewPosition;
 	vec4 selectPosition;
 	vec4 cropPosition;
@@ -85,7 +87,7 @@ const vsSource = `#version 300 es
 			}
 		}
 
-		if (aVertexLabel >= 1u) {
+		if (aVertexLabel >= uMinLabel && aVertexLabel <= uMaxLabel) {
 			vColor = label2color(int(aVertexLabel));
 		} else {
 			c = (aVertexPosition[2] - uZMin) / uZRange;

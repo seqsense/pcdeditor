@@ -132,6 +132,8 @@ class PCDEditor {
         const fovIncButton = this.qs('#fovInc')
         const fovDecButton = this.qs('#fovDec')
         const pointSizeInput = this.qs('#pointSize')
+        const minLabelInput = this.qs('#minLabel')
+        const maxLabelInput = this.qs('#maxLabel')
 
         const projectionMode = (target) => {
           if (target.checked) {
@@ -159,6 +161,20 @@ class PCDEditor {
           pcdeditor.command('fov -1').catch(this.logger)
         fovIncButton.onclick = () =>
           pcdeditor.command('fov 1').catch(this.logger)
+
+        const onRenderLabelRangeChange = () => {
+          const min = minLabelInput.value.trim()
+          const max = maxLabelInput.value.trim()
+          if (min.length > 0 && max.length > 0) {
+            pcdeditor.command(`render_label_range ${min} ${max}`).catch(this.logger)
+          }
+        }
+        minLabelInput.oninput = () => onRenderLabelRangeChange()
+        minLabelInput.onchange = () => onRenderLabelRangeChange()
+        maxLabelInput.oninput = () => onRenderLabelRangeChange()
+        maxLabelInput.onchange = () => onRenderLabelRangeChange()
+        onRenderLabelRangeChange()
+
 
         this.qs('#top').onclick = async () => {
           try {
@@ -666,6 +682,31 @@ class PCDEditor {
           <path d="M 30 20 L 50 100 L 70 20 Q 50 0 30 20 z" />
         </svg>
       </button>
+    </div>
+    <hr />
+    <div class="${id('foldMenuElem')}">
+      <label class="${id('inputLabel')}">Render label range</label>
+      <div class="${id('foldMenuElem')}">
+        <label
+          for="${id('minLabel')}"
+          class="${id('inputLabelShort')}"
+        >Min</label>
+        <input id="${id('minLabel')}"
+          type="number" min="1" value="1"
+          style="width: 3em; text-align: center;"
+        />
+      </div>
+      <div class="${id('foldMenuElem')}">
+        <label
+          for="${id('maxLabel')}"
+          class="${id('inputLabelShort')}"
+        >Max</label>
+        <input
+          id="${id('maxLabel')}"
+          type="number" min="1" value="1000"
+          style="width: 3em; text-align: center;"
+        />
+      </div>
     </div>
   </div>
 </span>
