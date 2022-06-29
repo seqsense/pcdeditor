@@ -856,7 +856,7 @@ class PCDEditor {
         <label
           for="${id('unlabelToKeepLabels')}"
           class="${id('inputLabelShort')}"
-        >Labels to keep</label>
+        >To keep</label>
         <input id="${id('unlabelToKeepLabels')}"
           type="text" value=""
           style="width: 3em; text-align: center;"
