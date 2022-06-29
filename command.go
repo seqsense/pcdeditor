@@ -1005,7 +1005,7 @@ func (c *commandContext) SelectLabelSegment(p mat.Vec3) error {
 	return nil
 }
 
-func (c *commandContext) ReLabelPointsInLabelRange(minLabel, maxLabel, newLabel uint32) error {
+func (c *commandContext) RelabelPointsInLabelRange(minLabel, maxLabel, newLabel uint32) error {
 	lt, err := c.editor.pp.Uint32Iterator("label")
 	if err != nil {
 		return err
@@ -1017,6 +1017,36 @@ func (c *commandContext) ReLabelPointsInLabelRange(minLabel, maxLabel, newLabel 
 			continue
 		}
 		lt.SetUint32(newLabel)
+	}
+	c.pointCloudUpdated = true
+
+	return nil
+}
+
+func (c *commandContext) UnlabelPoints(labelsToKeep []uint32) error {
+	if len(labelsToKeep) == 0 {
+		return nil
+	}
+
+	lt, err := c.editor.pp.Uint32Iterator("label")
+	if err != nil {
+		return err
+	}
+
+	isInLabelsToKeep := func(l uint32) bool {
+		for _, kl := range labelsToKeep {
+			if kl == l {
+				return true
+			}
+		}
+		return false
+	}
+
+	for ; lt.IsValid(); lt.Incr() {
+		if isInLabelsToKeep(lt.Uint32()) {
+			continue
+		}
+		lt.SetUint32(0)
 	}
 	c.pointCloudUpdated = true
 
