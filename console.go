@@ -350,6 +350,12 @@ var consoleCommands = map[string]func(c *console, updateSel updateSelectionFn, a
 			return nil, errArgumentNumber
 		}
 	},
+	"relabel": func(c *console, updateSel updateSelectionFn, args []float32) ([][]float32, error) {
+		if len(args) < 3 {
+			return nil, errArgumentNumber
+		}
+		return nil, c.cmd.RelabelPointsInLabelRange(uint32(args[0]), uint32(args[1]), uint32(args[2]))
+	},
 }
 
 func (c *console) Run(line string, updateSel updateSelectionFn) ([][]float32, error) {

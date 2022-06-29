@@ -175,6 +175,16 @@ class PCDEditor {
         maxLabelInput.onchange = () => onRenderLabelRangeChange()
         onRenderLabelRangeChange()
 
+        const relabelMinLabelInput = this.qs('#relabelMinLabel')
+        const relabelMaxLabelInput = this.qs('#relabelMaxLabel')
+        const relabelNewLabelInput = this.qs('#relabelNewLabel')
+
+        this.qs('#relabel').onclick = () => {
+          const minLabel = relabelMinLabelInput.value
+          const maxLabel = relabelMaxLabelInput.value
+          const newLabel = relabelNewLabelInput.value
+          pcdeditor.command(`relabel ${minLabel} ${maxLabel} ${newLabel}`).catch(this.logger)
+        }
 
         this.qs('#top').onclick = async () => {
           try {
@@ -790,6 +800,46 @@ class PCDEditor {
           style="width: 3em; text-align: center;"
         />
         <button id="${id('setLabel')}">Set</button>
+      </div>
+    </div>
+    <hr/>
+    <div class="${id('foldMenuElem')}">
+      <label class="${id('inputLabel')}">Relabel</label>
+      <div class="${id('foldMenuElem')}">
+        <div class="${id('foldMenuElem')}">
+          <label
+            for="${id('relabelMinLabel')}"
+            class="${id('inputLabelShort')}"
+          >Min</label>
+          <input id="${id('relabelMinLabel')}"
+            type="number" min="1" value="1"
+            style="width: 3em; text-align: center;"
+            placeholder="min"
+          />
+        </div>
+        <div class="${id('foldMenuElem')}">
+          <label
+            for="${id('relabelMaxLabel')}"
+            class="${id('inputLabelShort')}"
+          >Max</label>
+          <input id="${id('relabelMaxLabel')}"
+            type="number" min="1" value="1000"
+            style="width: 3em; text-align: center;"
+            placeholder="max"
+          />
+        </div>
+        <div class="${id('foldMenuElem')}">
+          <label
+            for="${id('relabelNewLabel')}"
+            class="${id('inputLabelShort')}"
+          >New</label>
+          <input id="${id('relabelNewLabel')}"
+            type="number" min="0" value="0"
+            style="width: 3em; text-align: center;"
+            placeholder="new"
+          />
+        </div>
+        <button id="${id('relabel')}">Set</button>
       </div>
     </div>
     <hr/>
