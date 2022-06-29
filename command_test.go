@@ -318,7 +318,7 @@ func TestAddSurface(t *testing.T) {
 	})
 }
 
-func TestReLabelPointsInLabelRange(t *testing.T) {
+func TestRelabelPointsInLabelRange(t *testing.T) {
 	header := pc.PointCloudHeader{
 		Fields: []string{"x", "y", "z", "label"},
 		Size:   []int{4, 4, 4, 4},
@@ -382,7 +382,7 @@ func TestReLabelPointsInLabelRange(t *testing.T) {
 			lt.SetUint32(3)
 			lt.Incr()
 
-			if err := c.ReLabelPointsInLabelRange(tt.minLabel, tt.maxLabel, tt.newLabel); err != nil {
+			if err := c.RelabelPointsInLabelRange(tt.minLabel, tt.maxLabel, tt.newLabel); err != nil {
 				t.Fatal(err)
 			}
 
@@ -392,8 +392,89 @@ func TestReLabelPointsInLabelRange(t *testing.T) {
 				labels = append(labels, lt.Uint32())
 			}
 			if !reflect.DeepEqual(tt.expectedLabels, labels) {
-				t.Errorf("Expected rect: %v, got: %v", tt.expectedLabels, labels)
+				t.Errorf("Expected labels: %v, got: %v", tt.expectedLabels, labels)
 			}
 		})
 	}
+}
+
+func TestUnlabelPoints(t *testing.T) {
+	header := pc.PointCloudHeader{
+		Fields: []string{"x", "y", "z", "label"},
+		Size:   []int{4, 4, 4, 4},
+		Type:   []string{"F", "F", "F", "U"},
+		Count:  []int{1, 1, 1, 1},
+		Width:  4,
+		Height: 1,
+	}
+	pp := &pc.PointCloud{
+		PointCloudHeader: header,
+		Points:           4,
+		Data:             make([]byte, 4*4*4),
+	}
+	it, err := pp.Vec3Iterator()
+	if err != nil {
+		t.Fatal(err)
+	}
+	it.SetVec3(mat.Vec3{1, 2, 3})
+	it.Incr()
+	it.SetVec3(mat.Vec3{4, 5, 6})
+	it.Incr()
+	it.SetVec3(mat.Vec3{7, 8, 9})
+	it.Incr()
+	it.SetVec3(mat.Vec3{10, 11, 12})
+
+	c := newCommandContext(&dummyPCDIO{}, nil)
+	c.SetPointCloud(pp, cloudMain)
+
+	testCases := map[string]struct {
+		labelsToKeep   []uint32
+		expectedLabels []uint32
+	}{
+		"NoChangeEmptyList": {
+			labelsToKeep:   []uint32{},
+			expectedLabels: []uint32{0, 1, 2, 3},
+		},
+		"NoChange": {
+			labelsToKeep:   []uint32{0, 1, 2, 3},
+			expectedLabels: []uint32{0, 1, 2, 3},
+		},
+		"Unlabel1&2": {
+			labelsToKeep:   []uint32{0, 3},
+			expectedLabels: []uint32{0, 0, 0, 3},
+		},
+	}
+
+	for name, tt := range testCases {
+		tt := tt
+		t.Run(name, func(t *testing.T) {
+			// reset labels
+			lt, err := pp.Uint32Iterator("label")
+			if err != nil {
+				t.Fatal(err)
+			}
+			lt.SetUint32(0)
+			lt.Incr()
+			lt.SetUint32(1)
+			lt.Incr()
+			lt.SetUint32(2)
+			lt.Incr()
+			lt.SetUint32(3)
+			lt.Incr()
+
+			if err := c.UnlabelPoints(tt.labelsToKeep); err != nil {
+				t.Fatal(err)
+			}
+
+			lt, err = pp.Uint32Iterator("label")
+			var labels []uint32
+			for ; lt.IsValid(); lt.Incr() {
+				labels = append(labels, lt.Uint32())
+			}
+			if !reflect.DeepEqual(tt.expectedLabels, labels) {
+				t.Errorf("Expected labels: %v, got: %v", tt.expectedLabels, labels)
+			}
+		})
+	}
+
 }
