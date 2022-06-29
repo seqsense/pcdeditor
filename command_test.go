@@ -344,8 +344,20 @@ func TestRelabelPointsInLabelRange(t *testing.T) {
 	it.Incr()
 	it.SetVec3(mat.Vec3{10, 11, 12})
 
+	lt, err := pp.Uint32Iterator("label")
+	if err != nil {
+		t.Fatal(err)
+	}
+	lt.SetUint32(0)
+	lt.Incr()
+	lt.SetUint32(1)
+	lt.Incr()
+	lt.SetUint32(2)
+	lt.Incr()
+	lt.SetUint32(3)
+	lt.Incr()
+
 	c := newCommandContext(&dummyPCDIO{}, nil)
-	c.SetPointCloud(pp, cloudMain)
 
 	testCases := map[string]struct {
 		minLabel, maxLabel, newLabel uint32
@@ -368,25 +380,13 @@ func TestRelabelPointsInLabelRange(t *testing.T) {
 	for name, tt := range testCases {
 		tt := tt
 		t.Run(name, func(t *testing.T) {
-			// reset labels
-			lt, err := pp.Uint32Iterator("label")
-			if err != nil {
-				t.Fatal(err)
-			}
-			lt.SetUint32(0)
-			lt.Incr()
-			lt.SetUint32(1)
-			lt.Incr()
-			lt.SetUint32(2)
-			lt.Incr()
-			lt.SetUint32(3)
-			lt.Incr()
+			c.SetPointCloud(pp, cloudMain)
 
 			if err := c.RelabelPointsInLabelRange(tt.minLabel, tt.maxLabel, tt.newLabel); err != nil {
 				t.Fatal(err)
 			}
 
-			lt, err = pp.Uint32Iterator("label")
+			lt, err = c.editor.pp.Uint32Iterator("label")
 			var labels []uint32
 			for ; lt.IsValid(); lt.Incr() {
 				labels = append(labels, lt.Uint32())
@@ -424,6 +424,19 @@ func TestUnlabelPoints(t *testing.T) {
 	it.Incr()
 	it.SetVec3(mat.Vec3{10, 11, 12})
 
+	lt, err := pp.Uint32Iterator("label")
+	if err != nil {
+		t.Fatal(err)
+	}
+	lt.SetUint32(0)
+	lt.Incr()
+	lt.SetUint32(1)
+	lt.Incr()
+	lt.SetUint32(2)
+	lt.Incr()
+	lt.SetUint32(3)
+	lt.Incr()
+
 	c := newCommandContext(&dummyPCDIO{}, nil)
 	c.SetPointCloud(pp, cloudMain)
 
@@ -448,25 +461,13 @@ func TestUnlabelPoints(t *testing.T) {
 	for name, tt := range testCases {
 		tt := tt
 		t.Run(name, func(t *testing.T) {
-			// reset labels
-			lt, err := pp.Uint32Iterator("label")
-			if err != nil {
-				t.Fatal(err)
-			}
-			lt.SetUint32(0)
-			lt.Incr()
-			lt.SetUint32(1)
-			lt.Incr()
-			lt.SetUint32(2)
-			lt.Incr()
-			lt.SetUint32(3)
-			lt.Incr()
+			c.SetPointCloud(pp, cloudMain)
 
 			if err := c.UnlabelPoints(tt.labelsToKeep); err != nil {
 				t.Fatal(err)
 			}
 
-			lt, err = pp.Uint32Iterator("label")
+			lt, err = c.editor.pp.Uint32Iterator("label")
 			var labels []uint32
 			for ; lt.IsValid(); lt.Incr() {
 				labels = append(labels, lt.Uint32())
@@ -476,5 +477,4 @@ func TestUnlabelPoints(t *testing.T) {
 			}
 		})
 	}
-
 }
