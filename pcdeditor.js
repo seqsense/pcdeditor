@@ -186,6 +186,13 @@ class PCDEditor {
           pcdeditor.command(`relabel ${minLabel} ${maxLabel} ${newLabel}`).catch(this.logger)
         }
 
+        const unlabelToKeepLabelsInput = this.qs('#unlabelToKeepLabels')
+
+        this.qs('#unlabel').onclick = () => {
+          const toKeepLabels = unlabelToKeepLabelsInput.value.replaceAll(',', ' ');
+          pcdeditor.command(`unlabel ${toKeepLabels}`).catch(this.logger)
+        }
+
         this.qs('#top').onclick = async () => {
           try {
             await pcdeditor.command('snap_yaw')
@@ -839,8 +846,24 @@ class PCDEditor {
             placeholder="new"
           />
         </div>
-        <button id="${id('relabel')}">Set</button>
+        <button id="${id('relabel')}">Apply</button>
       </div>
+    </div>
+    <hr/>
+    <div class="${id('foldMenuElem')}">
+      <label class="${id('inputLabel')}">Unlabel</label>
+      <div class="${id('foldMenuElem')}">
+        <label
+          for="${id('unlabelToKeepLabels')}"
+          class="${id('inputLabelShort')}"
+        >Labels to keep</label>
+        <input id="${id('unlabelToKeepLabels')}"
+          type="text" value=""
+          style="width: 3em; text-align: center;"
+          placeholder="0,1"
+        />
+      </div>
+      <button id="${id('unlabel')}">Apply</button>
     </div>
     <hr/>
     <div class="${id('foldMenuElem')}">

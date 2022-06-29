@@ -356,6 +356,13 @@ var consoleCommands = map[string]func(c *console, updateSel updateSelectionFn, a
 		}
 		return nil, c.cmd.RelabelPointsInLabelRange(uint32(args[0]), uint32(args[1]), uint32(args[2]))
 	},
+	"unlabel": func(c *console, updateSel updateSelectionFn, args []float32) ([][]float32, error) {
+		var labelsToKeep []uint32
+		for _, v := range args {
+			labelsToKeep = append(labelsToKeep, uint32(v))
+		}
+		return nil, c.cmd.UnlabelPoints(labelsToKeep)
+	},
 }
 
 func (c *console) Run(line string, updateSel updateSelectionFn) ([][]float32, error) {
