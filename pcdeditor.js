@@ -175,24 +175,6 @@ class PCDEditor {
         maxLabelInput.onchange = () => onRenderLabelRangeChange()
         onRenderLabelRangeChange()
 
-        const relabelMinLabelInput = this.qs('#relabelMinLabel')
-        const relabelMaxLabelInput = this.qs('#relabelMaxLabel')
-        const relabelNewLabelInput = this.qs('#relabelNewLabel')
-
-        this.qs('#relabel').onclick = () => {
-          const minLabel = relabelMinLabelInput.value
-          const maxLabel = relabelMaxLabelInput.value
-          const newLabel = relabelNewLabelInput.value
-          pcdeditor.command(`relabel ${minLabel} ${maxLabel} ${newLabel}`).catch(this.logger)
-        }
-
-        const unlabelToKeepLabelsInput = this.qs('#unlabelToKeepLabels')
-
-        this.qs('#unlabel').onclick = () => {
-          const toKeepLabels = unlabelToKeepLabelsInput.value.replaceAll(',', ' ');
-          pcdeditor.command(`unlabel ${toKeepLabels}`).catch(this.logger)
-        }
-
         this.qs('#top').onclick = async () => {
           try {
             await pcdeditor.command('snap_yaw')
@@ -810,78 +792,6 @@ class PCDEditor {
       </div>
     </div>
     <hr/>
-    <div class="${id('foldMenuElem')}">
-      <label class="${id('inputLabel')}">Relabel</label>
-      <div class="${id('foldMenuElem')}">
-        <div class="${id('foldMenuElem')}">
-          <label
-            for="${id('relabelMinLabel')}"
-            class="${id('inputLabelShort')}"
-          >Min</label>
-          <input id="${id('relabelMinLabel')}"
-            type="number" min="1" value="1"
-            style="width: 3em; text-align: center;"
-            placeholder="min"
-          />
-        </div>
-        <div class="${id('foldMenuElem')}">
-          <label
-            for="${id('relabelMaxLabel')}"
-            class="${id('inputLabelShort')}"
-          >Max</label>
-          <input id="${id('relabelMaxLabel')}"
-            type="number" min="1" value="1000"
-            style="width: 3em; text-align: center;"
-            placeholder="max"
-          />
-        </div>
-        <div class="${id('foldMenuElem')}">
-          <label
-            for="${id('relabelNewLabel')}"
-            class="${id('inputLabelShort')}"
-          >New</label>
-          <input id="${id('relabelNewLabel')}"
-            type="number" min="0" value="0"
-            style="width: 3em; text-align: center;"
-            placeholder="new"
-          />
-        </div>
-        <button id="${id('relabel')}">Apply</button>
-      </div>
-    </div>
-    <hr/>
-    <div class="${id('foldMenuElem')}">
-      <label class="${id('inputLabel')}">Unlabel</label>
-      <div class="${id('foldMenuElem')}">
-        <label
-          for="${id('unlabelToKeepLabels')}"
-          class="${id('inputLabelShort')}"
-        >To keep</label>
-        <input id="${id('unlabelToKeepLabels')}"
-          type="text" value=""
-          style="width: 3em; text-align: center;"
-          placeholder="0,1"
-        />
-      </div>
-      <button id="${id('unlabel')}">Apply</button>
-    </div>
-    <hr/>
-    <div class="${id('foldMenuElem')}">
-      <button id="${id('delete')}">Delete</button>
-    </div>
-    <hr/>
-    <div class="${id('foldMenuElem')}">
-      <label
-        class="${id('inputLabelShort')}"
-      >Insert pcd</label>
-      <input
-        id="${id('insertSubPcdFile')}"
-        type="file"
-        accept=".pcd"
-        style="display: none;"
-      />
-      <button id="${id('insertSubPcd')}">Select file</button>
-    </div>
     <div class="${id('foldMenuElem')}">
       <label class="${id('inputLabel')}">Clipboard</label>
       <button id="${id('clipboardCopy')}">Copy</button>
