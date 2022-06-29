@@ -186,6 +186,80 @@ func (e *editor) passThroughByMask(sel []uint32, mask, val uint32) error {
 	return nil
 }
 
+func (e *editor) relabelPointsInLabelRange(minLabel, maxLabel, newLabel uint32) error {
+	_, err := e.pp.Uint32Iterator("label")
+	if err != nil {
+		return err
+	}
+
+	pcNew := &pc.PointCloud{
+		PointCloudHeader: e.pp.PointCloudHeader.Clone(),
+		Data:             make([]byte, len(e.pp.Data)),
+		Points:           e.pp.Points,
+	}
+	copy(pcNew.Data, e.pp.Data)
+	pcNew.Width = e.pp.Width
+	pcNew.Height = e.pp.Height
+
+	lt, err := pcNew.Uint32Iterator("label")
+	if err != nil {
+		return err
+	}
+
+	for ; lt.IsValid(); lt.Incr() {
+		l := lt.Uint32()
+		if l == newLabel || l < minLabel || l > maxLabel {
+			continue
+		}
+		lt.SetUint32(newLabel)
+	}
+
+	e.pp = e.push(pcNew)
+	runtime.GC()
+	return nil
+}
+
+func (e *editor) unlabelPoints(labelsToKeep []uint32) error {
+	_, err := e.pp.Uint32Iterator("label")
+	if err != nil {
+		return err
+	}
+
+	pcNew := &pc.PointCloud{
+		PointCloudHeader: e.pp.PointCloudHeader.Clone(),
+		Data:             make([]byte, len(e.pp.Data)),
+		Points:           e.pp.Points,
+	}
+	copy(pcNew.Data, e.pp.Data)
+	pcNew.Width = e.pp.Width
+	pcNew.Height = e.pp.Height
+
+	lt, err := pcNew.Uint32Iterator("label")
+	if err != nil {
+		return err
+	}
+
+	isInLabelsToKeep := func(l uint32) bool {
+		for _, kl := range labelsToKeep {
+			if kl == l {
+				return true
+			}
+		}
+		return false
+	}
+
+	for ; lt.IsValid(); lt.Incr() {
+		if isInLabelsToKeep(lt.Uint32()) {
+			continue
+		}
+		lt.SetUint32(0)
+	}
+
+	e.pp = e.push(pcNew)
+	runtime.GC()
+	return nil
+}
+
 func passThrough(pp *pc.PointCloud, fn func(int, mat.Vec3) bool) (*pc.PointCloud, error) {
 	it, err := pp.Vec3Iterator()
 	if err != nil {

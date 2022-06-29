@@ -1004,3 +1004,27 @@ func (c *commandContext) SelectLabelSegment(p mat.Vec3) error {
 	c.selectMode = selectModeMask
 	return nil
 }
+
+func (c *commandContext) RelabelPointsInLabelRange(minLabel, maxLabel, newLabel uint32) error {
+	err := c.editor.relabelPointsInLabelRange(minLabel, maxLabel, newLabel)
+	if err != nil {
+		return err
+	}
+
+	c.pointCloudUpdated = true
+	return nil
+}
+
+func (c *commandContext) UnlabelPoints(labelsToKeep []uint32) error {
+	if len(labelsToKeep) == 0 {
+		return nil
+	}
+
+	err := c.editor.unlabelPoints(labelsToKeep)
+	if err != nil {
+		return err
+	}
+
+	c.pointCloudUpdated = true
+	return nil
+}

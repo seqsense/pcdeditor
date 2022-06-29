@@ -175,7 +175,6 @@ class PCDEditor {
         maxLabelInput.onchange = () => onRenderLabelRangeChange()
         onRenderLabelRangeChange()
 
-
         this.qs('#top').onclick = async () => {
           try {
             await pcdeditor.command('snap_yaw')
@@ -793,22 +792,6 @@ class PCDEditor {
       </div>
     </div>
     <hr/>
-    <div class="${id('foldMenuElem')}">
-      <button id="${id('delete')}">Delete</button>
-    </div>
-    <hr/>
-    <div class="${id('foldMenuElem')}">
-      <label
-        class="${id('inputLabelShort')}"
-      >Insert pcd</label>
-      <input
-        id="${id('insertSubPcdFile')}"
-        type="file"
-        accept=".pcd"
-        style="display: none;"
-      />
-      <button id="${id('insertSubPcd')}">Select file</button>
-    </div>
     <div class="${id('foldMenuElem')}">
       <label class="${id('inputLabel')}">Clipboard</label>
       <button id="${id('clipboardCopy')}">Copy</button>
