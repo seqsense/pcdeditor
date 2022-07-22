@@ -1,6 +1,6 @@
 module github.com/seqsense/pcdeditor
 
-go 1.16
+go 1.18
 
 require (
 	github.com/seqsense/pcgol v0.0.0-20220704030819-d04b5ec34226
