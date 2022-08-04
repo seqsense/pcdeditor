@@ -808,6 +808,7 @@ class PCDEditor {
       />
       <button id="${id('insertSubPcd')}">Select file</button>
     </div>
+    <hr/>
     <div class="${id('foldMenuElem')}">
       <label class="${id('inputLabel')}">Clipboard</label>
       <button id="${id('clipboardCopy')}">Copy</button>
