@@ -25,11 +25,12 @@
     },
     {
       "matchPackagePatterns": [
+        "^@typescript-eslint/",
         "^eslint$",
         "^eslint-plugin-react$",
-        "^@typescript-eslint/"
+        "^prettier$"
       ],
-      "groupName": "eslint and plugins"
+      "groupName": "formatter and linter"
     }
   ],
   "timezone": "Asia/Tokyo"
