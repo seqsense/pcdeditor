@@ -31,7 +31,7 @@
         "^eslint-plugin-react$",
         "^prettier$"
       ],
-      "groupName": "formatter and linter"
+      "groupName": "js formatter and linter"
     }
   ],
   "timezone": "Asia/Tokyo"
