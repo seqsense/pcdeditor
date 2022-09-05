@@ -1,4 +1,5 @@
 {
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "config:base",
     "schedule:weekends"
@@ -22,6 +23,15 @@
       "schedule": [
         "on the first day of the month"
       ]
+    },
+    {
+      "matchPackagePatterns": [
+        "^@typescript-eslint/",
+        "^eslint$",
+        "^eslint-plugin-react$",
+        "^prettier$"
+      ],
+      "groupName": "js formatter and linter"
     }
   ],
   "timezone": "Asia/Tokyo"
