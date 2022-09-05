@@ -22,6 +22,14 @@
       "schedule": [
         "on the first day of the month"
       ]
+    },
+    {
+      "matchPackagePatterns": [
+        "^eslint$",
+        "^eslint-plugin-react$",
+        "^@typescript-eslint/"
+      ],
+      "groupName": "eslint and plugins"
     }
   ],
   "timezone": "Asia/Tokyo"
