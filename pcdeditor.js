@@ -344,14 +344,14 @@ class PCDEditor {
           setupControls(this.pcdeditor)
           resolve()
         }
-        const go = new global.Go()
+        const go = new globalThis.Go()
         const { instance } = await WebAssembly.instantiateStreaming(
           fetch(this.opts.wasmPath, { cache: 'no-cache' }),
           go.importObject,
         )
         go.run(instance)
       }
-      if (typeof global === 'undefined' || typeof global.Go === 'undefined') {
+      if (typeof globalThis === 'undefined' || typeof globalThis.Go === 'undefined') {
         const script = document.createElement('script')
         script.onload = loadWasm
         script.src = this.opts.wasmExecPath
@@ -417,7 +417,7 @@ class PCDEditor {
           return resp.blob()
         })
         .then((yamlBlob) => {
-          const img = new global.Image()
+          const img = new globalThis.Image()
           img.onload = async () => {
             await this.pcdeditor.import2D(yamlBlob, img)
             resolve()
