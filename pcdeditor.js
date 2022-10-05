@@ -349,8 +349,7 @@ class PCDEditor {
           go = new globalThis.Go()
         } else if (typeof global !== 'undefined' && typeof global.Go !== 'undefined') {
           go = new global.Go()
-        }
-        else {
+        } else {
           this.logger("'Go' could not be defined from neither globalThis nor global")
           return
         }
