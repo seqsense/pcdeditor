@@ -360,7 +360,7 @@ class PCDEditor {
         go.run(instance)
       }
       if ((typeof globalThis === 'undefined' || typeof globalThis.Go === 'undefined') &&
-          (typeof global === 'undefined' || typeof global.Go === 'undefined') {
+          (typeof global === 'undefined' || typeof global.Go === 'undefined')) {
         const script = document.createElement('script')
         script.onload = loadWasm
         script.src = this.opts.wasmExecPath
