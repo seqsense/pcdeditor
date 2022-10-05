@@ -426,7 +426,7 @@ class PCDEditor {
           return resp.blob()
         })
         .then((yamlBlob) => {
-          const img = new globalThis.Image()
+          const img = new Image()
           img.onload = async () => {
             await this.pcdeditor.import2D(yamlBlob, img)
             resolve()
