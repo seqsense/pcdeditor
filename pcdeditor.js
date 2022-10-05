@@ -344,7 +344,16 @@ class PCDEditor {
           setupControls(this.pcdeditor)
           resolve()
         }
-        const go = new globalThis.Go()
+        let go
+        if (typeof globalThis !== 'undefined' && typeof globalThis.Go !== 'undefined') {
+          go = new globalThis.Go()
+        } else if (typeof global !== 'undefined' && typeof global.Go !== 'undefined') {
+          go = new global.Go()
+        }
+        else {
+          this.logger("'Go' could not be defined from neither globalThis nor global")
+          return
+        }
         const { instance } = await WebAssembly.instantiateStreaming(
           fetch(this.opts.wasmPath, { cache: 'no-cache' }),
           go.importObject,
