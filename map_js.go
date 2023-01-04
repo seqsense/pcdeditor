@@ -3,7 +3,7 @@ package main
 import (
 	"syscall/js"
 
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 
 	"github.com/seqsense/pcdeditor/blob"
 )
