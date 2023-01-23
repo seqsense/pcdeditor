@@ -124,9 +124,9 @@ segmentation\_param `D` `R`   | セグメンテーション時の分離距離を
 fit\_inserting `AXIS`...      | 貼り付け中の点群を既存の点群に位置合わせ [\*2](#footnoteKey2) (位置合わせを行う軸 `AXIS` をスペース区切りで複数指定 [\*3](#footnoteKey3))
 label_segmentation\_param         | ラベルを元にしてのセグメンテーション時の範囲と隣接する点群の最大距離を表示 [\*1](#footnoteKey1)
 label_segmentation\_param `D` `R` | ラベルを元にしてのセグメンテーション時の隣接する点群の最大距離を `D` \[メートル\]、範囲を `R` \[メートル\]に設定
-render_label_range\_param `Min` `Max` | `Min` - `Max`の範囲内のラベルのみに色をつけて表示
-relabel\_param `Min` `Max` `New` | `Min` - `Max`の範囲内のラベルを`New`値に設定
-unlabel\_param `label1` `label2` `...` | `label1, label2, ...`以外のラベルを`0`に設定
+render_label_range `Min` `Max` | `Min` - `Max`の範囲内のラベルのみに色をつけて表示
+relabel `Min` `Max` `New` | `Min` - `Max`の範囲内のラベルを`New`値に設定
+unlabel `label1` `label2` `...` | `label1, label2, ...`以外のラベルを`0`に設定
 
 <dl>
   <dt><a id="footnoteKey1">[1] 数値の表示</a></dt><dd>
