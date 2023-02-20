@@ -17,14 +17,6 @@
       ]
     },
     {
-      "packagePatterns": [
-        "^golang.org/x/"
-      ],
-      "schedule": [
-        "on the first day of the month"
-      ]
-    },
-    {
       "matchPackagePatterns": [
         "^@typescript-eslint/",
         "^eslint$",
