@@ -22,7 +22,7 @@ jobs:
           go-version: '1.18'
       - uses: actions/setup-node@v3
         with:
-          node-version: '12.x'
+          node-version-file: .node-version
           registry-url: 'https://npm.pkg.github.com'
           scope: '@seqsense'
 
