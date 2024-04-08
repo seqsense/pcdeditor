@@ -20,11 +20,14 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.18'
+      - name: Enable pnpm
+        run: corepack enable pnpm
       - uses: actions/setup-node@v4
         with:
           node-version-file: .node-version
           registry-url: 'https://npm.pkg.github.com'
           scope: '@seqsense'
+          cache: pnpm
 
       - name: Run go vet
         run: GOOS=js GOARCH=wasm go vet ./...
@@ -38,15 +41,10 @@ jobs:
           file: ./cover.out
           token: ${{ secrets.CODECOV_TOKEN }}
 
-      - uses: actions/cache@v4
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: ${{ runner.os }}-node-
       - name: Install
-        run: npm install
+        run: pnpm install
       - name: Type check
-        run: npm run typecheck
+        run: pnpm typecheck
       - name: Set PACKAGE_VERSION
         run: |
           if [ -z "${PACKAGE_VERSION}" ]; then
@@ -57,10 +55,10 @@ jobs:
           PACKAGE_VERSION: ${{ github.event.release.tag_name }}
       - name: Pack
         run: |
-          npm version ${PACKAGE_VERSION} --no-git-tag-version --allow-same-version
+          pnpm version ${PACKAGE_VERSION} --no-git-tag-version --allow-same-version
           make pack
       - name: Publish
         if: github.event_name == 'release'
-        run: npm publish seqsense-pcdeditor-${PACKAGE_VERSION}.tgz
+        run: pnpm publish seqsense-pcdeditor-${PACKAGE_VERSION}.tgz
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
