@@ -53,5 +53,6 @@
     "prettier": "3.2.5",
     "react": "18.2.0",
     "typescript": "5.4.4"
-  }
+  },
+  "packageManager": "pnpm@8.15.6"
 }

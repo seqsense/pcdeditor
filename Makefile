@@ -13,7 +13,7 @@ pcdeditor.esm.js: pcdeditor.js
 	sed 's/module\.exports = /export default /' $< > $@
 
 ReactPCDEditor/index.js: ReactPCDEditor/index.tsx package.json tsconfig.json
-	npm run-script tsc
+	pnpm tsc
 
 pcdeditor.wasm: *.go go.*
 	GOOS=js GOARCH=wasm go build \
@@ -27,12 +27,12 @@ target-files: $(TARGET_FILES)
 
 .PHONY: pack
 pack: target-files
-	npm pack
+	pnpm pack
 
 .PHONY: version
 version-$(VERSION):
-	npm version $(VERSION) --allow-same-version --no-git-tag-version
+	pnpm version $(VERSION) --allow-same-version --no-git-tag-version
 
 .PHONY: publish
 publish-$(VERSION):
-	npm publish seqsense-pcdeditor-$(VERSION).tgz
+	pnpm publish seqsense-pcdeditor-$(VERSION).tgz
