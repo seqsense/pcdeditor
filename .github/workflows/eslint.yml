@@ -16,6 +16,8 @@ jobs:
         with:
           node-version-file: .node-version
           cache: pnpm
+      - name: Install
+        run: pnpm install
       - name: eslint
         uses: reviewdog/action-eslint@v1
         with:
