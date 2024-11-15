@@ -36,7 +36,7 @@ jobs:
       - name: Build WASM
         run: make pcdeditor.wasm
 
-      - uses: codecov/codecov-action@v4
+      - uses: codecov/codecov-action@v5
         with:
           file: ./cover.out
           token: ${{ secrets.CODECOV_TOKEN }}
