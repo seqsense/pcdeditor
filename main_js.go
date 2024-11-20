@@ -539,6 +539,7 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 
 	pe.logPrint("WebGL context initialized")
 
+L_MAIN:
 	for {
 		scale := float32(devicePixelRatioJS.Float())
 		scaled := func(v int) int {
@@ -921,382 +922,388 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 		forceReload = false
 
 		// Handle inputs
-		select {
-		case promise := <-pe.chImportPCD:
-			pe.logPrint("importing pcd")
-			if err := pe.cmd.ImportPCD(promise.data); err != nil {
-				promise.rejected(err)
-				break
-			}
-			pe.logPrint("pcd loaded")
-			promise.resolved("loaded")
-		case promise := <-pe.chImportSubPCD:
-			pe.logPrint("importing sub pcd")
-			if err := pe.cmd.ImportSubPCD(promise.data); err != nil {
-				promise.rejected(err)
-				break
-			}
-			pe.logPrint("sub pcd loaded")
-			promise.resolved("loaded")
-		case promise := <-pe.chImport2D:
-			pe.logPrint("loading 2D map")
-			data := promise.data.([2]js.Value)
-			if err := pe.cmd.Import2D(data[0], data[1]); err != nil {
-				promise.rejected(err)
-				break
-			}
-			pe.logPrint("2D map loaded")
-			promise.resolved("loaded")
-		case promise := <-pe.chExportPCD:
-			pe.logPrint("exporting pcd")
-			blob, err := pe.cmd.ExportPCD()
-			if err != nil {
-				promise.rejected(err)
-				break
-			}
-			pe.logPrint("pcd exported")
-			promise.resolved(blob)
-		case promise := <-pe.chExportSelectedPCD:
-			pe.logPrint("exporting selected points as pcd")
-			if !scanSelection(0, 0) {
-				promise.rejected(errors.New("failed to scan selected points"))
-			}
-			blob, err := pe.cmd.ExportSelectedPCD()
-			if err != nil {
-				promise.rejected(err)
-				break
-			}
-			pe.logPrint("pcd exported")
-			promise.resolved(blob)
-		case promise := <-pe.chReset:
-			pe.cmd.Reset()
-			promise.resolved("resetted")
-		case promise := <-pe.chCommand:
-			res, err := pe.cs.Run(promise.data.(string), func() error {
-				if scanSelection(0, 0) {
-					return nil
-				}
-				return errors.New("failed to scan selected points")
-			})
-			if err != nil {
-				promise.rejected(err)
-				break
-			}
-			promise.resolved(res)
-		case promise := <-pe.ch2D:
-			show2D = promise.data.(bool)
-			promise.resolved("changed")
-		case e := <-pe.chWheel:
-			var ok bool
-			e.DeltaY, ok = wheelNormalizer.Normalize(e.DeltaY)
-			if !ok {
-				break
-			}
-			switch {
-			case e.CtrlKey:
-				rate := 0.01
-				if e.ShiftKey {
-					rate = 0.1
-				}
-				if len(pe.cmd.Cursors()) < 4 {
-					pe.cmd.SetSelectRange(
-						rangeTypeAuto,
-						pe.cmd.SelectRange(rangeTypeAuto)+float32(e.DeltaY*rate),
-					)
+	L_INPUT:
+		for {
+			select {
+			case promise := <-pe.chImportPCD:
+				pe.logPrint("importing pcd")
+				if err := pe.cmd.ImportPCD(promise.data); err != nil {
+					promise.rejected(err)
 					break
 				}
-				r := 1.0 + float32(e.DeltaY*rate)
-				m, _ := pe.cmd.SelectMatrix()
-				pe.cmd.TransformCursors(
-					m.InvAffine().
-						MulAffine(mat.Translate(0, 0, 0.5)).
-						MulAffine(mat.Scale(1, 1, r)).
-						MulAffine(mat.Translate(0, 0, -0.5)).
-						MulAffine(m),
-				)
-			case e.ShiftKey:
-				rect, _ := pe.cmd.Rect()
-				if len(rect) > 0 {
-					var c mat.Vec3
-					for _, p := range rect {
-						c = c.Add(p)
+				pe.logPrint("pcd loaded")
+				promise.resolved("loaded")
+			case promise := <-pe.chImportSubPCD:
+				pe.logPrint("importing sub pcd")
+				if err := pe.cmd.ImportSubPCD(promise.data); err != nil {
+					promise.rejected(err)
+					break
+				}
+				pe.logPrint("sub pcd loaded")
+				promise.resolved("loaded")
+			case promise := <-pe.chImport2D:
+				pe.logPrint("loading 2D map")
+				data := promise.data.([2]js.Value)
+				if err := pe.cmd.Import2D(data[0], data[1]); err != nil {
+					promise.rejected(err)
+					break
+				}
+				pe.logPrint("2D map loaded")
+				promise.resolved("loaded")
+			case promise := <-pe.chExportPCD:
+				pe.logPrint("exporting pcd")
+				blob, err := pe.cmd.ExportPCD()
+				if err != nil {
+					promise.rejected(err)
+					break
+				}
+				pe.logPrint("pcd exported")
+				promise.resolved(blob)
+			case promise := <-pe.chExportSelectedPCD:
+				pe.logPrint("exporting selected points as pcd")
+				if !scanSelection(0, 0) {
+					promise.rejected(errors.New("failed to scan selected points"))
+				}
+				blob, err := pe.cmd.ExportSelectedPCD()
+				if err != nil {
+					promise.rejected(err)
+					break
+				}
+				pe.logPrint("pcd exported")
+				promise.resolved(blob)
+			case promise := <-pe.chReset:
+				pe.cmd.Reset()
+				promise.resolved("resetted")
+			case promise := <-pe.chCommand:
+				res, err := pe.cs.Run(promise.data.(string), func() error {
+					if scanSelection(0, 0) {
+						return nil
 					}
-					c = c.Mul(1.0 / float32(len(rect)))
-					r := 1.0 + float32(e.DeltaY)*0.01
+					return errors.New("failed to scan selected points")
+				})
+				if err != nil {
+					promise.rejected(err)
+					break
+				}
+				promise.resolved(res)
+			case promise := <-pe.ch2D:
+				show2D = promise.data.(bool)
+				promise.resolved("changed")
+			case e := <-pe.chWheel:
+				var ok bool
+				e.DeltaY, ok = wheelNormalizer.Normalize(e.DeltaY)
+				if !ok {
+					break
+				}
+				switch {
+				case e.CtrlKey:
+					rate := 0.01
+					if e.ShiftKey {
+						rate = 0.1
+					}
+					if len(pe.cmd.Cursors()) < 4 {
+						pe.cmd.SetSelectRange(
+							rangeTypeAuto,
+							pe.cmd.SelectRange(rangeTypeAuto)+float32(e.DeltaY*rate),
+						)
+						break
+					}
+					r := 1.0 + float32(e.DeltaY*rate)
+					m, _ := pe.cmd.SelectMatrix()
 					pe.cmd.TransformCursors(
-						mat.Translate(c[0], c[1], c[2]).
-							MulAffine(mat.Scale(r, r, r)).
-							MulAffine(mat.Translate(-c[0], -c[1], -c[2])),
+						m.InvAffine().
+							MulAffine(mat.Translate(0, 0, 0.5)).
+							MulAffine(mat.Scale(1, 1, r)).
+							MulAffine(mat.Translate(0, 0, -0.5)).
+							MulAffine(m),
 					)
-				}
-			default:
-				pe.vi.wheel(&e)
-			}
-		case e := <-pe.chMouseDown:
-			gl.Canvas.Focus()
-			if e.Button == 0 {
-				pe.cg.DragStart()
-				if p, ok := cursorOnSelect(e); ok {
-					pe.cmd.PushCursors()
-					moveStart = selectPointOrtho(
-						&modelViewMatrix, &projectionMatrix,
-						scaled(e.OffsetX), scaled(e.OffsetY), width, height, p,
-					)
-					continue
-				}
-			}
-			moveStart = nil
-			pe.vi.mouseDragStart(&e)
-		case e := <-pe.chMouseUp:
-			if e.Button == 0 {
-				pe.cg.DragEnd()
-			}
-			if moveStart != nil {
-				pe.cmd.PopCursors()
-				moveEnd := selectPointOrtho(
-					&modelViewMatrix, &projectionMatrix,
-					scaled(e.OffsetX), scaled(e.OffsetY), width, height, moveStart,
-				)
-				var trans mat.Mat4
-				switch {
 				case e.ShiftKey:
 					rect, _ := pe.cmd.Rect()
-					trans = dragRotation(*moveStart, *moveEnd, rect, &modelViewMatrix)
+					if len(rect) > 0 {
+						var c mat.Vec3
+						for _, p := range rect {
+							c = c.Add(p)
+						}
+						c = c.Mul(1.0 / float32(len(rect)))
+						r := 1.0 + float32(e.DeltaY)*0.01
+						pe.cmd.TransformCursors(
+							mat.Translate(c[0], c[1], c[2]).
+								MulAffine(mat.Scale(r, r, r)).
+								MulAffine(mat.Translate(-c[0], -c[1], -c[2])),
+						)
+					}
 				default:
-					trans = dragTranslation(*moveStart, *moveEnd)
+					pe.vi.wheel(&e)
 				}
-				pe.cmd.TransformCursors(trans)
-				moveStart = nil
-				continue
-			}
-			pe.vi.mouseDragEnd(&e)
-		case e := <-pe.chMouseDrag:
-			pe.cg.Move()
-			if e.Button == 0 && moveStart != nil {
-				pe.cmd.PopCursors()
-				pe.cmd.PushCursors()
-
-				if e.ShiftKey {
-					pe.SetCursor(cursorGrabbing)
-				} else {
-					pe.SetCursor(cursorMove)
-				}
-
-				moveEnd := selectPointOrtho(
-					&modelViewMatrix, &projectionMatrix,
-					scaled(e.OffsetX), scaled(e.OffsetY), width, height, moveStart,
-				)
-				var trans mat.Mat4
-				switch {
-				case e.ShiftKey:
-					rect, _ := pe.cmd.Rect()
-					trans = dragRotation(*moveStart, *moveEnd, rect, &modelViewMatrix)
-				default:
-					trans = dragTranslation(*moveStart, *moveEnd)
-				}
-				pe.cmd.TransformCursors(trans)
-				continue
-			}
-			pe.vi.mouseDrag(&e)
-		case e := <-pe.chMouseMove:
-			if _, ok := cursorOnSelect(e); ok {
-				if e.ShiftKey {
-					pe.SetCursor(cursorGrab)
-				} else {
-					pe.SetCursor(cursorMove)
-				}
-			} else {
-				pe.SetCursor(cursorAuto)
-			}
-		case e := <-pe.chClick:
-			gl.Canvas.Focus()
-			if e.Button != 0 || !pe.cg.Click() {
-				continue
-			}
-			ok := scanSelection(scaled(e.OffsetX), scaled(e.OffsetY))
-			if !ok {
-				updateSelectMask()
-				continue
-			}
-			var p *mat.Vec3
-			switch projectionType {
-			case ProjectionPerspective:
-				p, ok = selectPoint(
-					pp, pe.cmd.SelectMask(), projectionType, &modelViewMatrix, &projectionMatrix,
-					scaled(e.OffsetX), scaled(e.OffsetY), width, height, pointSelectRange,
-				)
-			case ProjectionOrthographic:
-				p = selectPointOrtho(
-					&modelViewMatrix, &projectionMatrix, scaled(e.OffsetX), scaled(e.OffsetY), width, height, nil,
-				)
-			default:
-				ok = false
-			}
-			if !ok {
-				updateSelectMask()
-				continue
-			}
-			switch {
-			case e.ShiftKey:
-				if len(pe.cmd.Cursors()) < 3 {
-					pe.cmd.SetCursor(1, *p)
-				} else {
-					pe.cmd.SetCursor(3, *p)
-				}
-			case e.AltKey:
-				if projectionType != ProjectionPerspective {
-					break
-				}
-				if ok := scanSelection(scaled(e.OffsetX), scaled(e.OffsetY)); ok {
-					pe.cmd.SelectSegment(*p)
-					updateSelectMask()
-				}
-			case e.CtrlKey:
-				if projectionType != ProjectionPerspective {
-					break
-				}
-				if ok := scanSelection(scaled(e.OffsetX), scaled(e.OffsetY)); ok {
-					err := pe.cmd.SelectLabelSegment(*p)
-					if err != nil {
-						pe.logPrint("Selection by label failed: " + err.Error())
-					} else {
-						updateSelectMask()
+			case e := <-pe.chMouseDown:
+				gl.Canvas.Focus()
+				if e.Button == 0 {
+					pe.cg.DragStart()
+					if p, ok := cursorOnSelect(e); ok {
+						pe.cmd.PushCursors()
+						moveStart = selectPointOrtho(
+							&modelViewMatrix, &projectionMatrix,
+							scaled(e.OffsetX), scaled(e.OffsetY), width, height, p,
+						)
+						continue L_MAIN
 					}
 				}
-			default:
-				if len(pe.cmd.Cursors()) < 2 {
-					pe.cmd.SetCursor(0, *p)
-				} else {
-					pe.cmd.SetCursor(2, *p)
+				moveStart = nil
+				pe.vi.mouseDragStart(&e)
+			case e := <-pe.chMouseUp:
+				if e.Button == 0 {
+					pe.cg.DragEnd()
 				}
-			}
-		case e := <-pe.chKey:
-			switch e.Code {
-			case "Escape":
 				if moveStart != nil {
 					pe.cmd.PopCursors()
+					moveEnd := selectPointOrtho(
+						&modelViewMatrix, &projectionMatrix,
+						scaled(e.OffsetX), scaled(e.OffsetY), width, height, moveStart,
+					)
+					var trans mat.Mat4
+					switch {
+					case e.ShiftKey:
+						rect, _ := pe.cmd.Rect()
+						trans = dragRotation(*moveStart, *moveEnd, rect, &modelViewMatrix)
+					default:
+						trans = dragTranslation(*moveStart, *moveEnd)
+					}
+					pe.cmd.TransformCursors(trans)
 					moveStart = nil
+					continue L_MAIN
+				}
+				pe.vi.mouseDragEnd(&e)
+			case e := <-pe.chMouseDrag:
+				pe.cg.Move()
+				if e.Button == 0 && moveStart != nil {
+					pe.cmd.PopCursors()
+					pe.cmd.PushCursors()
+
+					if e.ShiftKey {
+						pe.SetCursor(cursorGrabbing)
+					} else {
+						pe.SetCursor(cursorMove)
+					}
+
+					moveEnd := selectPointOrtho(
+						&modelViewMatrix, &projectionMatrix,
+						scaled(e.OffsetX), scaled(e.OffsetY), width, height, moveStart,
+					)
+					var trans mat.Mat4
+					switch {
+					case e.ShiftKey:
+						rect, _ := pe.cmd.Rect()
+						trans = dragRotation(*moveStart, *moveEnd, rect, &modelViewMatrix)
+					default:
+						trans = dragTranslation(*moveStart, *moveEnd)
+					}
+					pe.cmd.TransformCursors(trans)
+					continue L_MAIN
+				}
+				pe.vi.mouseDrag(&e)
+			case e := <-pe.chMouseMove:
+				if _, ok := cursorOnSelect(e); ok {
+					if e.ShiftKey {
+						pe.SetCursor(cursorGrab)
+					} else {
+						pe.SetCursor(cursorMove)
+					}
 				} else {
-					pe.cmd.UnsetCursors()
+					pe.SetCursor(cursorAuto)
 				}
-			case "Enter":
-				if err := pe.cmd.FinalizeCurrentMode(); err != nil {
-					pe.logPrint("Failed: " + err.Error())
+				continue L_INPUT // process input again without rendering
+			case e := <-pe.chClick:
+				gl.Canvas.Focus()
+				if e.Button != 0 || !pe.cg.Click() {
+					continue L_MAIN
 				}
-			case "Delete", "Backspace", "Digit0", "Digit1":
-				switch e.Code {
-				case "Delete", "Backspace":
-					if ok := scanSelection(0, 0); ok {
-						pe.cmd.Delete()
-						if !e.ShiftKey && !e.CtrlKey {
-							pe.cmd.UnsetCursors()
+				ok := scanSelection(scaled(e.OffsetX), scaled(e.OffsetY))
+				if !ok {
+					updateSelectMask()
+					continue L_MAIN
+				}
+				var p *mat.Vec3
+				switch projectionType {
+				case ProjectionPerspective:
+					p, ok = selectPoint(
+						pp, pe.cmd.SelectMask(), projectionType, &modelViewMatrix, &projectionMatrix,
+						scaled(e.OffsetX), scaled(e.OffsetY), width, height, pointSelectRange,
+					)
+				case ProjectionOrthographic:
+					p = selectPointOrtho(
+						&modelViewMatrix, &projectionMatrix, scaled(e.OffsetX), scaled(e.OffsetY), width, height, nil,
+					)
+				default:
+					ok = false
+				}
+				if !ok {
+					updateSelectMask()
+					continue L_MAIN
+				}
+				switch {
+				case e.ShiftKey:
+					if len(pe.cmd.Cursors()) < 3 {
+						pe.cmd.SetCursor(1, *p)
+					} else {
+						pe.cmd.SetCursor(3, *p)
+					}
+				case e.AltKey:
+					if projectionType != ProjectionPerspective {
+						break
+					}
+					if ok := scanSelection(scaled(e.OffsetX), scaled(e.OffsetY)); ok {
+						pe.cmd.SelectSegment(*p)
+						updateSelectMask()
+					}
+				case e.CtrlKey:
+					if projectionType != ProjectionPerspective {
+						break
+					}
+					if ok := scanSelection(scaled(e.OffsetX), scaled(e.OffsetY)); ok {
+						err := pe.cmd.SelectLabelSegment(*p)
+						if err != nil {
+							pe.logPrint("Selection by label failed: " + err.Error())
+						} else {
+							updateSelectMask()
 						}
 					}
-				case "Digit0", "Digit1":
-					var l uint32
-					if e.Code == "Digit1" {
-						l = 1
-					}
-					if ok := scanSelection(0, 0); ok {
-						pe.cmd.Label(l)
+				default:
+					if len(pe.cmd.Cursors()) < 2 {
+						pe.cmd.SetCursor(0, *p)
+					} else {
+						pe.cmd.SetCursor(2, *p)
 					}
 				}
-			case "KeyZ":
-				if e.CtrlKey {
+			case e := <-pe.chKey:
+				switch e.Code {
+				case "Escape":
+					if moveStart != nil {
+						pe.cmd.PopCursors()
+						moveStart = nil
+					} else {
+						pe.cmd.UnsetCursors()
+					}
+				case "Enter":
+					if err := pe.cmd.FinalizeCurrentMode(); err != nil {
+						pe.logPrint("Failed: " + err.Error())
+					}
+				case "Delete", "Backspace", "Digit0", "Digit1":
+					switch e.Code {
+					case "Delete", "Backspace":
+						if ok := scanSelection(0, 0); ok {
+							pe.cmd.Delete()
+							if !e.ShiftKey && !e.CtrlKey {
+								pe.cmd.UnsetCursors()
+							}
+						}
+					case "Digit0", "Digit1":
+						var l uint32
+						if e.Code == "Digit1" {
+							l = 1
+						}
+						if ok := scanSelection(0, 0); ok {
+							pe.cmd.Label(l)
+						}
+					}
+				case "KeyZ":
+					if e.CtrlKey {
+						pe.cmd.Undo()
+					}
+				case "KeyU":
 					pe.cmd.Undo()
+				case "KeyF":
+					pe.cmd.AddSurface(defaultResolution)
+				case "KeyV", "KeyH":
+					switch e.Code {
+					case "KeyV":
+						pe.cmd.SnapVertical()
+					case "KeyH":
+						pe.cmd.SnapHorizontal()
+					}
+				case "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "PageUp", "PageDown":
+					var dx, dy, dz float32
+					switch e.Code {
+					case "ArrowUp":
+						dy = 0.05
+					case "ArrowDown":
+						dy = -0.05
+					case "ArrowLeft":
+						dx = -0.05
+					case "ArrowRight":
+						dx = 0.05
+					case "PageUp":
+						dz = 0.05
+					case "PageDown":
+						dz = -0.05
+					}
+					s, c := math.Sincos(pe.vi.yaw)
+					pe.cmd.TransformCursors(mat.Translate(
+						float32(c)*dx-float32(s)*dy,
+						float32(s)*dx+float32(c)*dy,
+						dz,
+					))
+				case "Home", "End":
+					var dyaw float32
+					switch e.Code {
+					case "Home":
+						dyaw = 0.005
+					case "End":
+						dyaw = -0.005
+					}
+					center := pe.cmd.RectCenterPos()
+					pe.cmd.TransformCursors(
+						mat.Translate(center[0], center[1], center[2]).
+							Mul(mat.Rotate(0, 0, 1, dyaw)).
+							Mul(mat.Translate(-center[0], -center[1], -center[2])),
+					)
+				case "KeyW", "KeyA", "KeyS", "KeyD", "KeyQ", "KeyE":
+					switch e.Code {
+					case "KeyW":
+						pe.vi.Move(0.05, 0, 0)
+					case "KeyA":
+						pe.vi.Move(0, 0.05, 0)
+					case "KeyS":
+						pe.vi.Move(-0.05, 0, 0)
+					case "KeyD":
+						pe.vi.Move(0, -0.05, 0)
+					case "KeyQ":
+						pe.vi.Move(0, 0, 0.02)
+					case "KeyE":
+						pe.vi.Move(0, 0, -0.02)
+					}
+				case "BracketRight", "Backslash":
+					switch e.Code {
+					case "BracketRight":
+						pe.vi.IncreaseFOV()
+					case "Backslash":
+						pe.vi.DecreaseFOV()
+					}
+				case "F10":
+					pe.cmd.Crop()
+				case "F11":
+					pe.vi.SnapYaw()
+				case "F12":
+					pe.vi.SnapPitch()
+				case "KeyP":
+					vib3D = !vib3D
 				}
-			case "KeyU":
-				pe.cmd.Undo()
-			case "KeyF":
-				pe.cmd.AddSurface(defaultResolution)
-			case "KeyV", "KeyH":
-				switch e.Code {
-				case "KeyV":
-					pe.cmd.SnapVertical()
-				case "KeyH":
-					pe.cmd.SnapHorizontal()
-				}
-			case "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "PageUp", "PageDown":
-				var dx, dy, dz float32
-				switch e.Code {
-				case "ArrowUp":
-					dy = 0.05
-				case "ArrowDown":
-					dy = -0.05
-				case "ArrowLeft":
-					dx = -0.05
-				case "ArrowRight":
-					dx = 0.05
-				case "PageUp":
-					dz = 0.05
-				case "PageDown":
-					dz = -0.05
-				}
-				s, c := math.Sincos(pe.vi.yaw)
-				pe.cmd.TransformCursors(mat.Translate(
-					float32(c)*dx-float32(s)*dy,
-					float32(s)*dx+float32(c)*dy,
-					dz,
-				))
-			case "Home", "End":
-				var dyaw float32
-				switch e.Code {
-				case "Home":
-					dyaw = 0.005
-				case "End":
-					dyaw = -0.005
-				}
-				center := pe.cmd.RectCenterPos()
-				pe.cmd.TransformCursors(
-					mat.Translate(center[0], center[1], center[2]).
-						Mul(mat.Rotate(0, 0, 1, dyaw)).
-						Mul(mat.Translate(-center[0], -center[1], -center[2])),
-				)
-			case "KeyW", "KeyA", "KeyS", "KeyD", "KeyQ", "KeyE":
-				switch e.Code {
-				case "KeyW":
-					pe.vi.Move(0.05, 0, 0)
-				case "KeyA":
-					pe.vi.Move(0, 0.05, 0)
-				case "KeyS":
-					pe.vi.Move(-0.05, 0, 0)
-				case "KeyD":
-					pe.vi.Move(0, -0.05, 0)
-				case "KeyQ":
-					pe.vi.Move(0, 0, 0.02)
-				case "KeyE":
-					pe.vi.Move(0, 0, -0.02)
-				}
-			case "BracketRight", "Backslash":
-				switch e.Code {
-				case "BracketRight":
-					pe.vi.IncreaseFOV()
-				case "Backslash":
-					pe.vi.DecreaseFOV()
-				}
-			case "F10":
-				pe.cmd.Crop()
-			case "F11":
-				pe.vi.SnapYaw()
-			case "F12":
-				pe.vi.SnapPitch()
-			case "KeyP":
-				vib3D = !vib3D
-			}
-		case <-pe.chContextLost:
-			return errContextLostEvent
-		case <-tick.C:
-			if vib3D {
-				if vib3DX < 0 {
-					vib3DX = vib3DXAmp
+			case <-pe.chContextLost:
+				return errContextLostEvent
+			case <-tick.C:
+				if vib3D {
+					if vib3DX < 0 {
+						vib3DX = vib3DXAmp
+					} else {
+						vib3DX = -vib3DXAmp
+					}
 				} else {
-					vib3DX = -vib3DXAmp
+					vib3DX = 0
+					continue L_INPUT // process input again without rendering
 				}
-			} else {
-				vib3DX = 0
+			case <-ctx.Done():
+				return nil
 			}
-		case <-ctx.Done():
-			return nil
+			break
 		}
 	}
 }
