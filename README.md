@@ -90,43 +90,45 @@ Enter              | 貼り付けの確定
 
 ### コマンド操作
 
-コマンド                      | 動作
------------------------------ | -------------------------------------------------------
-cursor                        | 選択中の点の一覧を表示 (`ID` `X` `Y` `Z`) [\*1](#footnoteKey1)
-cursor `X` `Y` `Z`            | 新しい点(`X`, `Y`, `Z`)を選択
-cursor `ID` `X` `Y` `Z`       | 指定した `ID` の選択中の点の座標を(`X`, `Y`, `Z`)に設定
-unset\_cursor                 | 点の選択を解除
-select\_range                 | 選択領域厚を表示 (`R`) [\*1](#footnoteKey1)
-select\_range `R`             | 選択領域厚を `R` \[メートル\]に設定
-snap\_v                       | 3点目を垂直スナップ
-snap\_h                       | 2, 3点目を水平スナップ
-translate\_cursor `X` `Y` `Z` | 選択中の点を平行移動
-add\_surface                  | 面作成
-add\_surface `R`              | 面作成 (点の間隔 `R` \[メートル\])
-delete                        | 削除
-label `L`                     | ラベル設定 (`L`)
-undo                          | Undo
-max\_history                  | Undo回数を表示
-max\_history `A`              | Undo回数を設定 (`A`: 0-)
-crop                          | 表示範囲を選択範囲に限定 (無選択での場合は解除)
-map\_alpha                    | 2Dマップの透明度を表示 (`A`) [\*1](#footnoteKey1)
-map\_alpha `A`                | 2Dマップの透明度を設定 (`A`: 0-1)
-voxel\_grid                   | VoxelGridフィルタで点数を削減
-voxel\_grid `R`               | VoxelGridフィルタで点数を削減 (voxelサイズ `R` \[メートル\])
-z\_range                      | 色をつけるZ座標の範囲を表示 [\*1](#footnoteKey1)
-z\_range `Min` `Max`          | 色をつけるZ座標の範囲を `Min` - `Max` \[メートル\]に設定
-perspective                   | 透視投影モード
-ortho                         | 正投影モード
-point\_size                   | 点の表示サイズを表示 [\*1](#footnoteKey1)
-point\_size `Size`            | 点の表示サイズを `Size` に設定
-segmentation\_param           | セグメンテーション時の分離距離を表示 [\*1](#footnoteKey1)
-segmentation\_param `D` `R`   | セグメンテーション時の分離距離を `D` \[メートル\]、適用範囲を `R` \[メートル\]に設定
-fit\_inserting `AXIS`...      | 貼り付け中の点群を既存の点群に位置合わせ [\*2](#footnoteKey2) (位置合わせを行う軸 `AXIS` をスペース区切りで複数指定 [\*3](#footnoteKey3))
-label_segmentation\_param         | ラベルを元にしてのセグメンテーション時の範囲と隣接する点群の最大距離を表示 [\*1](#footnoteKey1)
-label_segmentation\_param `D` `R` | ラベルを元にしてのセグメンテーション時の隣接する点群の最大距離を `D` \[メートル\]、範囲を `R` \[メートル\]に設定
-render_label_range `Min` `Max` | `Min` - `Max`の範囲内のラベルのみに色をつけて表示
-relabel `Min` `Max` `New` | `Min` - `Max`の範囲内のラベルを`New`値に設定
-unlabel `label1` `label2` `...` | `label1, label2, ...`以外のラベルを`0`に設定
+コマンド                           | 動作
+---------------------------------- | -------------------------------------------------------
+cursor                             | 選択中の点の一覧を表示 (`ID` `X` `Y` `Z`) [\*1](#footnoteKey1)
+cursor `X` `Y` `Z`                 | 新しい点(`X`, `Y`, `Z`)を選択
+cursor `ID` `X` `Y` `Z`            | 指定した `ID` の選択中の点の座標を(`X`, `Y`, `Z`)に設定
+unset\_cursor                      | 点の選択を解除
+select\_range                      | 選択領域厚を表示 (`R`) [\*1](#footnoteKey1)
+select\_range `R`                  | 選択領域厚を `R` \[メートル\]に設定
+snap\_v                            | 3点目を垂直スナップ
+snap\_h                            | 2, 3点目を水平スナップ
+translate\_cursor `X` `Y` `Z`      | 選択中の点を平行移動
+add\_surface                       | 面作成
+add\_surface `R`                   | 面作成 (点の間隔 `R` \[メートル\])
+delete                             | 削除
+label `L`                          | ラベル設定 (`L`)
+undo                               | Undo
+max\_history                       | Undo回数を表示
+max\_history `A`                   | Undo回数を設定 (`A`: 0-)
+crop                               | 表示範囲を選択範囲に限定 (無選択での場合は解除)
+map\_alpha                         | 2Dマップの透明度を表示 (`A`) [\*1](#footnoteKey1)
+map\_alpha `A`                     | 2Dマップの透明度を設定 (`A`: 0-1)
+voxel\_grid                        | VoxelGridフィルタで点数を削減
+voxel\_grid `R`                    | VoxelGridフィルタで点数を削減 (voxelサイズ `R` \[メートル\])
+z\_range                           | 色をつけるZ座標の範囲を表示 [\*1](#footnoteKey1)
+z\_range `Min` `Max`               | 色をつけるZ座標の範囲を `Min` - `Max` \[メートル\]に設定
+perspective                        | 透視投影モード
+ortho                              | 正投影モード
+point\_size                        | 点の表示サイズを表示 [\*1](#footnoteKey1)
+point\_size `Size`                 | 点の表示サイズを `Size` に設定
+segmentation\_param                | セグメンテーション時の分離距離を表示 [\*1](#footnoteKey1)
+segmentation\_param `D` `R`        | セグメンテーション時の分離距離を `D` \[メートル\]、適用範囲を `R` \[メートル\]に設定
+fit\_inserting `AXIS`...           | 貼り付け中の点群を既存の点群に位置合わせ [\*2](#footnoteKey2) (位置合わせを行う軸 `AXIS` をスペース区切りで複数指定 [\*3](#footnoteKey3))
+label\_segmentation\_param         | ラベルを元にしてのセグメンテーション時の範囲と隣接する点群の最大距離を表示 [\*1](#footnoteKey1)
+label\_segmentation\_param `D` `R` | ラベルを元にしてのセグメンテーション時の隣接する点群の最大距離を `D` \[メートル\]、範囲を `R` \[メートル\]に設定
+render\_label\_range `Min` `Max`   | `Min` - `Max`の範囲内のラベルのみに色をつけて表示
+relabel `Min` `Max` `New`          | `Min` - `Max`の範囲内のラベルを`New`値に設定
+unlabel `label1` `label2` `...`    | `label1, label2, ...`以外のラベルを`0`に設定
+num\_fast\_render\_points          | 操作中に表示する点の最大数を表示
+num\_fast\_render\_points `N`      | 操作中に表示する点の最大数を `N` に設定
 
 <dl>
   <dt><a id="footnoteKey1">[1] 数値の表示</a></dt><dd>
