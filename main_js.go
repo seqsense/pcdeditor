@@ -749,7 +749,7 @@ L_MAIN:
 				gl.UniformMatrix4fv(uCropMatrixLocation, false, pe.cmd.CropMatrix())
 
 				gl.BindBuffer(gl.ARRAY_BUFFER, selectMaskBuf)
-				gl.VertexAttribIPointer(aSelectMask, 1, gl.UNSIGNED_INT, 4, 0)
+				gl.VertexAttribIPointer(aSelectMask, 1, gl.UNSIGNED_INT, 4*samplingRatio, 0)
 
 				zMin, zMax := pe.cmd.ZRange()
 				gl.Uniform1f(uZMinLocation, zMin)
