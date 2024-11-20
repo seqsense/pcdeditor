@@ -104,9 +104,7 @@ class PCDEditor {
               .command(e.target.value)
               .then((res) => {
                 let str = ''
-                // eslint-disable-next-line no-restricted-syntax
                 for (const vec of res) {
-                  // eslint-disable-next-line no-restricted-syntax
                   for (const val of vec) {
                     str += `${val.toFixed(3)} `
                   }
@@ -311,7 +309,8 @@ class PCDEditor {
           const retryRestore = setInterval(() => {
             try {
               glex.restoreContext()
-            } catch (error) {
+            } catch (e) {
+              this.logger(e)
               return
             }
             clearInterval(retryRestore)
