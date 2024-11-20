@@ -863,8 +863,11 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 				gl.BindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, selectResultBuf)
 				gl.Enable(gl.RASTERIZER_DISCARD)
 				gl.BeginTransformFeedback(gl.POINTS)
-				gl.DrawArrays(gl.POINTS, 0, pp.Points-1)
+				for i, j := 0, 0; i < pp.Points; i, j = i+maxDrawArraysPoints, j+1 {
+					gl.DrawArrays(gl.POINTS, i, min(pp.Points-i, maxDrawArraysPoints)-1)
+				}
 				gl.EndTransformFeedback()
+
 				gl.Disable(gl.RASTERIZER_DISCARD)
 				gl.BindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, webgl.Buffer(js.Null()))
 
