@@ -713,15 +713,15 @@ L_MAIN:
 			pointSize := pe.cmd.PointSize()
 			selectMode := pe.cmd.SelectMode()
 
-			totalPoints := 0
-			if hasPointCloud && pp.Points > 0 {
-				totalPoints += pp.Points
-			}
-			if hasSubPointCloud && ppSub.Points > 0 && selectMode == selectModeInsert {
-				totalPoints += ppSub.Points
-			}
 			samplingRatio := 1
 			if pe.vi.dragging() {
+				totalPoints := 0
+				if hasPointCloud && pp.Points > 0 {
+					totalPoints += pp.Points
+				}
+				if hasSubPointCloud && ppSub.Points > 0 && selectMode == selectModeInsert {
+					totalPoints += ppSub.Points
+				}
 				samplingRatio = 1 + totalPoints/pe.cmd.NumFastRenderPoints()
 			}
 
@@ -742,8 +742,9 @@ L_MAIN:
 				gl.Uniform1ui(uMaxLabel, renderLabelMax)
 
 				gl.BindBuffer(gl.ARRAY_BUFFER, posBuf)
-				gl.VertexAttribPointer(aVertexPosition, 3, gl.FLOAT, false, pp.Stride()*samplingRatio, 0)
-				gl.VertexAttribIPointer(aVertexLabel, 1, gl.UNSIGNED_INT, pp.Stride()*samplingRatio, 3*4)
+				sampledStride := pp.Stride() * samplingRatio
+				gl.VertexAttribPointer(aVertexPosition, 3, gl.FLOAT, false, sampledStride, 0)
+				gl.VertexAttribIPointer(aVertexLabel, 1, gl.UNSIGNED_INT, sampledStride, 3*4)
 				gl.UniformMatrix4fv(uModelViewMatrixLocation, false, modelViewMatrix)
 				gl.UniformMatrix4fv(uCropMatrixLocation, false, pe.cmd.CropMatrix())
 
