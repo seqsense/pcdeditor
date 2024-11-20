@@ -17,7 +17,7 @@ import (
 const (
 	vib3DXAmp           = 0.002
 	maxDrawArraysPoints = 30000000 // Firefox's limit
-	nPointSamplingStart = 15000000
+	nFastRenderPoints   = 15000000
 )
 
 var (
@@ -723,7 +723,7 @@ L_MAIN:
 			}
 			samplingRatio := 1
 			if pe.vi.dragging() {
-				samplingRatio = 1 + totalPoints/nPointSamplingStart
+				samplingRatio = 1 + totalPoints/nFastRenderPoints
 			}
 
 			if hasPointCloud && pp.Points > 0 {
