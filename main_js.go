@@ -17,6 +17,7 @@ import (
 const (
 	vib3DXAmp           = 0.002
 	maxDrawArraysPoints = 30000000 // Firefox's limit
+	nPointSamplingStart = 15000000
 )
 
 var (
@@ -717,6 +718,11 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 				gl.UseProgram(program)
 				clean := enableVertexAttribs(gl, aVertexPosition, aVertexLabel, aSelectMask)
 
+				samplingRatio := 1
+				if pe.vi.dragging() {
+					samplingRatio = 1 + pp.Points/nPointSamplingStart
+				}
+
 				switch selectMode {
 				case selectModeRect, selectModeInsert:
 					gl.Uniform1i(uUseSelectMask, 0)
@@ -729,8 +735,8 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 				gl.Uniform1ui(uMaxLabel, renderLabelMax)
 
 				gl.BindBuffer(gl.ARRAY_BUFFER, posBuf)
-				gl.VertexAttribPointer(aVertexPosition, 3, gl.FLOAT, false, pp.Stride(), 0)
-				gl.VertexAttribIPointer(aVertexLabel, 1, gl.UNSIGNED_INT, pp.Stride(), 3*4)
+				gl.VertexAttribPointer(aVertexPosition, 3, gl.FLOAT, false, pp.Stride()*samplingRatio, 0)
+				gl.VertexAttribIPointer(aVertexLabel, 1, gl.UNSIGNED_INT, pp.Stride()*samplingRatio, 3*4)
 				gl.UniformMatrix4fv(uModelViewMatrixLocation, false, modelViewMatrix)
 				gl.UniformMatrix4fv(uCropMatrixLocation, false, pe.cmd.CropMatrix())
 
@@ -746,8 +752,9 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 
 				gl.Uniform1f(uPointSizeBase, pointSize)
 
-				for i := 0; i < pp.Points; i += maxDrawArraysPoints {
-					gl.DrawArrays(gl.POINTS, i, min(pp.Points-i, maxDrawArraysPoints)-1)
+				n := pp.Points / samplingRatio
+				for i := 0; i < n; i += maxDrawArraysPoints {
+					gl.DrawArrays(gl.POINTS, i, min(n-i, maxDrawArraysPoints)-1)
 				}
 				clean()
 			}

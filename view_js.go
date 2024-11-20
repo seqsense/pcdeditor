@@ -96,6 +96,10 @@ func (v *viewImpl) wheel(e *webgl.WheelEvent) {
 	}
 }
 
+func (v *viewImpl) dragging() bool {
+	return v.drag0 != nil
+}
+
 func (v *viewImpl) mouseDragStart(e *webgl.MouseEvent) {
 	v.drag0 = e
 	v.yaw0 = v.yaw
