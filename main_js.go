@@ -713,15 +713,22 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 			pointSize := pe.cmd.PointSize()
 			selectMode := pe.cmd.SelectMode()
 
+			totalPoints := 0
+			if hasPointCloud && pp.Points > 0 {
+				totalPoints += pp.Points
+			}
+			if hasSubPointCloud && ppSub.Points > 0 && selectMode == selectModeInsert {
+				totalPoints += ppSub.Points
+			}
+			samplingRatio := 1
+			if pe.vi.dragging() {
+				samplingRatio = 1 + totalPoints/nPointSamplingStart
+			}
+
 			if hasPointCloud && pp.Points > 0 {
 				// Render PointCloud
 				gl.UseProgram(program)
 				clean := enableVertexAttribs(gl, aVertexPosition, aVertexLabel, aSelectMask)
-
-				samplingRatio := 1
-				if pe.vi.dragging() {
-					samplingRatio = 1 + pp.Points/nPointSamplingStart
-				}
 
 				switch selectMode {
 				case selectModeRect, selectModeInsert:
@@ -768,14 +775,17 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 				gl.UseProgram(programSub)
 				clean := enableVertexAttribs(gl, aVertexPosition)
 				gl.BindBuffer(gl.ARRAY_BUFFER, posSubBuf)
-				gl.VertexAttribPointer(aVertexPosition, 3, gl.FLOAT, false, ppSub.Stride(), 0)
+				gl.VertexAttribPointer(aVertexPosition, 3, gl.FLOAT, false, ppSub.Stride()*samplingRatio, 0)
 				trans := cursorsToTrans(cursors)
 				gl.UniformMatrix4fv(
 					uModelViewMatrixLocationSub, false,
 					modelViewMatrix.Mul(trans),
 				)
 				gl.Uniform1f(uPointSizeBaseSub, pointSize)
-				gl.DrawArrays(gl.POINTS, 0, ppSub.Points-1)
+				n := ppSub.Points / samplingRatio
+				for i := 0; i < n; i += maxDrawArraysPoints {
+					gl.DrawArrays(gl.POINTS, i, min(n-i, maxDrawArraysPoints)-1)
+				}
 
 				gl.Disable(gl.BLEND)
 				clean()
