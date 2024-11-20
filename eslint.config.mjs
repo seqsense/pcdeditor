@@ -1,21 +1,9 @@
 import globals from 'globals'
 import js from '@eslint/js'
+import react from 'eslint-plugin-react'
 import tseslint from 'typescript-eslint'
-import reactRecommended from 'eslint-plugin-react/configs/recommended.js'
 
 export default [
-  {
-    files: ['pcdeditor.js'],
-    rules: js.configs.recommended.rules,
-    languageOptions: {
-      globals: {
-        ...globals.node,
-        ...globals.browser,
-      },
-    },
-  },
-  ...tseslint.configs.recommended,
-  reactRecommended,
   {
     languageOptions: {
       ecmaVersion: 12,
@@ -25,12 +13,21 @@ export default [
           jsx: true
         },
       },
+      globals: {
+        ...globals.node,
+        ...globals.browser,
+      },
     },
   },
+  js.configs.recommended,
+  react.configs.flat.recommended,
+  react.configs.flat['jsx-runtime'],
   {
     ignores: [
       'wasm_exec.js',
       'pcdeditor.esm.js',
+      'node_modules/**',
     ],
   },
+  ...tseslint.configs.recommended,
 ]
