@@ -23,6 +23,7 @@ const (
 	defaultZMin                   = -5.0
 	defaultZMax                   = 5.0
 	defaultPointSize              = 40.0
+	defaultNumFastRenderPoints    = 15000000
 	defaultSegmentationDistance   = 0.08
 	defaultSegmentationRange      = 5.0
 
@@ -86,7 +87,8 @@ type commandContext struct {
 	zMin, zMax     float32
 	projectionType ProjectionType
 
-	pointSize float32
+	pointSize           float32
+	numFastRenderPoints int
 
 	selectMode selectMode
 
@@ -127,6 +129,7 @@ func (c *commandContext) Reset() {
 	c.zMin = defaultZMin
 	c.zMax = defaultZMax
 	c.pointSize = defaultPointSize
+	c.numFastRenderPoints = defaultNumFastRenderPoints
 	c.segmentationDistance = defaultSegmentationDistance
 	c.segmentationRange = defaultSegmentationRange
 	c.labelSegmentationRange = defaultLabelSegmentationRange
@@ -177,6 +180,17 @@ func (c *commandContext) SetPointSize(ps float32) error {
 	return nil
 }
 
+func (c *commandContext) NumFastRenderPoints() int {
+	return c.numFastRenderPoints
+}
+
+func (c *commandContext) SetNumFastRenderPoints(n int) error {
+	if n <= 0 {
+		return errors.New("num fast render points must be >0")
+	}
+	c.numFastRenderPoints = n
+	return nil
+}
 func (c *commandContext) SegmentationParam() (float32, float32) {
 	return c.segmentationDistance, c.segmentationRange
 }
