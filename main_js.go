@@ -15,7 +15,8 @@ import (
 )
 
 const (
-	vib3DXAmp = 0.002
+	vib3DXAmp           = 0.002
+	maxDrawArraysPoints = 30000000 // Firefox's limit
 )
 
 var (
@@ -745,7 +746,9 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 
 				gl.Uniform1f(uPointSizeBase, pointSize)
 
-				gl.DrawArrays(gl.POINTS, 0, pp.Points-1)
+				for i := 0; i < pp.Points; i += maxDrawArraysPoints {
+					gl.DrawArrays(gl.POINTS, i, min(pp.Points-i, maxDrawArraysPoints)-1)
+				}
 				clean()
 			}
 
