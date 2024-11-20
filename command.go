@@ -185,8 +185,8 @@ func (c *commandContext) NumFastRenderPoints() int {
 }
 
 func (c *commandContext) SetNumFastRenderPoints(n int) error {
-	if n <= 0 {
-		return errors.New("num fast render points must be >0")
+	if n <= 100000 {
+		return errors.New("num fast render points must be >100000")
 	}
 	c.numFastRenderPoints = n
 	return nil
