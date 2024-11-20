@@ -38,7 +38,7 @@ jobs:
 
       - uses: codecov/codecov-action@v5
         with:
-          file: ./cover.out
+          files: ./cover.out
           token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Install
