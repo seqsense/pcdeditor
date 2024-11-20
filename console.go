@@ -194,6 +194,16 @@ var consoleCommands = map[string]func(c *console, updateSel updateSelectionFn, a
 			return nil, errArgumentNumber
 		}
 	},
+	"num_fast_render_points": func(c *console, updateSel updateSelectionFn, args []float32) ([][]float32, error) {
+		switch len(args) {
+		case 0:
+			return [][]float32{{float32(c.cmd.NumFastRenderPoints())}}, nil
+		case 1:
+			return nil, c.cmd.SetNumFastRenderPoints(int(args[0]))
+		default:
+			return nil, errArgumentNumber
+		}
+	},
 	"fov": func(c *console, updateSel updateSelectionFn, args []float32) ([][]float32, error) {
 		switch len(args) {
 		case 1:
