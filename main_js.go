@@ -716,13 +716,20 @@ L_MAIN:
 			samplingRatio := 1
 			if pe.vi.dragging() {
 				totalPoints := 0
+				maxStride := 4
 				if hasPointCloud && pp.Points > 0 {
 					totalPoints += pp.Points
+					maxStride = max(pp.Stride(), maxStride)
 				}
 				if hasSubPointCloud && ppSub.Points > 0 && selectMode == selectModeInsert {
 					totalPoints += ppSub.Points
+					maxStride = max(ppSub.Stride(), maxStride)
 				}
 				samplingRatio = 1 + totalPoints/pe.cmd.NumFastRenderPoints()
+				// make sure the stride used in gl.VertexAttribIPointer is <= 255
+				if samplingRatio*maxStride > 255 {
+					samplingRatio = int(255.0 / maxStride)
+				}
 			}
 
 			if hasPointCloud && pp.Points > 0 {
