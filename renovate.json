@@ -13,7 +13,8 @@
         "/^@typescript-eslint//",
         "/^eslint$/",
         "/^eslint-plugin-react$/",
-        "/^prettier$/"
+        "/^prettier$/",
+        "/^typescript-eslint$/"
       ]
     }
   ],
