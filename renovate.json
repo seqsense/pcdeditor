@@ -1,29 +1,20 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "config:base",
-    "schedule:weekends"
-  ],
-  "postUpdateOptions": [
-    "gomodTidy"
-  ],
+  "extends": ["config:recommended", "schedule:weekends"],
+  "postUpdateOptions": ["gomodTidy"],
   "packageRules": [
     {
-      "matchPackagePatterns": [
-        "^github.com/seqsense/"
-      ],
-      "schedule": [
-        "at any time"
-      ]
+      "schedule": ["at any time"],
+      "matchPackageNames": ["/^github.com/seqsense//"]
     },
     {
-      "matchPackagePatterns": [
-        "^@typescript-eslint/",
-        "^eslint$",
-        "^eslint-plugin-react$",
-        "^prettier$"
-      ],
-      "groupName": "js formatter and linter"
+      "groupName": "js formatter and linter",
+      "matchPackageNames": [
+        "/^@typescript-eslint//",
+        "/^eslint$/",
+        "/^eslint-plugin-react$/",
+        "/^prettier$/"
+      ]
     }
   ],
   "timezone": "Asia/Tokyo"
