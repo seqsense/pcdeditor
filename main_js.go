@@ -769,7 +769,7 @@ L_MAIN:
 
 				n := pp.Points / samplingRatio
 				for i := 0; i < n; i += maxDrawArraysPoints {
-					gl.DrawArrays(gl.POINTS, i, min(n-i, maxDrawArraysPoints)-1)
+					gl.DrawArrays(gl.POINTS, i, min(n-i, maxDrawArraysPoints))
 				}
 				clean()
 			}
@@ -792,7 +792,7 @@ L_MAIN:
 				gl.Uniform1f(uPointSizeBaseSub, pointSize)
 				n := ppSub.Points / samplingRatio
 				for i := 0; i < n; i += maxDrawArraysPoints {
-					gl.DrawArrays(gl.POINTS, i, min(n-i, maxDrawArraysPoints)-1)
+					gl.DrawArrays(gl.POINTS, i, min(n-i, maxDrawArraysPoints))
 				}
 
 				gl.Disable(gl.BLEND)
@@ -871,8 +871,8 @@ L_MAIN:
 				gl.BindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, selectResultBuf)
 				gl.Enable(gl.RASTERIZER_DISCARD)
 				gl.BeginTransformFeedback(gl.POINTS)
-				for i, j := 0, 0; i < pp.Points; i, j = i+maxDrawArraysPoints, j+1 {
-					gl.DrawArrays(gl.POINTS, i, min(pp.Points-i, maxDrawArraysPoints)-1)
+				for i := 0; i < pp.Points; i += maxDrawArraysPoints {
+					gl.DrawArrays(gl.POINTS, i, min(pp.Points-i, maxDrawArraysPoints))
 				}
 				gl.EndTransformFeedback()
 
