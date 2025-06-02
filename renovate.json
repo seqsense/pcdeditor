@@ -10,6 +10,7 @@
     {
       "groupName": "js formatter and linter",
       "matchPackageNames": [
+        "/^@eslint/js$/",
         "/^@typescript-eslint//",
         "/^eslint$/",
         "/^eslint-plugin-react$/",
