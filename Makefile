@@ -4,8 +4,8 @@ TARGET_FILES := \
 	wasm_exec.js \
 	ReactPCDEditor/index.js
 
-GO_VERSION       := $(shell go version | sed 's/^go version go\([0-9]\+\.[0-9]\+\)\.[0-9]\+\S* .*$$/\1/g')
-GO_BASE_URL      := https://raw.githubusercontent.com/golang/go/refs/heads
+GO_VERSION  := $(shell go version | sed 's/^go version go\([0-9]\+\.[0-9]\+\)\.[0-9]\+\S* .*$$/\1/g')
+GO_BASE_URL := https://raw.githubusercontent.com/golang/go/refs/heads/release-branch.go$(GO_VERSION)
 
 .PHONY: serve
 serve: pcdeditor.wasm wasm_exec.js pcdeditor.esm.js
@@ -22,8 +22,8 @@ pcdeditor.wasm: *.go go.*
 			 -ldflags="-s -w -X 'main.Version=$(shell git rev-parse --short HEAD)' -X 'main.BuildDate=$(shell git show -s --format=%ci HEAD)'" -o $@ .
 
 wasm_exec.js:
-	wget -q $(GO_BASE_URL)/release-branch.go$(GO_VERSION)/lib/wasm/wasm_exec.js \
-		|| wget -q $(GO_BASE_URL)/release-branch.go$(GO_VERSION)/misc/wasm/wasm_exec.js
+	wget -q $(GO_BASE_URL)/lib/wasm/wasm_exec.js \
+		|| wget -q $(GO_BASE_URL)/misc/wasm/wasm_exec.js
 
 .PHONY: target-files
 target-files: $(TARGET_FILES)
