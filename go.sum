@@ -1,5 +1,5 @@
-github.com/seqsense/pcgol v0.0.0-20250716004520-191119fcf1ff h1:bzEhCeBoS913doluK7EEqX3Df2q2uBegqXEL+loPUjw=
-github.com/seqsense/pcgol v0.0.0-20250716004520-191119fcf1ff/go.mod h1:w8LffJCFuzmJsqCRLWNB2SXOVHlEPtHBCHmlisG2w+0=
+github.com/seqsense/pcgol v0.0.0-20250716080434-cd29d3fd009e h1:s3PJMslN4U0bDLeZ4Wk9pgk5NxBBdx9bY+xzvebzex4=
+github.com/seqsense/pcgol v0.0.0-20250716080434-cd29d3fd009e/go.mod h1:w8LffJCFuzmJsqCRLWNB2SXOVHlEPtHBCHmlisG2w+0=
 github.com/seqsense/webgl-go v0.0.0-20250312101348-04e89ff6a894 h1:o0UnHdUVM2VArF1ummy/FQmix4vi/0V2qOHRdiDnBKc=
 github.com/seqsense/webgl-go v0.0.0-20250312101348-04e89ff6a894/go.mod h1:0maLEllOLyHaTnNFVivXfh1zXII/kSrvwY8F2sVCu7s=
 github.com/zhuyie/golzf v0.0.0-20161112031142-8387b0307ade h1:bafvQukPrIYwYWcft4rl3WpHo3qO0/voaAgnCwgdhi0=
