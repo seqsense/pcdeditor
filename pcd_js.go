@@ -14,11 +14,11 @@ func (*pcdIOImpl) importPCD(b interface{}) (*pc.PointCloud, error) {
 	if err != nil {
 		return nil, err
 	}
-	bs, err := bj.Bytes()
+	r, err := bj.Reader()
 	if err != nil {
 		return nil, err
 	}
-	pp, err := pc.Unmarshal(bytes.NewReader(bs))
+	pp, err := pc.Unmarshal(r)
 	if err != nil {
 		return nil, err
 	}

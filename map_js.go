@@ -15,12 +15,13 @@ func (*mapIOImpl) readMap(yamlBlob, img interface{}) (*occupancyGrid, mapImage, 
 	if err != nil {
 		return nil, nil, err
 	}
-	b, err := bj.Bytes()
+	r, err := bj.Reader()
 	if err != nil {
 		return nil, nil, err
 	}
+	dec := yaml.NewDecoder(r)
 	m := &occupancyGrid{}
-	if err := yaml.Unmarshal(b, m); err != nil {
+	if err := dec.Decode(m); err != nil {
 		return nil, nil, err
 	}
 	return m, mapImageImpl(img.(js.Value)), err
