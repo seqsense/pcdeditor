@@ -595,9 +595,10 @@ func (c *commandContext) VoxelFilter(resolution float32) error {
 		pp = c.editor.pp
 	}
 
-	// As voxelgrid consume large memory for large scape map, run GC before and after vg lifecycle
+	// As voxelgrid consumes large memory for large scale map, run GC before and after vg lifecycle
 	runtime.GC()
 	defer runtime.GC()
+
 	vg := voxelgrid.New(mat.Vec3{resolution, resolution, resolution}, voxelgrid.WithChunkSize([3]int{128, 128, 128}))
 	pcFiltered, err := vg.Filter(pp)
 	if err != nil {
