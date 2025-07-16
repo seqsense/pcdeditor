@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"runtime"
 
 	"github.com/seqsense/pcgol/mat"
 	"github.com/seqsense/pcgol/pc"
@@ -594,7 +595,11 @@ func (c *commandContext) VoxelFilter(resolution float32) error {
 		pp = c.editor.pp
 	}
 
-	vg := voxelgrid.New(mat.Vec3{resolution, resolution, resolution})
+	// As voxelgrid consumes large memory for large scale map, run GC before and after vg lifecycle
+	runtime.GC()
+	defer runtime.GC()
+
+	vg := voxelgrid.New(mat.Vec3{resolution, resolution, resolution}, voxelgrid.WithChunkSize([3]int{128, 128, 128}))
 	pcFiltered, err := vg.Filter(pp)
 	if err != nil {
 		return err
