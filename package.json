@@ -46,14 +46,20 @@
   },
   "homepage": "https://github.com/seqsense/pcdeditor#readme",
   "devDependencies": {
-    "@eslint/js": "9.30.0",
-    "eslint": "9.30.0",
+    "@eslint/js": "9.31.0",
+    "eslint": "9.31.0",
     "eslint-plugin-react": "7.37.5",
-    "globals": "16.2.0",
+    "globals": "16.3.0",
     "prettier": "3.6.2",
     "react": "19.1.0",
     "typescript": "5.8.3",
-    "typescript-eslint": "8.35.0"
+    "typescript-eslint": "8.37.0"
   },
-  "packageManager": "pnpm@10.12.4"
+  "overrides": {
+    "braces@<3.0.3": ">=3.0.3",
+    "micromatch@<4.0.8": ">=4.0.8",
+    "brace-expansion@>=1.0.0 <=1.1.11": ">=1.1.12",
+    "brace-expansion@>=2.0.0 <=2.0.1": ">=2.0.2"
+  },
+  "packageManager": "pnpm@10.13.1"
 }
