@@ -2,6 +2,7 @@ package blob
 
 import (
 	"errors"
+	"io"
 	"syscall/js"
 )
 
@@ -33,15 +34,17 @@ func (blob Blob) JS() js.Value {
 	return js.Value(blob)
 }
 
-func (blob Blob) Bytes() ([]byte, error) {
-	var b []byte
+func (blob Blob) Reader() (io.Reader, error) {
+	var r *blobReader
 	chErr := make(chan error)
 	js.Value(blob).Call("arrayBuffer").Call("then",
 		js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			array := js.Global().Get("Uint8Array").New(args[0])
 			n := array.Get("byteLength").Int()
-			b = make([]byte, n)
-			js.CopyBytesToGo(b, array)
+			r = &blobReader{
+				jsArray: array,
+				n:       n,
+			}
 			chErr <- nil
 			return nil
 		}),
@@ -55,5 +58,26 @@ func (blob Blob) Bytes() ([]byte, error) {
 		return nil, err
 	}
 
-	return b, nil
+	return r, nil
+}
+
+type blobReader struct {
+	jsArray js.Value
+	n       int
+	pos     int
+}
+
+func (r *blobReader) Read(b []byte) (int, error) {
+	if r.n == r.pos {
+		return 0, io.EOF
+	}
+	end := r.pos + len(b)
+	if end > r.n {
+		end = r.n
+	}
+	n := end - r.pos
+	sa := r.jsArray.Call("subarray", js.ValueOf(r.pos), js.ValueOf(end))
+	js.CopyBytesToGo(b, sa)
+	r.pos = end
+	return n, nil
 }
