@@ -4,7 +4,7 @@ go 1.21
 
 require (
 	github.com/seqsense/pcgol v0.0.0-20250908051203-50ac694a43ca
-	github.com/seqsense/webgl-go v0.0.0-20250312101348-04e89ff6a894
+	github.com/seqsense/webgl-go v0.0.0-20251010012734-af302bf17860
 	gopkg.in/yaml.v3 v3.0.1
 )
 
