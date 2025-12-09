@@ -17,6 +17,10 @@
         "/^prettier$/",
         "/^typescript-eslint$/"
       ]
+    },
+    {
+      "matchDatasources": ["npm"],
+      "minimumReleaseAge": "3 days"
     }
   ],
   "timezone": "Asia/Tokyo"
