@@ -61,5 +61,5 @@
     "brace-expansion@>=1.0.0 <=1.1.11": ">=1.1.12",
     "brace-expansion@>=2.0.0 <=2.0.1": ">=2.0.2"
   },
-  "packageManager": "pnpm@10.25.0"
+  "packageManager": "pnpm@10.26.2"
 }
