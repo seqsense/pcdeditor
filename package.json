@@ -29,8 +29,8 @@
     "build": "make pcdeditor.esm.js ReactPCDEditor/index.js",
     "fmt": "prettier --write pcdeditor.js pcdeditor.d.ts ReactPCDEditor/index.tsx",
     "lint": "eslint",
-    "typecheck": "tsc --noEmit --allowJs --jsx react --esModuleInterop pcdeditor.js ReactPCDEditor/index.tsx",
-    "tsc": "tsc --declaration --jsx react --esModuleInterop ReactPCDEditor/index.tsx"
+    "typecheck": "tsc --noEmit",
+    "tsc": "tsc"
   },
   "directories": {
     "example": "examples"
