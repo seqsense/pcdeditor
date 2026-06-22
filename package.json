@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "description": "PCD editor",
   "main": "pcdeditor.js",
+  "type": "module",
   "types": {
     ".": "pcdeditor.d.ts",
     "./ReactPCDEditor": "./ReactPCDEditor/index.d.ts"
