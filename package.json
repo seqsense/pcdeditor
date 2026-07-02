@@ -47,13 +47,13 @@
   "homepage": "https://github.com/seqsense/pcdeditor#readme",
   "devDependencies": {
     "@eslint/js": "10.0.1",
-    "eslint": "10.5.0",
+    "eslint": "10.6.0",
     "eslint-plugin-react": "7.37.5",
     "globals": "17.6.0",
-    "prettier": "3.8.4",
+    "prettier": "3.9.3",
     "react": "19.2.7",
     "typescript": "5.9.3",
-    "typescript-eslint": "8.61.1"
+    "typescript-eslint": "8.62.0"
   },
   "overrides": {
     "braces@<3.0.3": ">=3.0.3",
