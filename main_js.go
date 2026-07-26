@@ -475,6 +475,16 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 
 	var nRectPoints int
 
+	// Result of the last selection scan, reusable while the scan inputs are unchanged
+	type scanState struct {
+		valid          bool
+		x, y           int
+		crop, sel      mat.Mat4
+		mv, proj       mat.Mat4
+		ppRev, maskRev uint64
+	}
+	var lastScan scanState
+
 	gl.ClearColor(0.0, 0.0, 0.0, 1.0)
 	gl.ClearDepth(1.0)
 
@@ -845,8 +855,20 @@ L_MAIN:
 		//   - in the crop box
 		//   - in the select box
 		//   - close to the mouse cursor position given as (x, y)
-		scanSelection := func(x, y int) bool {
+		scanSelection := func(x, y int, needNearCursor bool) bool {
 			if hasPointCloud && pp.Points > 0 {
+				mSel, _ := pe.cmd.SelectMatrix()
+				cropMatrix := pe.cmd.CropMatrix()
+				if pe.cmd.ScanCacheEnabled() && lastScan.valid &&
+					lastScan.ppRev == pe.cmd.PointCloudRev() &&
+					lastScan.maskRev == pe.cmd.SelectMaskRev() &&
+					lastScan.crop == cropMatrix && lastScan.sel == mSel &&
+					lastScan.mv == modelViewMatrix && lastScan.proj == projectionMatrix &&
+					(!needNearCursor || (lastScan.x == x && lastScan.y == y)) {
+					// cmd.SelectMask() already holds the result of this scan.
+					return true
+				}
+
 				origin, dir := perspectiveOriginDir(x, y, width, height, &projectionMatrix, &modelViewMatrix)
 
 				// Run GPGPU shader
@@ -859,10 +881,9 @@ L_MAIN:
 				gl.BindBuffer(gl.ARRAY_BUFFER, selectMaskBuf)
 				gl.VertexAttribIPointer(aSelectMask, 1, gl.UNSIGNED_INT, 4, 0)
 
-				gl.UniformMatrix4fv(uCropMatrixLocationComputeSelect, false, pe.cmd.CropMatrix())
+				gl.UniformMatrix4fv(uCropMatrixLocationComputeSelect, false, cropMatrix)
 				gl.UniformMatrix4fv(uModelViewMatrixLocationComputeSelect, false, modelViewMatrix)
 
-				mSel, _ := pe.cmd.SelectMatrix()
 				gl.UniformMatrix4fv(uSelectMatrixLocationComputeSelect, false, mSel)
 
 				gl.Uniform3fv(uOriginLocationComputeSelect, *origin)
@@ -890,7 +911,8 @@ L_MAIN:
 				// Switch execution frame first to ensure state update
 				time.Sleep(time.Millisecond)
 
-				// Wait calculation on GPU
+				// Wait calculation on GPU with exponential backoff polling
+				wait := time.Millisecond
 			L_SYNC:
 				for failCnt := 0; ; {
 					switch gl.ClientWaitSync(fence, 0, 0) {
@@ -901,7 +923,10 @@ L_MAIN:
 							return false
 						}
 					}
-					time.Sleep(10 * time.Millisecond)
+					time.Sleep(wait)
+					if wait < 10*time.Millisecond {
+						wait *= 2
+					}
 				}
 
 				// Get result from GPU
@@ -910,6 +935,14 @@ L_MAIN:
 				js.CopyBytesToGo(selectResultGo, selectResultJS)
 
 				pe.cmd.SetSelectMask(webgl.ByteArrayBuffer(selectResultGo).UInt32Slice())
+				lastScan = scanState{
+					valid: true,
+					x:     x, y: y,
+					crop: cropMatrix, sel: mSel,
+					mv: modelViewMatrix, proj: projectionMatrix,
+					ppRev:   pe.cmd.PointCloudRev(),
+					maskRev: pe.cmd.SelectMaskRev(),
+				}
 				return true
 			}
 			return false
@@ -968,7 +1001,7 @@ L_MAIN:
 				promise.resolved(blob)
 			case promise := <-pe.chExportSelectedPCD:
 				pe.logPrint("exporting selected points as pcd")
-				if !scanSelection(0, 0) {
+				if !scanSelection(0, 0, false) {
 					promise.rejected(errors.New("failed to scan selected points"))
 				}
 				blob, err := pe.cmd.ExportSelectedPCD()
@@ -983,7 +1016,7 @@ L_MAIN:
 				promise.resolved("resetted")
 			case promise := <-pe.chCommand:
 				res, err := pe.cs.Run(promise.data.(string), func() error {
-					if scanSelection(0, 0) {
+					if scanSelection(0, 0, false) {
 						return nil
 					}
 					return errors.New("failed to scan selected points")
@@ -1124,7 +1157,7 @@ L_MAIN:
 				if e.Button != 0 || !pe.cg.Click() {
 					continue L_MAIN
 				}
-				ok := scanSelection(scaled(e.OffsetX), scaled(e.OffsetY))
+				ok := scanSelection(scaled(e.OffsetX), scaled(e.OffsetY), true)
 				if !ok {
 					updateSelectMask()
 					continue L_MAIN
@@ -1158,21 +1191,19 @@ L_MAIN:
 					if projectionType != ProjectionPerspective {
 						break
 					}
-					if ok := scanSelection(scaled(e.OffsetX), scaled(e.OffsetY)); ok {
-						pe.cmd.SelectSegment(*p)
-						updateSelectMask()
-					}
+					// The scan result of the click above is still valid here.
+					pe.cmd.SelectSegment(*p)
+					updateSelectMask()
 				case e.CtrlKey:
 					if projectionType != ProjectionPerspective {
 						break
 					}
-					if ok := scanSelection(scaled(e.OffsetX), scaled(e.OffsetY)); ok {
-						err := pe.cmd.SelectLabelSegment(*p)
-						if err != nil {
-							pe.logPrint("Selection by label failed: " + err.Error())
-						} else {
-							updateSelectMask()
-						}
+					// The scan result of the click above is still valid here.
+					err := pe.cmd.SelectLabelSegment(*p)
+					if err != nil {
+						pe.logPrint("Selection by label failed: " + err.Error())
+					} else {
+						updateSelectMask()
 					}
 				default:
 					if len(pe.cmd.Cursors()) < 2 {
@@ -1197,7 +1228,7 @@ L_MAIN:
 				case "Delete", "Backspace", "Digit0", "Digit1":
 					switch e.Code {
 					case "Delete", "Backspace":
-						if ok := scanSelection(0, 0); ok {
+						if ok := scanSelection(0, 0, false); ok {
 							pe.cmd.Delete()
 							if !e.ShiftKey && !e.CtrlKey {
 								pe.cmd.UnsetCursors()
@@ -1208,7 +1239,7 @@ L_MAIN:
 						if e.Code == "Digit1" {
 							l = 1
 						}
-						if ok := scanSelection(0, 0); ok {
+						if ok := scanSelection(0, 0, false); ok {
 							pe.cmd.Label(l)
 						}
 					}

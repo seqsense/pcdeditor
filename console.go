@@ -204,6 +204,21 @@ var consoleCommands = map[string]func(c *console, updateSel updateSelectionFn, a
 			return nil, errArgumentNumber
 		}
 	},
+	"scan_cache": func(c *console, updateSel updateSelectionFn, args []float32) ([][]float32, error) {
+		switch len(args) {
+		case 0:
+			var v float32
+			if c.cmd.ScanCacheEnabled() {
+				v = 1
+			}
+			return [][]float32{{v}}, nil
+		case 1:
+			c.cmd.SetScanCacheEnabled(args[0] != 0)
+			return nil, nil
+		default:
+			return nil, errArgumentNumber
+		}
+	},
 	"fov": func(c *console, updateSel updateSelectionFn, args []float32) ([][]float32, error) {
 		switch len(args) {
 		case 1:
