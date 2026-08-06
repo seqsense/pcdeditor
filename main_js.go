@@ -924,8 +924,9 @@ L_MAIN:
 						}
 					}
 					time.Sleep(wait)
-					if wait < 10*time.Millisecond {
-						wait *= 2
+					wait *= 2
+					if wait > 10*time.Millisecond {
+						wait = 10 * time.Millisecond
 					}
 				}
 
