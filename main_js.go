@@ -934,11 +934,15 @@ L_MAIN:
 
 				pe.cmd.SetSelectMask(webgl.ByteArrayBuffer(selectResultGo).UInt32Slice())
 				lastScan = scanState{
-					valid: true,
-					x:     x, y: y,
-					width: width, height: height,
-					crop: cropMatrix, sel: mSel,
-					mv: modelViewMatrix, proj: projectionMatrix,
+					valid:   true,
+					x:       x,
+					y:       y,
+					width:   width,
+					height:  height,
+					crop:    cropMatrix,
+					sel:     mSel,
+					mv:      modelViewMatrix,
+					proj:    projectionMatrix,
 					ppRev:   pe.cmd.PointCloudRev(),
 					maskRev: pe.cmd.SelectMaskRev(),
 				}
