@@ -1200,19 +1200,21 @@ L_MAIN:
 					if projectionType != ProjectionPerspective {
 						break
 					}
-					// The scan result of the click above is still valid here.
-					pe.cmd.SelectSegment(*p)
-					updateSelectMask()
+					if ok := scanSelectionWithCursor(scaled(e.OffsetX), scaled(e.OffsetY)); ok {
+						pe.cmd.SelectSegment(*p)
+						updateSelectMask()
+					}
 				case e.CtrlKey:
 					if projectionType != ProjectionPerspective {
 						break
 					}
-					// The scan result of the click above is still valid here.
-					err := pe.cmd.SelectLabelSegment(*p)
-					if err != nil {
-						pe.logPrint("Selection by label failed: " + err.Error())
-					} else {
-						updateSelectMask()
+					if ok := scanSelectionWithCursor(scaled(e.OffsetX), scaled(e.OffsetY)); ok {
+						err := pe.cmd.SelectLabelSegment(*p)
+						if err != nil {
+							pe.logPrint("Selection by label failed: " + err.Error())
+						} else {
+							updateSelectMask()
+						}
 					}
 				default:
 					if len(pe.cmd.Cursors()) < 2 {
