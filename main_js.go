@@ -856,7 +856,7 @@ L_MAIN:
 		//   - in the crop box
 		//   - in the select box
 		//   - close to the mouse cursor position given as (x, y)
-		scanSelection := func(x, y int, needNearCursor bool) bool {
+		scanSelectionImpl := func(x, y int, needNearCursor bool) bool {
 			if hasPointCloud && pp.Points > 0 {
 				mSel, _ := pe.cmd.SelectMatrix()
 				cropMatrix := pe.cmd.CropMatrix()
@@ -950,6 +950,12 @@ L_MAIN:
 			}
 			return false
 		}
+		scanSelection := func() bool {
+			return scanSelectionImpl(0, 0, false)
+		}
+		scanSelectionWithCursor := func(x, y int) bool {
+			return scanSelectionImpl(x, y, true)
+		}
 
 		// Check the cursor is on select box vertices
 		cursorOnSelect := func(e webgl.MouseEvent) (*mat.Vec3, bool) {
@@ -1004,7 +1010,7 @@ L_MAIN:
 				promise.resolved(blob)
 			case promise := <-pe.chExportSelectedPCD:
 				pe.logPrint("exporting selected points as pcd")
-				if !scanSelection(0, 0, false) {
+				if !scanSelection() {
 					promise.rejected(errors.New("failed to scan selected points"))
 				}
 				blob, err := pe.cmd.ExportSelectedPCD()
@@ -1019,7 +1025,7 @@ L_MAIN:
 				promise.resolved("resetted")
 			case promise := <-pe.chCommand:
 				res, err := pe.cs.Run(promise.data.(string), func() error {
-					if scanSelection(0, 0, false) {
+					if scanSelection() {
 						return nil
 					}
 					return errors.New("failed to scan selected points")
@@ -1160,7 +1166,7 @@ L_MAIN:
 				if e.Button != 0 || !pe.cg.Click() {
 					continue L_MAIN
 				}
-				ok := scanSelection(scaled(e.OffsetX), scaled(e.OffsetY), true)
+				ok := scanSelectionWithCursor(scaled(e.OffsetX), scaled(e.OffsetY))
 				if !ok {
 					updateSelectMask()
 					continue L_MAIN
@@ -1231,7 +1237,7 @@ L_MAIN:
 				case "Delete", "Backspace", "Digit0", "Digit1":
 					switch e.Code {
 					case "Delete", "Backspace":
-						if ok := scanSelection(0, 0, false); ok {
+						if ok := scanSelection(); ok {
 							pe.cmd.Delete()
 							if !e.ShiftKey && !e.CtrlKey {
 								pe.cmd.UnsetCursors()
@@ -1242,7 +1248,7 @@ L_MAIN:
 						if e.Code == "Digit1" {
 							l = 1
 						}
-						if ok := scanSelection(0, 0, false); ok {
+						if ok := scanSelection(); ok {
 							pe.cmd.Label(l)
 						}
 					}
