@@ -913,8 +913,7 @@ L_MAIN:
 				// Switch execution frame first to ensure state update
 				time.Sleep(time.Millisecond)
 
-				// Wait calculation on GPU with exponential backoff polling
-				wait := time.Millisecond
+				// Wait calculation on GPU
 			L_SYNC:
 				for failCnt := 0; ; {
 					switch gl.ClientWaitSync(fence, 0, 0) {
@@ -925,11 +924,7 @@ L_MAIN:
 							return false
 						}
 					}
-					time.Sleep(wait)
-					wait *= 2
-					if wait > 10*time.Millisecond {
-						wait = 10 * time.Millisecond
-					}
+					time.Sleep(10 * time.Millisecond)
 				}
 
 				// Get result from GPU
