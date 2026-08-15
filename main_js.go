@@ -479,6 +479,7 @@ func (pe *pcdeditor) runImpl(ctx context.Context) error {
 	type scanState struct {
 		valid          bool
 		x, y           int
+		width, height  int
 		crop, sel      mat.Mat4
 		mv, proj       mat.Mat4
 		ppRev, maskRev uint64
@@ -859,11 +860,12 @@ L_MAIN:
 			if hasPointCloud && pp.Points > 0 {
 				mSel, _ := pe.cmd.SelectMatrix()
 				cropMatrix := pe.cmd.CropMatrix()
-				if pe.cmd.ScanCacheEnabled() && lastScan.valid &&
+				if lastScan.valid &&
 					lastScan.ppRev == pe.cmd.PointCloudRev() &&
 					lastScan.maskRev == pe.cmd.SelectMaskRev() &&
 					lastScan.crop == cropMatrix && lastScan.sel == mSel &&
 					lastScan.mv == modelViewMatrix && lastScan.proj == projectionMatrix &&
+					lastScan.width == width && lastScan.height == height &&
 					(!needNearCursor || (lastScan.x == x && lastScan.y == y)) {
 					// cmd.SelectMask() already holds the result of this scan.
 					return true
@@ -939,6 +941,7 @@ L_MAIN:
 				lastScan = scanState{
 					valid: true,
 					x:     x, y: y,
+					width: width, height: height,
 					crop: cropMatrix, sel: mSel,
 					mv: modelViewMatrix, proj: projectionMatrix,
 					ppRev:   pe.cmd.PointCloudRev(),

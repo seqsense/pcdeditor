@@ -72,8 +72,6 @@ type commandContext struct {
 	pointCloudRev uint64
 	selectMaskRev uint64
 
-	scanCacheEnabled bool
-
 	selectRange            *float32
 	selectRangeOrtho       float32
 	selectRangePerspective float32
@@ -108,10 +106,9 @@ type commandContext struct {
 
 func newCommandContext(pcdio pcdIO, mapio mapIO) *commandContext {
 	c := &commandContext{
-		editor:           newEditor(),
-		pcdIO:            pcdio,
-		mapIO:            mapio,
-		scanCacheEnabled: true,
+		editor: newEditor(),
+		pcdIO:  pcdio,
+		mapIO:  mapio,
 	}
 	c.Reset()
 	return c
@@ -172,14 +169,6 @@ func (c *commandContext) PointCloudRev() uint64 {
 
 func (c *commandContext) SelectMaskRev() uint64 {
 	return c.selectMaskRev
-}
-
-func (c *commandContext) ScanCacheEnabled() bool {
-	return c.scanCacheEnabled
-}
-
-func (c *commandContext) SetScanCacheEnabled(on bool) {
-	c.scanCacheEnabled = on
 }
 
 func (c *commandContext) Map() (*occupancyGrid, mapImage, bool, bool) {
