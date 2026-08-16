@@ -631,8 +631,8 @@ func (c *commandContext) VoxelFilter(resolution float32) error {
 
 	if selected {
 		c.editor.passThrough(c.baseFilter(false))
-		c.editor.pop()
 		c.editor.merge(pcFiltered)
+		c.editor.squashLatest()
 	} else {
 		if err := c.editor.SetPointCloud(pcFiltered, cloudMain); err != nil {
 			return err

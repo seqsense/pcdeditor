@@ -36,14 +36,14 @@ func newEditor() *editor {
 type history interface {
 	MaxHistory() int
 	SetMaxHistory(m int)
-	push(pp *pc.PointCloud) *pc.PointCloud
-	pop() *pc.PointCloud
-	undo() (*pc.PointCloud, bool)
+	push(p patch)
+	squashLatest()
+	undo(pp *pc.PointCloud) (*pc.PointCloud, bool)
 	clear()
 }
 
 func (e *editor) Undo() bool {
-	pp, ok := e.history.undo()
+	pp, ok := e.history.undo(e.pp)
 	if ok {
 		e.pp = pp
 	}
@@ -114,7 +114,13 @@ func (e *editor) SetPointCloud(pp *pc.PointCloud, id cloudID) error {
 	}
 	switch id {
 	case cloudMain:
-		e.pp = e.push(pcNew)
+		if e.pp != nil {
+			e.push(&replacePatch{
+				header: e.pp.PointCloudHeader.Clone(),
+				data:   e.pp.Data,
+			})
+		}
+		e.pp = pcNew
 	case cloudSub:
 		e.ppSub = pcNew
 		it, err := pcNew.Vec3Iterator()
@@ -161,7 +167,11 @@ func (e *editor) label(fn func(int, mat.Vec3) (uint32, bool)) error {
 		itL.Incr()
 		i++
 	}
-	e.pp = e.push(pcNew)
+	e.push(&replacePatch{
+		header: e.pp.PointCloudHeader.Clone(),
+		data:   e.pp.Data,
+	})
+	e.pp = pcNew
 	runtime.GC()
 	return nil
 }
@@ -171,7 +181,11 @@ func (e *editor) passThrough(fn func(int, mat.Vec3) bool) error {
 	if err != nil {
 		return err
 	}
-	e.pp = e.push(pp)
+	e.push(&replacePatch{
+		header: e.pp.PointCloudHeader.Clone(),
+		data:   e.pp.Data,
+	})
+	e.pp = pp
 	runtime.GC()
 	return nil
 }
@@ -181,7 +195,11 @@ func (e *editor) passThroughByMask(sel []uint32, mask, val uint32) error {
 	if err != nil {
 		return err
 	}
-	e.pp = e.push(pp)
+	e.push(&replacePatch{
+		header: e.pp.PointCloudHeader.Clone(),
+		data:   e.pp.Data,
+	})
+	e.pp = pp
 	runtime.GC()
 	return nil
 }
@@ -214,7 +232,11 @@ func (e *editor) relabelPointsInLabelRange(minLabel, maxLabel, newLabel uint32) 
 		lt.SetUint32(newLabel)
 	}
 
-	e.pp = e.push(pcNew)
+	e.push(&replacePatch{
+		header: e.pp.PointCloudHeader.Clone(),
+		data:   e.pp.Data,
+	})
+	e.pp = pcNew
 	runtime.GC()
 	return nil
 }
@@ -255,7 +277,11 @@ func (e *editor) unlabelPoints(labelsToKeep []uint32) error {
 		lt.SetUint32(0)
 	}
 
-	e.pp = e.push(pcNew)
+	e.push(&replacePatch{
+		header: e.pp.PointCloudHeader.Clone(),
+		data:   e.pp.Data,
+	})
+	e.pp = pcNew
 	runtime.GC()
 	return nil
 }
@@ -356,6 +382,10 @@ func (e *editor) merge(pp *pc.PointCloud) {
 	pcNew.Width = pcNew.Points
 	pcNew.Height = 1
 
-	e.pp = e.push(pcNew)
+	e.push(&replacePatch{
+		header: e.pp.PointCloudHeader.Clone(),
+		data:   e.pp.Data,
+	})
+	e.pp = pcNew
 	runtime.GC()
 }

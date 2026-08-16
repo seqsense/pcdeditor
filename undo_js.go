@@ -6,10 +6,12 @@ import (
 	"github.com/seqsense/pcgol/pc"
 )
 
+// historyJS stores entries as JS Uint8Arrays to keep them out of the WASM
+// linear memory, which never shrinks.
 type historyJS struct {
-	history       []js.Value
-	historyHeader []pc.PointCloudHeader
-	maxHistory    int
+	// entries[i] is a list of packed patch chunks forming one undo step
+	entries    [][]js.Value
+	maxHistory int
 }
 
 func newHistory(n int) history {
@@ -27,53 +29,47 @@ func (h *historyJS) SetMaxHistory(m int) {
 	h.maxHistory = m
 }
 
-func (h *historyJS) push(pp *pc.PointCloud) *pc.PointCloud {
-	header := pp.PointCloudHeader.Clone()
-	dataJS := js.Global().Get("Uint8Array").New(len(pp.Data))
-	js.CopyBytesToJS(dataJS, pp.Data)
-	h.history = append(h.history, dataJS)
-	h.historyHeader = append(h.historyHeader, header)
-	if len(h.history) > h.MaxHistory()+1 {
-		h.history[0] = js.Null()
-		h.history = h.history[1:]
-		h.historyHeader = h.historyHeader[1:]
+func (h *historyJS) push(p patch) {
+	packed := packPatch(p)
+	chunk := js.Global().Get("Uint8Array").New(len(packed))
+	js.CopyBytesToJS(chunk, packed)
+	h.entries = append(h.entries, []js.Value{chunk})
+	for len(h.entries) > h.maxHistory {
+		h.entries[0] = nil
+		h.entries = h.entries[1:]
 	}
-	return pp
 }
 
-func (h *historyJS) pop() *pc.PointCloud {
-	n := len(h.history)
-	back := h.history[n-1]
-	backHeader := h.historyHeader[n-1]
-	h.history[n-1] = js.Null()
-	h.history = h.history[:n-1]
-	h.historyHeader = h.historyHeader[:n-1]
-
-	return h.reconstructPointCloud(backHeader, back)
+func (h *historyJS) squashLatest() {
+	if n := len(h.entries); n >= 2 {
+		h.entries[n-2] = append(h.entries[n-2], h.entries[n-1]...)
+		h.entries[n-1] = nil
+		h.entries = h.entries[:n-1]
+	}
 }
 
-func (h *historyJS) undo() (*pc.PointCloud, bool) {
-	if n := len(h.history); n > 1 {
-		h.history[n-1] = js.Null()
-		h.history = h.history[:n-1]
-		h.historyHeader = h.historyHeader[:n-1]
-
-		return h.reconstructPointCloud(h.historyHeader[n-2], h.history[n-2]), true
+func (h *historyJS) undo(pp *pc.PointCloud) (*pc.PointCloud, bool) {
+	n := len(h.entries)
+	if n == 0 {
+		return nil, false
 	}
-	return nil, false
-}
+	entry := h.entries[n-1]
+	h.entries[n-1] = nil
+	h.entries = h.entries[:n-1]
 
-func (h *historyJS) reconstructPointCloud(header pc.PointCloudHeader, dataJS js.Value) *pc.PointCloud {
-	pp := &pc.PointCloud{
-		PointCloudHeader: header,
-		Points:           header.Width * header.Height,
-		Data:             make([]byte, dataJS.Get("byteLength").Int()),
+	chunks := make([][]byte, len(entry))
+	for i, c := range entry {
+		b := make([]byte, c.Get("byteLength").Int())
+		js.CopyBytesToGo(b, c)
+		chunks[i] = b
 	}
-	js.CopyBytesToGo(pp.Data, dataJS)
-	return pp
+	out, err := revertChunks(pp, chunks)
+	if err != nil {
+		return nil, false
+	}
+	return out, true
 }
 
 func (h *historyJS) clear() {
-	h.history = nil
-	h.historyHeader = nil
+	h.entries = nil
 }
