@@ -318,7 +318,8 @@ func TestAddSurface(t *testing.T) {
 	})
 }
 
-func TestRelabelPointsInLabelRange(t *testing.T) {
+func newLabeledTestCloud(t *testing.T) *pc.PointCloud {
+	t.Helper()
 	header := pc.PointCloudHeader{
 		Fields: []string{"x", "y", "z", "label"},
 		Size:   []int{4, 4, 4, 4},
@@ -356,7 +357,10 @@ func TestRelabelPointsInLabelRange(t *testing.T) {
 	lt.Incr()
 	lt.SetUint32(3)
 	lt.Incr()
+	return pp
+}
 
+func TestRelabelPointsInLabelRange(t *testing.T) {
 	c := newCommandContext(&dummyPCDIO{}, nil)
 
 	testCases := map[string]struct {
@@ -380,13 +384,17 @@ func TestRelabelPointsInLabelRange(t *testing.T) {
 	for name, tt := range testCases {
 		tt := tt
 		t.Run(name, func(t *testing.T) {
-			c.SetPointCloud(pp, cloudMain)
+			// Edits mutate the cloud in place; use a fresh one per case.
+			c.SetPointCloud(newLabeledTestCloud(t), cloudMain)
 
 			if err := c.RelabelPointsInLabelRange(tt.minLabel, tt.maxLabel, tt.newLabel); err != nil {
 				t.Fatal(err)
 			}
 
-			lt, err = c.editor.pp.Uint32Iterator("label")
+			lt, err := c.editor.pp.Uint32Iterator("label")
+			if err != nil {
+				t.Fatal(err)
+			}
 			var labels []uint32
 			for ; lt.IsValid(); lt.Incr() {
 				labels = append(labels, lt.Uint32())
@@ -399,46 +407,7 @@ func TestRelabelPointsInLabelRange(t *testing.T) {
 }
 
 func TestUnlabelPoints(t *testing.T) {
-	header := pc.PointCloudHeader{
-		Fields: []string{"x", "y", "z", "label"},
-		Size:   []int{4, 4, 4, 4},
-		Type:   []string{"F", "F", "F", "U"},
-		Count:  []int{1, 1, 1, 1},
-		Width:  4,
-		Height: 1,
-	}
-	pp := &pc.PointCloud{
-		PointCloudHeader: header,
-		Points:           4,
-		Data:             make([]byte, 4*4*4),
-	}
-	it, err := pp.Vec3Iterator()
-	if err != nil {
-		t.Fatal(err)
-	}
-	it.SetVec3(mat.Vec3{1, 2, 3})
-	it.Incr()
-	it.SetVec3(mat.Vec3{4, 5, 6})
-	it.Incr()
-	it.SetVec3(mat.Vec3{7, 8, 9})
-	it.Incr()
-	it.SetVec3(mat.Vec3{10, 11, 12})
-
-	lt, err := pp.Uint32Iterator("label")
-	if err != nil {
-		t.Fatal(err)
-	}
-	lt.SetUint32(0)
-	lt.Incr()
-	lt.SetUint32(1)
-	lt.Incr()
-	lt.SetUint32(2)
-	lt.Incr()
-	lt.SetUint32(3)
-	lt.Incr()
-
 	c := newCommandContext(&dummyPCDIO{}, nil)
-	c.SetPointCloud(pp, cloudMain)
 
 	testCases := map[string]struct {
 		labelsToKeep   []uint32
@@ -461,13 +430,17 @@ func TestUnlabelPoints(t *testing.T) {
 	for name, tt := range testCases {
 		tt := tt
 		t.Run(name, func(t *testing.T) {
-			c.SetPointCloud(pp, cloudMain)
+			// Edits mutate the cloud in place; use a fresh one per case.
+			c.SetPointCloud(newLabeledTestCloud(t), cloudMain)
 
 			if err := c.UnlabelPoints(tt.labelsToKeep); err != nil {
 				t.Fatal(err)
 			}
 
-			lt, err = c.editor.pp.Uint32Iterator("label")
+			lt, err := c.editor.pp.Uint32Iterator("label")
+			if err != nil {
+				t.Fatal(err)
+			}
 			var labels []uint32
 			for ; lt.IsValid(); lt.Incr() {
 				labels = append(labels, lt.Uint32())

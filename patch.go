@@ -25,7 +25,47 @@ const (
 var (
 	errBrokenPatch      = errors.New("broken patch data")
 	errUnknownPatchType = errors.New("unknown patch type")
+	errNoLabelField     = errors.New("point cloud has no label field")
 )
+
+func fieldByteOffset(h *pc.PointCloudHeader, name string) (int, bool) {
+	offset := 0
+	for i, fn := range h.Fields {
+		if fn == name {
+			return offset, true
+		}
+		offset += h.Size[i] * h.Count[i]
+	}
+	return 0, false
+}
+
+type labelPatch struct {
+	indices   []uint32
+	oldLabels []uint32
+}
+
+func (p *labelPatch) revert(pp *pc.PointCloud) (*pc.PointCloud, error) {
+	off, ok := fieldByteOffset(&pp.PointCloudHeader, "label")
+	if !ok {
+		return nil, errNoLabelField
+	}
+	stride := pp.Stride()
+	for k, idx := range p.indices {
+		i := int(idx)*stride + off
+		if i+4 > len(pp.Data) {
+			return nil, errBrokenPatch
+		}
+		binary.LittleEndian.PutUint32(pp.Data[i:], p.oldLabels[k])
+	}
+	return pp, nil
+}
+
+func (p *labelPatch) encode(buf *bytes.Buffer) {
+	buf.WriteByte(patchTypeLabel)
+	writeUint32(buf, uint32(len(p.indices)))
+	writeUint32s(buf, p.indices)
+	writeUint32s(buf, p.oldLabels)
+}
 
 type replacePatch struct {
 	header pc.PointCloudHeader
@@ -87,6 +127,16 @@ func decodePatch(b []byte) (patch, []byte, error) {
 	typ := b[0]
 	r := reader{b: b[1:]}
 	switch typ {
+	case patchTypeLabel:
+		n := int(r.uint32())
+		p := &labelPatch{
+			indices:   r.uint32s(n),
+			oldLabels: r.uint32s(n),
+		}
+		if r.err != nil {
+			return nil, nil, r.err
+		}
+		return p, r.b, nil
 	case patchTypeReplace:
 		p := &replacePatch{}
 		p.header.Version = math.Float32frombits(r.uint32())
@@ -150,6 +200,14 @@ func writeUint32(buf *bytes.Buffer, v uint32) {
 	buf.Write(b[:])
 }
 
+func writeUint32s(buf *bytes.Buffer, vs []uint32) {
+	b := make([]byte, 4*len(vs))
+	for i, v := range vs {
+		binary.LittleEndian.PutUint32(b[i*4:], v)
+	}
+	buf.Write(b)
+}
+
 func writeString(buf *bytes.Buffer, s string) {
 	writeUint32(buf, uint32(len(s)))
 	buf.WriteString(s)
@@ -171,6 +229,22 @@ func (r *reader) uint32() uint32 {
 	v := binary.LittleEndian.Uint32(r.b)
 	r.b = r.b[4:]
 	return v
+}
+
+func (r *reader) uint32s(n int) []uint32 {
+	if r.err != nil {
+		return nil
+	}
+	if n < 0 || len(r.b) < 4*n {
+		r.err = errBrokenPatch
+		return nil
+	}
+	vs := make([]uint32, n)
+	for i := range vs {
+		vs[i] = binary.LittleEndian.Uint32(r.b[i*4:])
+	}
+	r.b = r.b[4*n:]
+	return vs
 }
 
 func (r *reader) bytes(n int) []byte {
