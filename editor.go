@@ -191,29 +191,25 @@ func (e *editor) mutateLabels(fn func(i int, l uint32) (uint32, bool)) error {
 }
 
 func (e *editor) passThrough(fn func(int, mat.Vec3) bool) error {
-	pp, err := passThrough(e.pp, fn)
+	it, err := e.pp.Vec3Iterator()
 	if err != nil {
 		return err
 	}
-	e.push(&replacePatch{
-		header: e.pp.PointCloudHeader.Clone(),
-		data:   e.pp.Data,
+	pcNew, p := compactInPlace(e.pp, func(i int) bool {
+		return fn(i, it.Vec3At(i))
 	})
-	e.pp = pp
+	e.pp = pcNew
+	e.push(p)
 	runtime.GC()
 	return nil
 }
 
 func (e *editor) passThroughByMask(sel []uint32, mask, val uint32) error {
-	pp, err := passThroughByMask(e.pp, sel, mask, val)
-	if err != nil {
-		return err
-	}
-	e.push(&replacePatch{
-		header: e.pp.PointCloudHeader.Clone(),
-		data:   e.pp.Data,
+	pcNew, p := compactInPlace(e.pp, func(i int) bool {
+		return sel[i]&mask == val
 	})
-	e.pp = pp
+	e.pp = pcNew
+	e.push(p)
 	runtime.GC()
 	return nil
 }
@@ -236,6 +232,39 @@ func (e *editor) unlabelPoints(labelsToKeep []uint32) error {
 		}
 		return 0, true
 	})
+}
+
+// Spare capacity of pp.Data is kept so that undo can re-expand without allocation
+func compactInPlace(pp *pc.PointCloud, keep func(i int) bool) (*pc.PointCloud, *deletePatch) {
+	stride := pp.Stride()
+	p := &deletePatch{oldWidth: pp.Width, oldHeight: pp.Height}
+	n := pp.Points
+	j := 0
+	runStart := -1
+	flush := func(end int) {
+		if runStart < 0 {
+			return
+		}
+		cnt := end - runStart
+		if runStart != j {
+			copy(pp.Data[j*stride:(j+cnt)*stride], pp.Data[runStart*stride:end*stride])
+		}
+		j += cnt
+		runStart = -1
+	}
+	for i := 0; i < n; i++ {
+		if keep(i) {
+			if runStart < 0 {
+				runStart = i
+			}
+			continue
+		}
+		flush(i)
+		p.indices = append(p.indices, uint32(i))
+		p.points = append(p.points, pp.Data[i*stride:(i+1)*stride]...)
+	}
+	flush(n)
+	return newCloudView(pp, j, j, 1, pp.Data[:j*stride]), p
 }
 
 func passThrough(pp *pc.PointCloud, fn func(int, mat.Vec3) bool) (*pc.PointCloud, error) {
