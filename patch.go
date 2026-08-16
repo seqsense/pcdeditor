@@ -28,6 +28,19 @@ var (
 	errNoLabelField     = errors.New("point cloud has no label field")
 )
 
+// pcgol caches an unsafe float32 alias of Data keyed only by its base pointer,
+// so a change of the Data length must be delivered in a fresh PointCloud.
+func newCloudView(pp *pc.PointCloud, points, width, height int, data []byte) *pc.PointCloud {
+	out := &pc.PointCloud{
+		PointCloudHeader: pp.PointCloudHeader.Clone(),
+		Points:           points,
+		Data:             data,
+	}
+	out.Width = width
+	out.Height = height
+	return out
+}
+
 func fieldByteOffset(h *pc.PointCloudHeader, name string) (int, bool) {
 	offset := 0
 	for i, fn := range h.Fields {
@@ -65,6 +78,25 @@ func (p *labelPatch) encode(buf *bytes.Buffer) {
 	writeUint32(buf, uint32(len(p.indices)))
 	writeUint32s(buf, p.indices)
 	writeUint32s(buf, p.oldLabels)
+}
+
+type appendPatch struct {
+	oldPoints, oldWidth, oldHeight int
+}
+
+func (p *appendPatch) revert(pp *pc.PointCloud) (*pc.PointCloud, error) {
+	stride := pp.Stride()
+	if p.oldPoints > pp.Points || p.oldPoints*stride > len(pp.Data) {
+		return nil, errBrokenPatch
+	}
+	return newCloudView(pp, p.oldPoints, p.oldWidth, p.oldHeight, pp.Data[:p.oldPoints*stride]), nil
+}
+
+func (p *appendPatch) encode(buf *bytes.Buffer) {
+	buf.WriteByte(patchTypeAppend)
+	writeUint32(buf, uint32(p.oldPoints))
+	writeUint32(buf, uint32(p.oldWidth))
+	writeUint32(buf, uint32(p.oldHeight))
 }
 
 type replacePatch struct {
@@ -132,6 +164,16 @@ func decodePatch(b []byte) (patch, []byte, error) {
 		p := &labelPatch{
 			indices:   r.uint32s(n),
 			oldLabels: r.uint32s(n),
+		}
+		if r.err != nil {
+			return nil, nil, r.err
+		}
+		return p, r.b, nil
+	case patchTypeAppend:
+		p := &appendPatch{
+			oldPoints: int(r.uint32()),
+			oldWidth:  int(r.uint32()),
+			oldHeight: int(r.uint32()),
 		}
 		if r.err != nil {
 			return nil, nil, r.err
