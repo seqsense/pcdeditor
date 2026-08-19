@@ -966,7 +966,7 @@ func (c *commandContext) SelectSegment(p mat.Vec3) {
 			if !coeff.IsIn(p, c.segmentationDistance) {
 				// Excude points only if the selected point is not on the surface.
 				surfIndice := coeff.Inliers(c.segmentationDistance)
-				surfRealIndice := make([]int, len(surfIndice))
+				surfRealIndice = make([]int, len(surfIndice))
 				for j, i := range surfIndice {
 					ri := vIndice[i]
 					c.selectMask[ri] |= selectBitmaskExclude
