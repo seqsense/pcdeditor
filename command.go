@@ -68,6 +68,10 @@ type commandContext struct {
 	subPointCloudUpdated bool
 	mapUpdated           bool
 
+	// Revision counters to detect state changes without rescanning.
+	pointCloudRev uint64
+	selectMaskRev uint64
+
 	selectRange            *float32
 	selectRangeOrtho       float32
 	selectRangePerspective float32
@@ -112,7 +116,8 @@ func newCommandContext(pcdio pcdIO, mapio mapIO) *commandContext {
 
 func (c *commandContext) Reset() {
 	c.editor.Reset()
-	c.pointCloudUpdated = true
+	c.setPointCloudUpdated()
+	c.invalidateSelectMask()
 	c.subPointCloudUpdated = true
 	c.mapUpdated = true
 	c.selected = nil
@@ -145,6 +150,25 @@ func (c *commandContext) SelectMask() []uint32 {
 
 func (c *commandContext) SetSelectMask(mask []uint32) {
 	c.selectMask = mask
+}
+
+// setPointCloudUpdated marks the point cloud dirty for the render loop and
+// invalidates any cached selection scan result.
+func (c *commandContext) setPointCloudUpdated() {
+	c.pointCloudUpdated = true
+	c.pointCloudRev++
+}
+
+func (c *commandContext) invalidateSelectMask() {
+	c.selectMaskRev++
+}
+
+func (c *commandContext) PointCloudRev() uint64 {
+	return c.pointCloudRev
+}
+
+func (c *commandContext) SelectMaskRev() uint64 {
+	return c.selectMaskRev
 }
 
 func (c *commandContext) Map() (*occupancyGrid, mapImage, bool, bool) {
@@ -560,7 +584,7 @@ func (c *commandContext) AddSurface(resolution float32) bool {
 		}
 	}
 	c.editor.merge(pcNew)
-	c.pointCloudUpdated = true
+	c.setPointCloudUpdated()
 	return true
 }
 
@@ -569,11 +593,11 @@ func (c *commandContext) Delete() bool {
 	case selectModeRect:
 		filter := c.baseFilter(false) // keep unselected points
 		c.editor.passThrough(filter)
-		c.pointCloudUpdated = true
+		c.setPointCloudUpdated()
 	case selectModeMask:
 		c.editor.passThroughByMask(c.selectMask, selectBitmaskSegmentSelected, 0)
 		c.selectMode = selectModeRect // selected points are deleted
-		c.pointCloudUpdated = true
+		c.setPointCloudUpdated()
 	}
 	return true
 }
@@ -615,7 +639,7 @@ func (c *commandContext) VoxelFilter(resolution float32) error {
 		}
 	}
 
-	c.pointCloudUpdated = true
+	c.setPointCloudUpdated()
 	return nil
 }
 
@@ -635,12 +659,12 @@ func (c *commandContext) Label(l uint32) bool {
 		}
 		return 0, false
 	})
-	c.pointCloudUpdated = true
+	c.setPointCloudUpdated()
 	return true
 }
 
 func (c *commandContext) Undo() bool {
-	c.pointCloudUpdated = true
+	c.setPointCloudUpdated()
 	return c.editor.Undo()
 }
 
@@ -665,7 +689,7 @@ func (c *commandContext) ImportPCD(blob interface{}) error {
 		return err
 	}
 
-	c.pointCloudUpdated = true
+	c.setPointCloudUpdated()
 	return nil
 }
 
@@ -708,7 +732,7 @@ func (c *commandContext) FinalizeCurrentMode() error {
 			it.SetVec3(trans.Transform(it.Vec3()))
 		}
 		c.editor.merge(c.editor.ppSub)
-		c.pointCloudUpdated = true
+		c.setPointCloudUpdated()
 		c.UnsetCursors()
 	}
 	return nil
@@ -904,6 +928,7 @@ func (c *commandContext) ExportSelectedPCD() (interface{}, error) {
 }
 
 func (c *commandContext) SelectSegment(p mat.Vec3) {
+	c.invalidateSelectMask()
 	res := float32(c.segmentationDistance)
 	w := int(c.segmentationRange / c.segmentationDistance)
 	half := float32(w) * res / 2
@@ -976,6 +1001,7 @@ func (c *commandContext) SelectSegment(p mat.Vec3) {
 }
 
 func (c *commandContext) SelectLabelSegment(p mat.Vec3) error {
+	c.invalidateSelectMask()
 	it, err := c.editor.pp.Vec3Iterator()
 	if err != nil {
 		return err
@@ -1030,7 +1056,7 @@ func (c *commandContext) RelabelPointsInLabelRange(minLabel, maxLabel, newLabel 
 		return err
 	}
 
-	c.pointCloudUpdated = true
+	c.setPointCloudUpdated()
 	return nil
 }
 
@@ -1044,6 +1070,6 @@ func (c *commandContext) UnlabelPoints(labelsToKeep []uint32) error {
 		return err
 	}
 
-	c.pointCloudUpdated = true
+	c.setPointCloudUpdated()
 	return nil
 }

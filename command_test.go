@@ -478,3 +478,38 @@ func TestUnlabelPoints(t *testing.T) {
 		})
 	}
 }
+
+func TestRevisionCounters(t *testing.T) {
+	c := newCommandContext(&dummyPCDIO{}, nil)
+
+	pp := &pc.PointCloud{
+		PointCloudHeader: pc.PointCloudHeader{
+			Fields: []string{"x", "y", "z"},
+			Size:   []int{4, 4, 4},
+			Type:   []string{"F", "F", "F"},
+			Count:  []int{1, 1, 1},
+			Width:  1,
+			Height: 1,
+		},
+		Points: 1,
+		Data:   make([]byte, 4*3),
+	}
+
+	rev := c.PointCloudRev()
+	if err := c.ImportPCD(pp); err != nil {
+		t.Fatal(err)
+	}
+	if c.PointCloudRev() == rev {
+		t.Error("ImportPCD must bump the point cloud revision")
+	}
+
+	rev = c.PointCloudRev()
+	maskRev := c.SelectMaskRev()
+	c.Reset()
+	if c.PointCloudRev() == rev {
+		t.Error("Reset must bump the point cloud revision")
+	}
+	if c.SelectMaskRev() == maskRev {
+		t.Error("Reset must bump the select mask revision")
+	}
+}
