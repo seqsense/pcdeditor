@@ -54,9 +54,6 @@ func (h *historyJS) undo(pp *pc.PointCloud) (*pc.PointCloud, bool) {
 		return nil, false
 	}
 	entry := h.entries[n-1]
-	h.entries[n-1] = nil
-	h.entries = h.entries[:n-1]
-
 	chunks := make([][]byte, len(entry))
 	for i, c := range entry {
 		b := make([]byte, c.Get("byteLength").Int())
@@ -67,6 +64,8 @@ func (h *historyJS) undo(pp *pc.PointCloud) (*pc.PointCloud, bool) {
 	if err != nil {
 		return nil, false
 	}
+	h.entries[n-1] = nil
+	h.entries = h.entries[:n-1]
 	return out, true
 }
 

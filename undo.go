@@ -49,14 +49,12 @@ func (h *historyMem) undo(pp *pc.PointCloud) (*pc.PointCloud, bool) {
 	if n == 0 {
 		return nil, false
 	}
-	entry := h.entries[n-1]
-	h.entries[n-1] = nil
-	h.entries = h.entries[:n-1]
-
-	out, err := revertChunks(pp, entry)
+	out, err := revertChunks(pp, h.entries[n-1])
 	if err != nil {
 		return nil, false
 	}
+	h.entries[n-1] = nil
+	h.entries = h.entries[:n-1]
 	return out, true
 }
 
