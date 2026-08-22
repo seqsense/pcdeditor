@@ -324,18 +324,13 @@ func passThroughImpl(pp *pc.PointCloud, core func(_, _ *pc.PointCloud) int) (*pc
 }
 
 func (e *editor) merge(pp *pc.PointCloud) {
-	pcNew := &pc.PointCloud{
-		PointCloudHeader: e.pp.PointCloudHeader.Clone(),
-		Points:           e.pp.Points + pp.Points,
-		Data:             append(e.pp.Data[:e.pp.Stride()*e.pp.Points], pp.Data...),
-	}
-	pcNew.Width = pcNew.Points
-	pcNew.Height = 1
-
-	e.push(&replacePatch{
-		header: e.pp.PointCloudHeader.Clone(),
-		data:   e.pp.Data,
+	e.push(&appendPatch{
+		oldPoints: e.pp.Points,
+		oldWidth:  e.pp.Width,
+		oldHeight: e.pp.Height,
 	})
-	e.pp = pcNew
+	n := e.pp.Points + pp.Points
+	data := append(e.pp.Data[:e.pp.Stride()*e.pp.Points], pp.Data...)
+	e.pp = newCloudView(e.pp, n, n, 1, data)
 	runtime.GC()
 }

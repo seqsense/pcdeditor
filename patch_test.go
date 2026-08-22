@@ -73,6 +73,24 @@ func TestLabelPatchRevert(t *testing.T) {
 	assertCloudEqual(t, orig, out)
 }
 
+func TestAppendPatchRevert(t *testing.T) {
+	orig := makeTestCloud(t, 100, 10, 10)
+	pp := cloneCloud(orig)
+
+	p := &appendPatch{oldPoints: pp.Points, oldWidth: pp.Width, oldHeight: pp.Height}
+	added := makeTestCloud(t, 10, 10, 1)
+	pp.Data = append(pp.Data, added.Data...)
+	pp.Points += added.Points
+	pp.Width = pp.Points
+	pp.Height = 1
+
+	out, err := p.revert(pp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertCloudEqual(t, orig, out)
+}
+
 func TestReplacePatchRevert(t *testing.T) {
 	orig := makeTestCloud(t, 100, 10, 10)
 	orig.Viewpoint = []float32{0, 0, 0, 1, 0, 0, 0}
@@ -97,6 +115,7 @@ func TestPatchEncodeDecodeRoundTrip(t *testing.T) {
 	orig.Viewpoint = []float32{1, 2, 3, 1, 0, 0, 0}
 	patches := []patch{
 		&labelPatch{indices: []uint32{1, 2, 42}, oldLabels: []uint32{7, 8, 9}},
+		&appendPatch{oldPoints: 90, oldWidth: 9, oldHeight: 10},
 		&replacePatch{header: orig.PointCloudHeader.Clone(), data: orig.Data},
 	}
 
