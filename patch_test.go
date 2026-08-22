@@ -73,6 +73,74 @@ func TestLabelPatchRevert(t *testing.T) {
 	assertCloudEqual(t, orig, out)
 }
 
+func deleteForTest(pp *pc.PointCloud, removed map[int]bool) *deletePatch {
+	stride := pp.Stride()
+	p := &deletePatch{
+		oldWidth:  pp.Width,
+		oldHeight: pp.Height,
+	}
+	j := 0
+	for i := 0; i < pp.Points; i++ {
+		if removed[i] {
+			p.indices = append(p.indices, uint32(i))
+			p.points = append(p.points, pp.Data[i*stride:(i+1)*stride]...)
+			continue
+		}
+		if i != j {
+			copy(pp.Data[j*stride:(j+1)*stride], pp.Data[i*stride:(i+1)*stride])
+		}
+		j++
+	}
+	pp.Points = j
+	pp.Width = j
+	pp.Height = 1
+	pp.Data = pp.Data[:j*stride]
+	return p
+}
+
+func TestDeletePatchRevert(t *testing.T) {
+	for name, removed := range map[string]map[int]bool{
+		"Scattered": {1: true, 5: true, 6: true, 99: true},
+		"Head":      {0: true, 1: true, 2: true},
+		"Tail":      {97: true, 98: true, 99: true},
+		"All":       allIndices(100),
+		"None":      {},
+	} {
+		t.Run(name, func(t *testing.T) {
+			orig := makeTestCloud(t, 100, 10, 10)
+			t.Run("KeptCapacity", func(t *testing.T) {
+				pp := cloneCloud(orig)
+				p := deleteForTest(pp, removed)
+				out, err := p.revert(pp)
+				if err != nil {
+					t.Fatal(err)
+				}
+				assertCloudEqual(t, orig, out)
+			})
+			t.Run("NoSpareCapacity", func(t *testing.T) {
+				pp := cloneCloud(orig)
+				p := deleteForTest(pp, removed)
+				// Drop the spare capacity to exercise the reallocation
+				// path (a no-op for the None pattern).
+				pp.Data = append([]byte{}, pp.Data...)
+				out, err := p.revert(pp)
+				if err != nil {
+					t.Fatal(err)
+				}
+				assertCloudEqual(t, orig, out)
+			})
+		})
+	}
+}
+
+func allIndices(n int) map[int]bool {
+	m := map[int]bool{}
+	for i := 0; i < n; i++ {
+		m[i] = true
+	}
+	return m
+}
+
 func TestAppendPatchRevert(t *testing.T) {
 	orig := makeTestCloud(t, 100, 10, 10)
 	pp := cloneCloud(orig)
@@ -115,6 +183,11 @@ func TestPatchEncodeDecodeRoundTrip(t *testing.T) {
 	orig.Viewpoint = []float32{1, 2, 3, 1, 0, 0, 0}
 	patches := []patch{
 		&labelPatch{indices: []uint32{1, 2, 42}, oldLabels: []uint32{7, 8, 9}},
+		&deletePatch{
+			oldWidth: 10, oldHeight: 10,
+			indices: []uint32{0, 50, 99},
+			points:  bytes.Repeat([]byte{1, 2, 3, 4}, 3*4),
+		},
 		&appendPatch{oldPoints: 90, oldWidth: 9, oldHeight: 10},
 		&replacePatch{header: orig.PointCloudHeader.Clone(), data: orig.Data},
 	}

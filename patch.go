@@ -89,6 +89,63 @@ func (p *labelPatch) payload() []byte {
 	return nil
 }
 
+type deletePatch struct {
+	oldWidth, oldHeight int
+	indices             []uint32 // ascending original positions of the removed points
+	points              []byte
+}
+
+func (p *deletePatch) revert(pp *pc.PointCloud) (*pc.PointCloud, error) {
+	stride := pp.Stride()
+	if len(p.points) != len(p.indices)*stride {
+		return nil, errBrokenPatch
+	}
+	oldN := pp.Points + len(p.indices)
+	need := oldN * stride
+	var data []byte
+	if cap(pp.Data) >= need {
+		data = pp.Data[:need]
+	} else {
+		data = make([]byte, need)
+		copy(data, pp.Data)
+	}
+
+	// Walk backwards so that every move reads a not-yet-overwritten position
+	di := len(p.indices) - 1
+	src := pp.Points - 1
+	for dst := oldN - 1; dst >= 0; dst-- {
+		if di >= 0 && int(p.indices[di]) == dst {
+			copy(data[dst*stride:(dst+1)*stride], p.points[di*stride:(di+1)*stride])
+			di--
+		} else {
+			if src < 0 {
+				return nil, errBrokenPatch
+			}
+			if dst != src {
+				copy(data[dst*stride:(dst+1)*stride], data[src*stride:(src+1)*stride])
+			}
+			src--
+		}
+	}
+	if di >= 0 {
+		return nil, errBrokenPatch
+	}
+	return newCloudView(pp, oldN, p.oldWidth, p.oldHeight, data), nil
+}
+
+func (p *deletePatch) encodeHead(buf *bytes.Buffer) {
+	buf.WriteByte(patchTypeDelete)
+	writeUint32(buf, uint32(p.oldWidth))
+	writeUint32(buf, uint32(p.oldHeight))
+	writeUint32(buf, uint32(len(p.indices)))
+	writeUint32s(buf, p.indices)
+	writeUint32(buf, uint32(len(p.points)))
+}
+
+func (p *deletePatch) payload() []byte {
+	return p.points
+}
+
 type appendPatch struct {
 	oldPoints, oldWidth, oldHeight int
 }
@@ -183,6 +240,17 @@ func decodePatch(b []byte) (patch, []byte, error) {
 			indices:   r.uint32s(n),
 			oldLabels: r.uint32s(n),
 		}
+		if r.err != nil {
+			return nil, nil, r.err
+		}
+		return p, r.b, nil
+	case patchTypeDelete:
+		p := &deletePatch{
+			oldWidth:  int(r.uint32()),
+			oldHeight: int(r.uint32()),
+		}
+		p.indices = r.uint32s(int(r.uint32()))
+		p.points = r.bytes(int(r.uint32()))
 		if r.err != nil {
 			return nil, nil, r.err
 		}
