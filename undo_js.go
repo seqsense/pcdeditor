@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"syscall/js"
 
 	"github.com/seqsense/pcgol/pc"
@@ -30,9 +31,12 @@ func (h *historyJS) SetMaxHistory(m int) {
 }
 
 func (h *historyJS) push(p patch) {
-	packed := packPatch(p)
-	chunk := js.Global().Get("Uint8Array").New(len(packed))
-	js.CopyBytesToJS(chunk, packed)
+	var head bytes.Buffer
+	p.encodeHead(&head)
+	data := p.payload()
+	chunk := js.Global().Get("Uint8Array").New(head.Len() + len(data))
+	js.CopyBytesToJS(chunk, head.Bytes())
+	js.CopyBytesToJS(chunk.Call("subarray", head.Len()), data)
 	h.entries = append(h.entries, []js.Value{chunk})
 	for len(h.entries) > h.maxHistory {
 		h.entries[0] = nil
@@ -54,9 +58,6 @@ func (h *historyJS) undo(pp *pc.PointCloud) (*pc.PointCloud, bool) {
 		return nil, false
 	}
 	entry := h.entries[n-1]
-	h.entries[n-1] = nil
-	h.entries = h.entries[:n-1]
-
 	chunks := make([][]byte, len(entry))
 	for i, c := range entry {
 		b := make([]byte, c.Get("byteLength").Int())
@@ -67,6 +68,8 @@ func (h *historyJS) undo(pp *pc.PointCloud) (*pc.PointCloud, bool) {
 	if err != nil {
 		return nil, false
 	}
+	h.entries[n-1] = nil
+	h.entries = h.entries[:n-1]
 	return out, true
 }
 

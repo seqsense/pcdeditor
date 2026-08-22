@@ -12,7 +12,9 @@ import (
 type patch interface {
 	// pp may be mutated; use the returned cloud
 	revert(pp *pc.PointCloud) (*pc.PointCloud, error)
-	encode(buf *bytes.Buffer)
+	// The wire form is the head followed by the raw payload
+	encodeHead(buf *bytes.Buffer)
+	payload() []byte
 }
 
 const (
@@ -58,6 +60,9 @@ type labelPatch struct {
 }
 
 func (p *labelPatch) revert(pp *pc.PointCloud) (*pc.PointCloud, error) {
+	if len(p.indices) != len(p.oldLabels) {
+		return nil, errBrokenPatch
+	}
 	off, ok := fieldByteOffset(&pp.PointCloudHeader, "label")
 	if !ok {
 		return nil, errNoLabelField
@@ -73,11 +78,15 @@ func (p *labelPatch) revert(pp *pc.PointCloud) (*pc.PointCloud, error) {
 	return pp, nil
 }
 
-func (p *labelPatch) encode(buf *bytes.Buffer) {
+func (p *labelPatch) encodeHead(buf *bytes.Buffer) {
 	buf.WriteByte(patchTypeLabel)
 	writeUint32(buf, uint32(len(p.indices)))
 	writeUint32s(buf, p.indices)
 	writeUint32s(buf, p.oldLabels)
+}
+
+func (p *labelPatch) payload() []byte {
+	return nil
 }
 
 type deletePatch struct {
@@ -124,14 +133,17 @@ func (p *deletePatch) revert(pp *pc.PointCloud) (*pc.PointCloud, error) {
 	return newCloudView(pp, oldN, p.oldWidth, p.oldHeight, data), nil
 }
 
-func (p *deletePatch) encode(buf *bytes.Buffer) {
+func (p *deletePatch) encodeHead(buf *bytes.Buffer) {
 	buf.WriteByte(patchTypeDelete)
 	writeUint32(buf, uint32(p.oldWidth))
 	writeUint32(buf, uint32(p.oldHeight))
 	writeUint32(buf, uint32(len(p.indices)))
 	writeUint32s(buf, p.indices)
 	writeUint32(buf, uint32(len(p.points)))
-	buf.Write(p.points)
+}
+
+func (p *deletePatch) payload() []byte {
+	return p.points
 }
 
 type appendPatch struct {
@@ -140,17 +152,22 @@ type appendPatch struct {
 
 func (p *appendPatch) revert(pp *pc.PointCloud) (*pc.PointCloud, error) {
 	stride := pp.Stride()
-	if p.oldPoints > pp.Points || p.oldPoints*stride > len(pp.Data) {
+	if p.oldPoints < 0 || p.oldWidth < 0 || p.oldHeight < 0 ||
+		p.oldPoints > pp.Points || p.oldPoints > len(pp.Data)/stride {
 		return nil, errBrokenPatch
 	}
 	return newCloudView(pp, p.oldPoints, p.oldWidth, p.oldHeight, pp.Data[:p.oldPoints*stride]), nil
 }
 
-func (p *appendPatch) encode(buf *bytes.Buffer) {
+func (p *appendPatch) encodeHead(buf *bytes.Buffer) {
 	buf.WriteByte(patchTypeAppend)
 	writeUint32(buf, uint32(p.oldPoints))
 	writeUint32(buf, uint32(p.oldWidth))
 	writeUint32(buf, uint32(p.oldHeight))
+}
+
+func (p *appendPatch) payload() []byte {
+	return nil
 }
 
 type replacePatch struct {
@@ -166,7 +183,7 @@ func (p *replacePatch) revert(_ *pc.PointCloud) (*pc.PointCloud, error) {
 	}, nil
 }
 
-func (p *replacePatch) encode(buf *bytes.Buffer) {
+func (p *replacePatch) encodeHead(buf *bytes.Buffer) {
 	buf.WriteByte(patchTypeReplace)
 	writeUint32(buf, math.Float32bits(p.header.Version))
 	writeUint32(buf, uint32(len(p.header.Fields)))
@@ -183,12 +200,16 @@ func (p *replacePatch) encode(buf *bytes.Buffer) {
 		writeUint32(buf, math.Float32bits(v))
 	}
 	writeUint32(buf, uint32(len(p.data)))
-	buf.Write(p.data)
+}
+
+func (p *replacePatch) payload() []byte {
+	return p.data
 }
 
 func encodePatches(buf *bytes.Buffer, ps []patch) {
 	for _, p := range ps {
-		p.encode(buf)
+		p.encodeHead(buf)
+		buf.Write(p.payload())
 	}
 }
 
@@ -248,7 +269,8 @@ func decodePatch(b []byte) (patch, []byte, error) {
 		p := &replacePatch{}
 		p.header.Version = math.Float32frombits(r.uint32())
 		nFields := int(r.uint32())
-		if r.err != nil || nFields < 0 || nFields > len(r.b) {
+		// A field encodes to at least 16 bytes
+		if r.err != nil || nFields < 0 || nFields > len(r.b)/16 {
 			return nil, nil, errBrokenPatch
 		}
 		p.header.Fields = make([]string, nFields)
@@ -264,7 +286,7 @@ func decodePatch(b []byte) (patch, []byte, error) {
 		p.header.Width = int(r.uint32())
 		p.header.Height = int(r.uint32())
 		nvp := int(r.uint32())
-		if r.err != nil || nvp < 0 || nvp*4 > len(r.b) {
+		if r.err != nil || nvp < 0 || nvp > len(r.b)/4 {
 			return nil, nil, errBrokenPatch
 		}
 		p.header.Viewpoint = make([]float32, nvp)
@@ -297,8 +319,12 @@ func revertChunks(pp *pc.PointCloud, chunks [][]byte) (*pc.PointCloud, error) {
 
 func packPatch(p patch) []byte {
 	var buf bytes.Buffer
-	p.encode(&buf)
-	return buf.Bytes()
+	p.encodeHead(&buf)
+	data := p.payload()
+	packed := make([]byte, buf.Len()+len(data))
+	copy(packed, buf.Bytes())
+	copy(packed[buf.Len():], data)
+	return packed
 }
 
 func writeUint32(buf *bytes.Buffer, v uint32) {
@@ -342,7 +368,7 @@ func (r *reader) uint32s(n int) []uint32 {
 	if r.err != nil {
 		return nil
 	}
-	if n < 0 || len(r.b) < 4*n {
+	if n < 0 || n > len(r.b)/4 {
 		r.err = errBrokenPatch
 		return nil
 	}

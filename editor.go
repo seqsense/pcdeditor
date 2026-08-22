@@ -165,7 +165,6 @@ func (e *editor) label(fn func(int, mat.Vec3) (uint32, bool)) error {
 		i++
 	}
 	e.push(p)
-	runtime.GC()
 	return nil
 }
 
@@ -186,7 +185,6 @@ func (e *editor) mutateLabels(fn func(i int, l uint32) (uint32, bool)) error {
 		lt.Incr()
 	}
 	e.push(p)
-	runtime.GC()
 	return nil
 }
 
