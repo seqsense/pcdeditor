@@ -12,7 +12,9 @@ import (
 type patch interface {
 	// pp may be mutated; use the returned cloud
 	revert(pp *pc.PointCloud) (*pc.PointCloud, error)
-	encode(buf *bytes.Buffer)
+	// The wire form is the head followed by the raw payload
+	encodeHead(buf *bytes.Buffer)
+	payload() []byte
 }
 
 const (
@@ -63,11 +65,15 @@ func (p *labelPatch) revert(pp *pc.PointCloud) (*pc.PointCloud, error) {
 	return pp, nil
 }
 
-func (p *labelPatch) encode(buf *bytes.Buffer) {
+func (p *labelPatch) encodeHead(buf *bytes.Buffer) {
 	buf.WriteByte(patchTypeLabel)
 	writeUint32(buf, uint32(len(p.indices)))
 	writeUint32s(buf, p.indices)
 	writeUint32s(buf, p.oldLabels)
+}
+
+func (p *labelPatch) payload() []byte {
+	return nil
 }
 
 type replacePatch struct {
@@ -83,7 +89,7 @@ func (p *replacePatch) revert(_ *pc.PointCloud) (*pc.PointCloud, error) {
 	}, nil
 }
 
-func (p *replacePatch) encode(buf *bytes.Buffer) {
+func (p *replacePatch) encodeHead(buf *bytes.Buffer) {
 	buf.WriteByte(patchTypeReplace)
 	writeUint32(buf, math.Float32bits(p.header.Version))
 	writeUint32(buf, uint32(len(p.header.Fields)))
@@ -100,12 +106,16 @@ func (p *replacePatch) encode(buf *bytes.Buffer) {
 		writeUint32(buf, math.Float32bits(v))
 	}
 	writeUint32(buf, uint32(len(p.data)))
-	buf.Write(p.data)
+}
+
+func (p *replacePatch) payload() []byte {
+	return p.data
 }
 
 func encodePatches(buf *bytes.Buffer, ps []patch) {
 	for _, p := range ps {
-		p.encode(buf)
+		p.encodeHead(buf)
+		buf.Write(p.payload())
 	}
 }
 
@@ -144,7 +154,8 @@ func decodePatch(b []byte) (patch, []byte, error) {
 		p := &replacePatch{}
 		p.header.Version = math.Float32frombits(r.uint32())
 		nFields := int(r.uint32())
-		if r.err != nil || nFields < 0 || nFields > len(r.b) {
+		// A field encodes to at least 16 bytes
+		if r.err != nil || nFields < 0 || nFields > len(r.b)/16 {
 			return nil, nil, errBrokenPatch
 		}
 		p.header.Fields = make([]string, nFields)
@@ -193,8 +204,12 @@ func revertChunks(pp *pc.PointCloud, chunks [][]byte) (*pc.PointCloud, error) {
 
 func packPatch(p patch) []byte {
 	var buf bytes.Buffer
-	p.encode(&buf)
-	return buf.Bytes()
+	p.encodeHead(&buf)
+	data := p.payload()
+	packed := make([]byte, buf.Len()+len(data))
+	copy(packed, buf.Bytes())
+	copy(packed[buf.Len():], data)
+	return packed
 }
 
 func writeUint32(buf *bytes.Buffer, v uint32) {
