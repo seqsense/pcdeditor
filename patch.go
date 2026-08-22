@@ -91,7 +91,8 @@ func decodePatch(b []byte) (patch, []byte, error) {
 		p := &replacePatch{}
 		p.header.Version = math.Float32frombits(r.uint32())
 		nFields := int(r.uint32())
-		if r.err != nil || nFields < 0 || nFields > len(r.b) {
+		// A field encodes to at least 16 bytes
+		if r.err != nil || nFields < 0 || nFields > len(r.b)/16 {
 			return nil, nil, errBrokenPatch
 		}
 		p.header.Fields = make([]string, nFields)
@@ -107,7 +108,7 @@ func decodePatch(b []byte) (patch, []byte, error) {
 		p.header.Width = int(r.uint32())
 		p.header.Height = int(r.uint32())
 		nvp := int(r.uint32())
-		if r.err != nil || nvp < 0 || nvp*4 > len(r.b) {
+		if r.err != nil || nvp < 0 || nvp > len(r.b)/4 {
 			return nil, nil, errBrokenPatch
 		}
 		p.header.Viewpoint = make([]float32, nvp)
