@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/binary"
 	"math/rand"
 	"reflect"
 	"testing"
@@ -52,6 +53,26 @@ func assertCloudEqual(t *testing.T, expected, got *pc.PointCloud) {
 	}
 }
 
+func TestLabelPatchRevert(t *testing.T) {
+	orig := makeTestCloud(t, 100, 100, 1)
+	pp := cloneCloud(orig)
+
+	stride := pp.Stride()
+	p := &labelPatch{}
+	for _, i := range []uint32{0, 3, 42, 99} {
+		off := int(i)*stride + 12
+		p.indices = append(p.indices, i)
+		p.oldLabels = append(p.oldLabels, binary.LittleEndian.Uint32(pp.Data[off:]))
+		binary.LittleEndian.PutUint32(pp.Data[off:], 12345)
+	}
+
+	out, err := p.revert(pp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertCloudEqual(t, orig, out)
+}
+
 func TestReplacePatchRevert(t *testing.T) {
 	orig := makeTestCloud(t, 100, 10, 10)
 	orig.Viewpoint = []float32{0, 0, 0, 1, 0, 0, 0}
@@ -75,6 +96,7 @@ func TestPatchEncodeDecodeRoundTrip(t *testing.T) {
 	orig := makeTestCloud(t, 100, 10, 10)
 	orig.Viewpoint = []float32{1, 2, 3, 1, 0, 0, 0}
 	patches := []patch{
+		&labelPatch{indices: []uint32{1, 2, 42}, oldLabels: []uint32{7, 8, 9}},
 		&replacePatch{header: orig.PointCloudHeader.Clone(), data: orig.Data},
 	}
 
