@@ -141,7 +141,9 @@ func revertChunks(pp *pc.PointCloud, chunks [][]byte) (*pc.PointCloud, error) {
 func packPatch(p patch) []byte {
 	var buf bytes.Buffer
 	p.encode(&buf)
-	return buf.Bytes()
+	packed := make([]byte, buf.Len())
+	copy(packed, buf.Bytes())
+	return packed
 }
 
 func writeUint32(buf *bytes.Buffer, v uint32) {
