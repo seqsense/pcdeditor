@@ -45,6 +45,9 @@ type labelPatch struct {
 }
 
 func (p *labelPatch) revert(pp *pc.PointCloud) (*pc.PointCloud, error) {
+	if len(p.indices) != len(p.oldLabels) {
+		return nil, errBrokenPatch
+	}
 	off, ok := fieldByteOffset(&pp.PointCloudHeader, "label")
 	if !ok {
 		return nil, errNoLabelField
@@ -157,7 +160,7 @@ func decodePatch(b []byte) (patch, []byte, error) {
 		p.header.Width = int(r.uint32())
 		p.header.Height = int(r.uint32())
 		nvp := int(r.uint32())
-		if r.err != nil || nvp < 0 || nvp*4 > len(r.b) {
+		if r.err != nil || nvp < 0 || nvp > len(r.b)/4 {
 			return nil, nil, errBrokenPatch
 		}
 		p.header.Viewpoint = make([]float32, nvp)
@@ -235,7 +238,7 @@ func (r *reader) uint32s(n int) []uint32 {
 	if r.err != nil {
 		return nil
 	}
-	if n < 0 || len(r.b) < 4*n {
+	if n < 0 || n > len(r.b)/4 {
 		r.err = errBrokenPatch
 		return nil
 	}
