@@ -95,7 +95,7 @@ type appendPatch struct {
 
 func (p *appendPatch) revert(pp *pc.PointCloud) (*pc.PointCloud, error) {
 	stride := pp.Stride()
-	if p.oldPoints < 0 || p.oldWidth < 0 || p.oldHeight < 0 ||
+	if stride <= 0 || p.oldPoints < 0 || p.oldWidth < 0 || p.oldHeight < 0 ||
 		p.oldPoints > pp.Points || p.oldPoints > len(pp.Data)/stride {
 		return nil, errBrokenPatch
 	}
