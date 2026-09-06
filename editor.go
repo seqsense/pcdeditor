@@ -107,7 +107,7 @@ func (e *editor) SetPointCloud(pp *pc.PointCloud, id cloudID) error {
 	case cloudMain:
 		if e.pp != nil {
 			if err := e.push(&replacePatch{
-				header: e.pp.PointCloudHeader.Clone(),
+				Header: e.pp.PointCloudHeader.Clone(),
 				data:   e.pp.Data,
 			}); err != nil {
 				return err
@@ -161,7 +161,7 @@ func (e *editor) label(fn func(int, mat.Vec3) (uint32, bool)) error {
 		i++
 	}
 	if err := e.push(&replacePatch{
-		header: e.pp.PointCloudHeader.Clone(),
+		Header: e.pp.PointCloudHeader.Clone(),
 		data:   e.pp.Data,
 	}); err != nil {
 		return err
@@ -177,7 +177,7 @@ func (e *editor) passThrough(fn func(int, mat.Vec3) bool) error {
 		return err
 	}
 	if err := e.push(&replacePatch{
-		header: e.pp.PointCloudHeader.Clone(),
+		Header: e.pp.PointCloudHeader.Clone(),
 		data:   e.pp.Data,
 	}); err != nil {
 		return err
@@ -193,7 +193,7 @@ func (e *editor) passThroughByMask(sel []uint32, mask, val uint32) error {
 		return err
 	}
 	if err := e.push(&replacePatch{
-		header: e.pp.PointCloudHeader.Clone(),
+		Header: e.pp.PointCloudHeader.Clone(),
 		data:   e.pp.Data,
 	}); err != nil {
 		return err
@@ -232,7 +232,7 @@ func (e *editor) relabelPointsInLabelRange(minLabel, maxLabel, newLabel uint32) 
 	}
 
 	if err := e.push(&replacePatch{
-		header: e.pp.PointCloudHeader.Clone(),
+		Header: e.pp.PointCloudHeader.Clone(),
 		data:   e.pp.Data,
 	}); err != nil {
 		return err
@@ -279,7 +279,7 @@ func (e *editor) unlabelPoints(labelsToKeep []uint32) error {
 	}
 
 	if err := e.push(&replacePatch{
-		header: e.pp.PointCloudHeader.Clone(),
+		Header: e.pp.PointCloudHeader.Clone(),
 		data:   e.pp.Data,
 	}); err != nil {
 		return err
@@ -386,7 +386,7 @@ func (e *editor) merge(pp *pc.PointCloud) error {
 	pcNew.Height = 1
 
 	if err := e.push(&replacePatch{
-		header: e.pp.PointCloudHeader.Clone(),
+		Header: e.pp.PointCloudHeader.Clone(),
 		data:   e.pp.Data,
 	}); err != nil {
 		return err

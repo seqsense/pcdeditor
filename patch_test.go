@@ -13,13 +13,14 @@ func makeTestCloud(t *testing.T, n, width, height int) *pc.PointCloud {
 	t.Helper()
 	pp := &pc.PointCloud{
 		PointCloudHeader: pc.PointCloudHeader{
-			Version: 0.7,
-			Fields:  []string{"x", "y", "z", "label"},
-			Size:    []int{4, 4, 4, 4},
-			Type:    []string{"F", "F", "F", "U"},
-			Count:   []int{1, 1, 1, 1},
-			Width:   width,
-			Height:  height,
+			Version:   0.7,
+			Fields:    []string{"x", "y", "z", "label"},
+			Size:      []int{4, 4, 4, 4},
+			Type:      []string{"F", "F", "F", "U"},
+			Count:     []int{1, 1, 1, 1},
+			Width:     width,
+			Height:    height,
+			Viewpoint: []float32{0, 0, 0, 1, 0, 0, 0},
 		},
 		Points: n,
 	}
@@ -54,11 +55,10 @@ func assertCloudEqual(t *testing.T, expected, got *pc.PointCloud) {
 
 func TestReplacePatchRevert(t *testing.T) {
 	orig := makeTestCloud(t, 100, 10, 10)
-	orig.Viewpoint = []float32{0, 0, 0, 1, 0, 0, 0}
 	pp := makeTestCloud(t, 5, 5, 1)
 
 	p := &replacePatch{
-		header: orig.PointCloudHeader.Clone(),
+		Header: orig.PointCloudHeader.Clone(),
 		data:   append([]byte{}, orig.Data...),
 	}
 	out, err := p.revert(pp)
@@ -74,22 +74,18 @@ func TestReplacePatchRevert(t *testing.T) {
 func TestPatchEncodeDecodeRoundTrip(t *testing.T) {
 	orig := makeTestCloud(t, 100, 10, 10)
 	orig.Viewpoint = []float32{1, 2, 3, 1, 0, 0, 0}
-	patches := []patch{
-		&replacePatch{header: orig.PointCloudHeader.Clone(), data: orig.Data},
-	}
+	p := &replacePatch{Header: orig.PointCloudHeader.Clone(), data: orig.Data}
 
 	var buf bytes.Buffer
-	encodePatches(&buf, patches)
-	decoded, err := decodePatches(buf.Bytes())
+	if err := encodePatch(&buf, p); err != nil {
+		t.Fatal(err)
+	}
+	buf.Write(p.payload())
+	decoded, err := decodePatch(buf.Bytes())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(decoded) != len(patches) {
-		t.Fatalf("Expected %d patches, got %d", len(patches), len(decoded))
-	}
-	for i := range patches {
-		if !reflect.DeepEqual(patches[i], decoded[i]) {
-			t.Errorf("Patch %d: expected %+v, got %+v", i, patches[i], decoded[i])
-		}
+	if !reflect.DeepEqual(patch(p), decoded) {
+		t.Errorf("Expected %+v, got %+v", p, decoded)
 	}
 }
