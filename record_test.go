@@ -14,13 +14,14 @@ func makeTestCloud(t *testing.T, n, width, height int) *pc.PointCloud {
 	t.Helper()
 	pp := &pc.PointCloud{
 		PointCloudHeader: pc.PointCloudHeader{
-			Version: 0.7,
-			Fields:  []string{"x", "y", "z", "label"},
-			Size:    []int{4, 4, 4, 4},
-			Type:    []string{"F", "F", "F", "U"},
-			Count:   []int{1, 1, 1, 1},
-			Width:   width,
-			Height:  height,
+			Version:   0.7,
+			Fields:    []string{"x", "y", "z", "label"},
+			Size:      []int{4, 4, 4, 4},
+			Type:      []string{"F", "F", "F", "U"},
+			Count:     []int{1, 1, 1, 1},
+			Width:     width,
+			Height:    height,
+			Viewpoint: []float32{0, 0, 0, 1, 0, 0, 0},
 		},
 		Points: n,
 	}
@@ -49,40 +50,36 @@ func assertCloudEqual(t *testing.T, expected, got *pc.PointCloud) {
 			expected.Width, expected.Height, got.Width, got.Height)
 	}
 	if !bytes.Equal(expected.Data, got.Data) {
-		t.Fatal("Data mismatch after revert")
+		t.Fatal("Data mismatch after restore")
 	}
 }
 
-func TestLabelPatchRevert(t *testing.T) {
+func TestSavedLabelsRestore(t *testing.T) {
 	orig := makeTestCloud(t, 100, 100, 1)
 	pp := cloneCloud(orig)
 
 	stride := pp.Stride()
-	p := &labelPatch{}
+	p := &savedLabels{}
 	for _, i := range []uint32{0, 3, 42, 99} {
 		off := int(i)*stride + 12
-		p.indices = append(p.indices, i)
-		p.oldLabels = append(p.oldLabels, binary.LittleEndian.Uint32(pp.Data[off:]))
+		p.Indices = append(p.Indices, i)
+		p.OldLabels = append(p.OldLabels, binary.LittleEndian.Uint32(pp.Data[off:]))
 		binary.LittleEndian.PutUint32(pp.Data[off:], 12345)
 	}
 
-	out, err := p.revert(pp)
+	out, err := p.restore(pp)
 	if err != nil {
 		t.Fatal(err)
 	}
 	assertCloudEqual(t, orig, out)
 }
 
-func TestReplacePatchRevert(t *testing.T) {
+func TestPreviousCloudRestore(t *testing.T) {
 	orig := makeTestCloud(t, 100, 10, 10)
-	orig.Viewpoint = []float32{0, 0, 0, 1, 0, 0, 0}
 	pp := makeTestCloud(t, 5, 5, 1)
 
-	p := &replacePatch{
-		header: orig.PointCloudHeader.Clone(),
-		data:   append([]byte{}, orig.Data...),
-	}
-	out, err := p.revert(pp)
+	p := newPreviousCloud(orig)
+	out, err := p.restore(pp)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,26 +89,26 @@ func TestReplacePatchRevert(t *testing.T) {
 	}
 }
 
-func TestPatchEncodeDecodeRoundTrip(t *testing.T) {
+func TestRecordEncodeDecodeRoundTrip(t *testing.T) {
 	orig := makeTestCloud(t, 100, 10, 10)
 	orig.Viewpoint = []float32{1, 2, 3, 1, 0, 0, 0}
-	patches := []patch{
-		&labelPatch{indices: []uint32{1, 2, 42}, oldLabels: []uint32{7, 8, 9}},
-		&replacePatch{header: orig.PointCloudHeader.Clone(), data: orig.Data},
-	}
-
-	var buf bytes.Buffer
-	encodePatches(&buf, patches)
-	decoded, err := decodePatches(buf.Bytes())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(decoded) != len(patches) {
-		t.Fatalf("Expected %d patches, got %d", len(patches), len(decoded))
-	}
-	for i := range patches {
-		if !reflect.DeepEqual(patches[i], decoded[i]) {
-			t.Errorf("Patch %d: expected %+v, got %+v", i, patches[i], decoded[i])
-		}
+	for name, d := range map[string]undoData{
+		"PreviousCloud": newPreviousCloud(orig),
+		"SavedLabels":   &savedLabels{Indices: []uint32{1, 2, 42}, OldLabels: []uint32{7, 8, 9}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			var buf bytes.Buffer
+			if err := encodeUndoData(&buf, d); err != nil {
+				t.Fatal(err)
+			}
+			buf.Write(d.payload())
+			decoded, err := decodeRecord(buf.Bytes())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(d, decoded) {
+				t.Errorf("Expected %+v, got %+v", d, decoded)
+			}
+		})
 	}
 }
