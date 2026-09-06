@@ -130,31 +130,6 @@ func decodePatch(b []byte) (patch, []byte, error) {
 	return nil, nil, errUnknownPatchType
 }
 
-func revertChunks(pp *pc.PointCloud, chunks [][]byte) (*pc.PointCloud, error) {
-	for i := len(chunks) - 1; i >= 0; i-- {
-		ps, err := decodePatches(chunks[i])
-		if err != nil {
-			return nil, err
-		}
-		for j := len(ps) - 1; j >= 0; j-- {
-			if pp, err = ps[j].revert(pp); err != nil {
-				return nil, err
-			}
-		}
-	}
-	return pp, nil
-}
-
-func packPatch(p patch) []byte {
-	var buf bytes.Buffer
-	p.encodeHead(&buf)
-	data := p.payload()
-	packed := make([]byte, buf.Len()+len(data))
-	copy(packed, buf.Bytes())
-	copy(packed[buf.Len():], data)
-	return packed
-}
-
 func writeUint32(buf *bytes.Buffer, v uint32) {
 	var b [4]byte
 	binary.LittleEndian.PutUint32(b[:], v)

@@ -12,7 +12,7 @@ const (
 )
 
 type editor struct {
-	history
+	*history
 	pp        *pc.PointCloud
 	ppSub     *pc.PointCloud
 	ppSubRect rect
@@ -31,15 +31,6 @@ func newEditor() *editor {
 	return &editor{
 		history: newHistory(maxHistoryDefault),
 	}
-}
-
-type history interface {
-	MaxHistory() int
-	SetMaxHistory(m int)
-	push(p patch)
-	squashLatest()
-	undo(pp *pc.PointCloud) (*pc.PointCloud, bool)
-	clear()
 }
 
 func (e *editor) Undo() bool {
