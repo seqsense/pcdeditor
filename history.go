@@ -57,12 +57,8 @@ func (h *history) undo(pp *pc.PointCloud) (*pc.PointCloud, bool) {
 		return nil, false
 	}
 	step := h.steps[n-1]
-	records := make([][]byte, len(step))
-	for i, r := range step {
-		records[i] = r.load()
-	}
-	for i := len(records) - 1; i >= 0; i-- {
-		ps, err := decodePatches(records[i])
+	for i := len(step) - 1; i >= 0; i-- {
+		ps, err := decodePatches(step[i].load())
 		if err != nil {
 			return nil, false
 		}
