@@ -49,19 +49,16 @@ func assertCloudEqual(t *testing.T, expected, got *pc.PointCloud) {
 			expected.Width, expected.Height, got.Width, got.Height)
 	}
 	if !bytes.Equal(expected.Data, got.Data) {
-		t.Fatal("Data mismatch after revert")
+		t.Fatal("Data mismatch after restore")
 	}
 }
 
-func TestReplacePatchRevert(t *testing.T) {
+func TestPreviousCloudRestore(t *testing.T) {
 	orig := makeTestCloud(t, 100, 10, 10)
 	pp := makeTestCloud(t, 5, 5, 1)
 
-	p := &replacePatch{
-		Header: orig.PointCloudHeader.Clone(),
-		data:   append([]byte{}, orig.Data...),
-	}
-	out, err := p.revert(pp)
+	p := newPreviousCloud(orig)
+	out, err := p.restore(pp)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,21 +68,21 @@ func TestReplacePatchRevert(t *testing.T) {
 	}
 }
 
-func TestPatchEncodeDecodeRoundTrip(t *testing.T) {
+func TestRecordEncodeDecodeRoundTrip(t *testing.T) {
 	orig := makeTestCloud(t, 100, 10, 10)
 	orig.Viewpoint = []float32{1, 2, 3, 1, 0, 0, 0}
-	p := &replacePatch{Header: orig.PointCloudHeader.Clone(), data: orig.Data}
+	p := newPreviousCloud(orig)
 
 	var buf bytes.Buffer
-	if err := encodePatch(&buf, p); err != nil {
+	if err := encodeUndoData(&buf, p); err != nil {
 		t.Fatal(err)
 	}
 	buf.Write(p.payload())
-	decoded, err := decodePatch(buf.Bytes())
+	decoded, err := decodeRecord(buf.Bytes())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(patch(p), decoded) {
+	if !reflect.DeepEqual(undoData(p), decoded) {
 		t.Errorf("Expected %+v, got %+v", p, decoded)
 	}
 }

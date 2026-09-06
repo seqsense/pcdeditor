@@ -33,12 +33,12 @@ func (h *history) SetMaxHistory(m int) {
 	h.maxHistory = m
 }
 
-func (h *history) push(p patch) error {
+func (h *history) push(d undoData) error {
 	var head bytes.Buffer
-	if err := encodePatch(&head, p); err != nil {
+	if err := encodeUndoData(&head, d); err != nil {
 		return err
 	}
-	h.steps = append(h.steps, undoStep{h.store.store(head.Bytes(), p.payload())})
+	h.steps = append(h.steps, undoStep{h.store.store(head.Bytes(), d.payload())})
 	for len(h.steps) > h.maxHistory {
 		h.steps[0] = nil
 		h.steps = h.steps[1:]
@@ -61,11 +61,11 @@ func (h *history) undo(pp *pc.PointCloud) (*pc.PointCloud, bool) {
 	}
 	step := h.steps[n-1]
 	for i := len(step) - 1; i >= 0; i-- {
-		p, err := decodePatch(step[i].load())
+		d, err := decodeRecord(step[i].load())
 		if err != nil {
 			return nil, false
 		}
-		if pp, err = p.revert(pp); err != nil {
+		if pp, err = d.restore(pp); err != nil {
 			return nil, false
 		}
 	}
