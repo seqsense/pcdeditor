@@ -583,7 +583,9 @@ func (c *commandContext) AddSurface(resolution float32) bool {
 			it.Incr()
 		}
 	}
-	c.editor.merge(pcNew)
+	if err := c.editor.merge(pcNew); err != nil {
+		return false
+	}
 	c.setPointCloudUpdated()
 	return true
 }
@@ -631,7 +633,9 @@ func (c *commandContext) VoxelFilter(resolution float32) error {
 
 	if selected {
 		c.editor.passThrough(c.baseFilter(false))
-		c.editor.merge(pcFiltered)
+		if err := c.editor.merge(pcFiltered); err != nil {
+			return err
+		}
 		c.editor.squashLatest()
 	} else {
 		if err := c.editor.SetPointCloud(pcFiltered, cloudMain); err != nil {
@@ -731,7 +735,9 @@ func (c *commandContext) FinalizeCurrentMode() error {
 		for ; it.IsValid(); it.Incr() {
 			it.SetVec3(trans.Transform(it.Vec3()))
 		}
-		c.editor.merge(c.editor.ppSub)
+		if err := c.editor.merge(c.editor.ppSub); err != nil {
+			return err
+		}
 		c.setPointCloudUpdated()
 		c.UnsetCursors()
 	}
