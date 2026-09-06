@@ -33,7 +33,7 @@ func (h *history) SetMaxHistory(m int) {
 	h.maxHistory = m
 }
 
-func (h *history) push(p patch) {
+func (h *history) push(p patch) error {
 	var head bytes.Buffer
 	p.encodeHead(&head)
 	h.steps = append(h.steps, undoStep{h.store.store(head.Bytes(), p.payload())})
@@ -41,6 +41,7 @@ func (h *history) push(p patch) {
 		h.steps[0] = nil
 		h.steps = h.steps[1:]
 	}
+	return nil
 }
 
 func (h *history) squashLatest() {

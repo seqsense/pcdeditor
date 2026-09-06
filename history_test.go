@@ -34,7 +34,9 @@ func applyRandomEdit(t *testing.T, e *editor, rnd *rand.Rand) {
 		}
 	case 3: // paste
 		n := 1 + rnd.Intn(20)
-		e.merge(makeTestCloud(t, n, n, 1))
+		if err := e.merge(makeTestCloud(t, n, n, 1)); err != nil {
+			t.Fatal(err)
+		}
 	case 4: // whole-cloud replacement
 		n := 50 + rnd.Intn(100)
 		if err := e.SetPointCloud(makeTestCloud(t, n, n, 1), cloudMain); err != nil {
@@ -114,7 +116,9 @@ func TestHistorySquashLatest(t *testing.T) {
 	if err := e.passThrough(func(i int, _ mat.Vec3) bool { return i%2 == 0 }); err != nil {
 		t.Fatal(err)
 	}
-	e.merge(makeTestCloud(t, 10, 10, 1))
+	if err := e.merge(makeTestCloud(t, 10, 10, 1)); err != nil {
+		t.Fatal(err)
+	}
 	e.squashLatest()
 
 	if !e.Undo() {
