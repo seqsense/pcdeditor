@@ -12,7 +12,7 @@ const (
 )
 
 type editor struct {
-	history
+	*history
 	pp        *pc.PointCloud
 	ppSub     *pc.PointCloud
 	ppSubRect rect
@@ -31,15 +31,6 @@ func newEditor() *editor {
 	return &editor{
 		history: newHistory(maxHistoryDefault),
 	}
-}
-
-type history interface {
-	MaxHistory() int
-	SetMaxHistory(m int)
-	push(p patch)
-	squashLatest()
-	undo(pp *pc.PointCloud) (*pc.PointCloud, bool)
-	clear()
 }
 
 func (e *editor) Undo() bool {
@@ -115,10 +106,9 @@ func (e *editor) SetPointCloud(pp *pc.PointCloud, id cloudID) error {
 	switch id {
 	case cloudMain:
 		if e.pp != nil {
-			e.push(&replacePatch{
-				header: e.pp.PointCloudHeader.Clone(),
-				data:   e.pp.Data,
-			})
+			if err := e.push(newPreviousCloud(e.pp)); err != nil {
+				return err
+			}
 		}
 		e.pp = pcNew
 	case cloudSub:
@@ -150,13 +140,13 @@ func (e *editor) label(fn func(int, mat.Vec3) (uint32, bool)) error {
 		return err
 	}
 
-	p := &labelPatch{}
+	p := &savedLabels{}
 	i := 0
 	for it.IsValid() {
 		if l, ok := fn(i, it.Vec3()); ok {
 			if old := itL.Uint32(); old != l {
-				p.indices = append(p.indices, uint32(i))
-				p.oldLabels = append(p.oldLabels, old)
+				p.Indices = append(p.Indices, uint32(i))
+				p.OldLabels = append(p.OldLabels, old)
 				itL.SetUint32(l)
 			}
 		}
@@ -164,8 +154,7 @@ func (e *editor) label(fn func(int, mat.Vec3) (uint32, bool)) error {
 		itL.Incr()
 		i++
 	}
-	e.push(p)
-	return nil
+	return e.push(p)
 }
 
 func (e *editor) mutateLabels(fn func(i int, l uint32) (uint32, bool)) error {
@@ -174,18 +163,17 @@ func (e *editor) mutateLabels(fn func(i int, l uint32) (uint32, bool)) error {
 		return err
 	}
 
-	p := &labelPatch{}
+	p := &savedLabels{}
 	for i := 0; lt.IsValid(); i++ {
 		old := lt.Uint32()
 		if l, ok := fn(i, old); ok && l != old {
-			p.indices = append(p.indices, uint32(i))
-			p.oldLabels = append(p.oldLabels, old)
+			p.Indices = append(p.Indices, uint32(i))
+			p.OldLabels = append(p.OldLabels, old)
 			lt.SetUint32(l)
 		}
 		lt.Incr()
 	}
-	e.push(p)
-	return nil
+	return e.push(p)
 }
 
 func (e *editor) passThrough(fn func(int, mat.Vec3) bool) error {
@@ -193,10 +181,9 @@ func (e *editor) passThrough(fn func(int, mat.Vec3) bool) error {
 	if err != nil {
 		return err
 	}
-	e.push(&replacePatch{
-		header: e.pp.PointCloudHeader.Clone(),
-		data:   e.pp.Data,
-	})
+	if err := e.push(newPreviousCloud(e.pp)); err != nil {
+		return err
+	}
 	e.pp = pp
 	runtime.GC()
 	return nil
@@ -207,10 +194,9 @@ func (e *editor) passThroughByMask(sel []uint32, mask, val uint32) error {
 	if err != nil {
 		return err
 	}
-	e.push(&replacePatch{
-		header: e.pp.PointCloudHeader.Clone(),
-		data:   e.pp.Data,
-	})
+	if err := e.push(newPreviousCloud(e.pp)); err != nil {
+		return err
+	}
 	e.pp = pp
 	runtime.GC()
 	return nil
@@ -323,14 +309,17 @@ func passThroughImpl(pp *pc.PointCloud, core func(_, _ *pc.PointCloud) int) (*pc
 	return pcNew, nil
 }
 
-func (e *editor) merge(pp *pc.PointCloud) {
-	e.push(&appendPatch{
-		oldPoints: e.pp.Points,
-		oldWidth:  e.pp.Width,
-		oldHeight: e.pp.Height,
-	})
+func (e *editor) merge(pp *pc.PointCloud) error {
+	if err := e.push(&previousSize{
+		Points: e.pp.Points,
+		Width:  e.pp.Width,
+		Height: e.pp.Height,
+	}); err != nil {
+		return err
+	}
 	n := e.pp.Points + pp.Points
 	data := append(e.pp.Data[:e.pp.Stride()*e.pp.Points], pp.Data...)
 	e.pp = newCloudView(e.pp, n, n, 1, data)
 	runtime.GC()
+	return nil
 }

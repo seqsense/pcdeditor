@@ -3,61 +3,27 @@
 
 package main
 
-import (
-	"github.com/seqsense/pcgol/pc"
-)
-
-type historyMem struct {
-	// entries[i] is a list of packed patch chunks forming one undo step
-	entries    [][][]byte
-	maxHistory int
+func newHistory(n int) *history {
+	return &history{store: memStore{}, maxHistory: n}
 }
 
-func newHistory(n int) history {
-	return &historyMem{maxHistory: n}
-}
+// memStore keeps records on the Go heap.
+type memStore struct{}
 
-func (h *historyMem) MaxHistory() int {
-	return h.maxHistory
-}
-
-func (h *historyMem) SetMaxHistory(m int) {
-	if m < 0 {
-		m = 0
+func (memStore) store(parts ...[]byte) record {
+	var total int
+	for _, d := range parts {
+		total += len(d)
 	}
-	h.maxHistory = m
+	b := make([]byte, 0, total)
+	for _, d := range parts {
+		b = append(b, d...)
+	}
+	return memRecord(b)
 }
 
-func (h *historyMem) push(p patch) {
-	h.entries = append(h.entries, [][]byte{packPatch(p)})
-	for len(h.entries) > h.maxHistory {
-		h.entries[0] = nil
-		h.entries = h.entries[1:]
-	}
-}
+type memRecord []byte
 
-func (h *historyMem) squashLatest() {
-	if n := len(h.entries); n >= 2 {
-		h.entries[n-2] = append(h.entries[n-2], h.entries[n-1]...)
-		h.entries[n-1] = nil
-		h.entries = h.entries[:n-1]
-	}
-}
-
-func (h *historyMem) undo(pp *pc.PointCloud) (*pc.PointCloud, bool) {
-	n := len(h.entries)
-	if n == 0 {
-		return nil, false
-	}
-	out, err := revertChunks(pp, h.entries[n-1])
-	if err != nil {
-		return nil, false
-	}
-	h.entries[n-1] = nil
-	h.entries = h.entries[:n-1]
-	return out, true
-}
-
-func (h *historyMem) clear() {
-	h.entries = nil
+func (r memRecord) load() []byte {
+	return r
 }

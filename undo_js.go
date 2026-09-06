@@ -1,78 +1,36 @@
 package main
 
 import (
-	"bytes"
 	"syscall/js"
-
-	"github.com/seqsense/pcgol/pc"
 )
 
-// historyJS stores entries as JS Uint8Arrays to keep them out of the WASM
-// linear memory, which never shrinks.
-type historyJS struct {
-	// entries[i] is a list of packed patch chunks forming one undo step
-	entries    [][]js.Value
-	maxHistory int
+func newHistory(n int) *history {
+	return &history{store: jsStore{}, maxHistory: n}
 }
 
-func newHistory(n int) history {
-	return &historyJS{maxHistory: n}
-}
+// jsStore keeps records on the JS heap to avoid growing the WASM linear memory.
+type jsStore struct{}
 
-func (h *historyJS) MaxHistory() int {
-	return h.maxHistory
-}
-
-func (h *historyJS) SetMaxHistory(m int) {
-	if m < 0 {
-		m = 0
+func (jsStore) store(parts ...[]byte) record {
+	var total int
+	for _, d := range parts {
+		total += len(d)
 	}
-	h.maxHistory = m
+	v := js.Global().Get("Uint8Array").New(total)
+	var off int
+	for _, d := range parts {
+		js.CopyBytesToJS(v.Call("subarray", off), d)
+		off += len(d)
+	}
+	return jsRecord{v}
 }
 
-func (h *historyJS) push(p patch) {
-	var head bytes.Buffer
-	p.encodeHead(&head)
-	data := p.payload()
-	chunk := js.Global().Get("Uint8Array").New(head.Len() + len(data))
-	js.CopyBytesToJS(chunk, head.Bytes())
-	js.CopyBytesToJS(chunk.Call("subarray", head.Len()), data)
-	h.entries = append(h.entries, []js.Value{chunk})
-	for len(h.entries) > h.maxHistory {
-		h.entries[0] = nil
-		h.entries = h.entries[1:]
-	}
+type jsRecord struct {
+	v js.Value
 }
 
-func (h *historyJS) squashLatest() {
-	if n := len(h.entries); n >= 2 {
-		h.entries[n-2] = append(h.entries[n-2], h.entries[n-1]...)
-		h.entries[n-1] = nil
-		h.entries = h.entries[:n-1]
-	}
-}
-
-func (h *historyJS) undo(pp *pc.PointCloud) (*pc.PointCloud, bool) {
-	n := len(h.entries)
-	if n == 0 {
-		return nil, false
-	}
-	entry := h.entries[n-1]
-	chunks := make([][]byte, len(entry))
-	for i, c := range entry {
-		b := make([]byte, c.Get("byteLength").Int())
-		js.CopyBytesToGo(b, c)
-		chunks[i] = b
-	}
-	out, err := revertChunks(pp, chunks)
-	if err != nil {
-		return nil, false
-	}
-	h.entries[n-1] = nil
-	h.entries = h.entries[:n-1]
-	return out, true
-}
-
-func (h *historyJS) clear() {
-	h.entries = nil
+func (r jsRecord) load() []byte {
+	b := make([]byte, r.v.Get("byteLength").Int())
+	js.CopyBytesToGo(b, r.v)
+	return b
 }
