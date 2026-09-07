@@ -106,7 +106,7 @@ func (e *editor) SetPointCloud(pp *pc.PointCloud, id cloudID) error {
 	switch id {
 	case cloudMain:
 		if e.pp != nil {
-			if err := e.push(newPreviousCloud(e.pp)); err != nil {
+			if err := e.push(newUndoDataEntireCloud(e.pp)); err != nil {
 				return err
 			}
 		}
@@ -140,7 +140,7 @@ func (e *editor) label(fn func(int, mat.Vec3) (uint32, bool)) error {
 		return err
 	}
 
-	p := &savedLabels{}
+	p := &undoDataLabels{}
 	i := 0
 	for it.IsValid() {
 		if l, ok := fn(i, it.Vec3()); ok {
@@ -163,7 +163,7 @@ func (e *editor) mutateLabels(fn func(i int, l uint32) (uint32, bool)) error {
 		return err
 	}
 
-	p := &savedLabels{}
+	p := &undoDataLabels{}
 	for i := 0; lt.IsValid(); i++ {
 		old := lt.Uint32()
 		if l, ok := fn(i, old); ok && l != old {
@@ -181,7 +181,7 @@ func (e *editor) passThrough(fn func(int, mat.Vec3) bool) error {
 	if err != nil {
 		return err
 	}
-	if err := e.push(newPreviousCloud(e.pp)); err != nil {
+	if err := e.push(newUndoDataEntireCloud(e.pp)); err != nil {
 		return err
 	}
 	e.pp = pp
@@ -194,7 +194,7 @@ func (e *editor) passThroughByMask(sel []uint32, mask, val uint32) error {
 	if err != nil {
 		return err
 	}
-	if err := e.push(newPreviousCloud(e.pp)); err != nil {
+	if err := e.push(newUndoDataEntireCloud(e.pp)); err != nil {
 		return err
 	}
 	e.pp = pp
@@ -310,7 +310,7 @@ func passThroughImpl(pp *pc.PointCloud, core func(_, _ *pc.PointCloud) int) (*pc
 }
 
 func (e *editor) merge(pp *pc.PointCloud) error {
-	if err := e.push(&previousSize{
+	if err := e.push(&undoDataSize{
 		Points: e.pp.Points,
 		Width:  e.pp.Width,
 		Height: e.pp.Height,
