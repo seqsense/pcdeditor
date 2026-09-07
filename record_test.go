@@ -54,12 +54,12 @@ func assertCloudEqual(t *testing.T, expected, got *pc.PointCloud) {
 	}
 }
 
-func TestSavedLabelsRestore(t *testing.T) {
+func TestUndoDataLabelsRestore(t *testing.T) {
 	orig := makeTestCloud(t, 100, 100, 1)
 	pp := cloneCloud(orig)
 
 	stride := pp.Stride()
-	p := &savedLabels{}
+	p := &undoDataLabels{}
 	for _, i := range []uint32{0, 3, 42, 99} {
 		off := int(i)*stride + 12
 		p.Indices = append(p.Indices, i)
@@ -74,9 +74,9 @@ func TestSavedLabelsRestore(t *testing.T) {
 	assertCloudEqual(t, orig, out)
 }
 
-func deleteForTest(pp *pc.PointCloud, removed map[int]bool) *removedPoints {
+func deleteForTest(pp *pc.PointCloud, removed map[int]bool) *undoDataRemovedPoints {
 	stride := pp.Stride()
-	p := &removedPoints{
+	p := &undoDataRemovedPoints{
 		OldWidth:  pp.Width,
 		OldHeight: pp.Height,
 	}
@@ -99,7 +99,7 @@ func deleteForTest(pp *pc.PointCloud, removed map[int]bool) *removedPoints {
 	return p
 }
 
-func TestRemovedPointsRestore(t *testing.T) {
+func TestUndoDataRemovedPointsRestore(t *testing.T) {
 	for name, removed := range map[string]map[int]bool{
 		"Scattered": {1: true, 5: true, 6: true, 99: true},
 		"Head":      {0: true, 1: true, 2: true},
@@ -142,11 +142,11 @@ func allIndices(n int) map[int]bool {
 	return m
 }
 
-func TestPreviousSizeRestore(t *testing.T) {
+func TestUndoDataSizeRestore(t *testing.T) {
 	orig := makeTestCloud(t, 100, 10, 10)
 	pp := cloneCloud(orig)
 
-	p := &previousSize{Points: pp.Points, Width: pp.Width, Height: pp.Height}
+	p := &undoDataSize{Points: pp.Points, Width: pp.Width, Height: pp.Height}
 	added := makeTestCloud(t, 10, 10, 1)
 	pp.Data = append(pp.Data, added.Data...)
 	pp.Points += added.Points
@@ -160,11 +160,11 @@ func TestPreviousSizeRestore(t *testing.T) {
 	assertCloudEqual(t, orig, out)
 }
 
-func TestPreviousCloudRestore(t *testing.T) {
+func TestUndoDataEntireCloudRestore(t *testing.T) {
 	orig := makeTestCloud(t, 100, 10, 10)
 	pp := makeTestCloud(t, 5, 5, 1)
 
-	p := newPreviousCloud(orig)
+	p := newUndoDataEntireCloud(orig)
 	out, err := p.restore(pp)
 	if err != nil {
 		t.Fatal(err)
@@ -179,10 +179,10 @@ func TestRecordEncodeDecodeRoundTrip(t *testing.T) {
 	orig := makeTestCloud(t, 100, 10, 10)
 	orig.Viewpoint = []float32{1, 2, 3, 1, 0, 0, 0}
 	for name, d := range map[string]undoData{
-		"PreviousCloud": newPreviousCloud(orig),
-		"SavedLabels":   &savedLabels{Indices: []uint32{1, 2, 42}, OldLabels: []uint32{7, 8, 9}},
-		"PreviousSize":  &previousSize{Points: 90, Width: 9, Height: 10},
-		"RemovedPoints": &removedPoints{
+		"EntireCloud": newUndoDataEntireCloud(orig),
+		"Labels":      &undoDataLabels{Indices: []uint32{1, 2, 42}, OldLabels: []uint32{7, 8, 9}},
+		"Size":        &undoDataSize{Points: 90, Width: 9, Height: 10},
+		"RemovedPoints": &undoDataRemovedPoints{
 			OldWidth: 10, OldHeight: 10,
 			Indices: []uint32{0, 50, 99},
 			points:  bytes.Repeat([]byte{1, 2, 3, 4}, 3*4),
