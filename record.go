@@ -19,8 +19,8 @@ type undoData interface {
 }
 
 func init() {
-	gob.Register(&previousCloud{})
-	gob.Register(&savedLabels{})
+	gob.Register(&undoDataEntireCloud{})
+	gob.Register(&undoDataLabels{})
 }
 
 var (
@@ -28,19 +28,19 @@ var (
 	errNoLabelField = errors.New("point cloud has no label field")
 )
 
-type previousCloud struct {
+type undoDataEntireCloud struct {
 	Header pc.PointCloudHeader
 	data   []byte
 }
 
-func newPreviousCloud(pp *pc.PointCloud) *previousCloud {
-	return &previousCloud{
+func newUndoDataEntireCloud(pp *pc.PointCloud) *undoDataEntireCloud {
+	return &undoDataEntireCloud{
 		Header: pp.PointCloudHeader.Clone(),
 		data:   pp.Data,
 	}
 }
 
-func (p *previousCloud) restore(_ *pc.PointCloud) (*pc.PointCloud, error) {
+func (p *undoDataEntireCloud) restore(_ *pc.PointCloud) (*pc.PointCloud, error) {
 	return &pc.PointCloud{
 		PointCloudHeader: p.Header,
 		Points:           p.Header.Width * p.Header.Height,
@@ -48,11 +48,11 @@ func (p *previousCloud) restore(_ *pc.PointCloud) (*pc.PointCloud, error) {
 	}, nil
 }
 
-func (p *previousCloud) payload() []byte {
+func (p *undoDataEntireCloud) payload() []byte {
 	return p.data
 }
 
-func (p *previousCloud) setPayload(data []byte) {
+func (p *undoDataEntireCloud) setPayload(data []byte) {
 	p.data = data
 }
 
@@ -67,12 +67,12 @@ func fieldByteOffset(h *pc.PointCloudHeader, name string) (int, bool) {
 	return 0, false
 }
 
-type savedLabels struct {
+type undoDataLabels struct {
 	Indices   []uint32
 	OldLabels []uint32
 }
 
-func (p *savedLabels) restore(pp *pc.PointCloud) (*pc.PointCloud, error) {
+func (p *undoDataLabels) restore(pp *pc.PointCloud) (*pc.PointCloud, error) {
 	if len(p.Indices) != len(p.OldLabels) {
 		return nil, errBrokenRecord
 	}
@@ -91,11 +91,11 @@ func (p *savedLabels) restore(pp *pc.PointCloud) (*pc.PointCloud, error) {
 	return pp, nil
 }
 
-func (p *savedLabels) payload() []byte {
+func (p *undoDataLabels) payload() []byte {
 	return nil
 }
 
-func (p *savedLabels) setPayload([]byte) {}
+func (p *undoDataLabels) setPayload([]byte) {}
 
 // A record is this encoding followed by the raw payload.
 func encodeUndoData(w io.Writer, d undoData) error {
