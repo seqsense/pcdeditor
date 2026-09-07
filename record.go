@@ -17,22 +17,22 @@ type undoData interface {
 }
 
 func init() {
-	gob.Register(&previousCloud{})
+	gob.Register(&undoDataEntireCloud{})
 }
 
-type previousCloud struct {
+type undoDataEntireCloud struct {
 	Header pc.PointCloudHeader
 	data   []byte
 }
 
-func newPreviousCloud(pp *pc.PointCloud) *previousCloud {
-	return &previousCloud{
+func newUndoDataEntireCloud(pp *pc.PointCloud) *undoDataEntireCloud {
+	return &undoDataEntireCloud{
 		Header: pp.PointCloudHeader.Clone(),
 		data:   pp.Data,
 	}
 }
 
-func (p *previousCloud) restore(_ *pc.PointCloud) (*pc.PointCloud, error) {
+func (p *undoDataEntireCloud) restore(_ *pc.PointCloud) (*pc.PointCloud, error) {
 	return &pc.PointCloud{
 		PointCloudHeader: p.Header,
 		Points:           p.Header.Width * p.Header.Height,
@@ -40,11 +40,11 @@ func (p *previousCloud) restore(_ *pc.PointCloud) (*pc.PointCloud, error) {
 	}, nil
 }
 
-func (p *previousCloud) payload() []byte {
+func (p *undoDataEntireCloud) payload() []byte {
 	return p.data
 }
 
-func (p *previousCloud) setPayload(data []byte) {
+func (p *undoDataEntireCloud) setPayload(data []byte) {
 	p.data = data
 }
 

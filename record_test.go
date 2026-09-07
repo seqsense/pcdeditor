@@ -53,11 +53,11 @@ func assertCloudEqual(t *testing.T, expected, got *pc.PointCloud) {
 	}
 }
 
-func TestPreviousCloudRestore(t *testing.T) {
+func TestUndoDataEntireCloudRestore(t *testing.T) {
 	orig := makeTestCloud(t, 100, 10, 10)
 	pp := makeTestCloud(t, 5, 5, 1)
 
-	p := newPreviousCloud(orig)
+	p := newUndoDataEntireCloud(orig)
 	out, err := p.restore(pp)
 	if err != nil {
 		t.Fatal(err)
@@ -71,7 +71,7 @@ func TestPreviousCloudRestore(t *testing.T) {
 func TestRecordEncodeDecodeRoundTrip(t *testing.T) {
 	orig := makeTestCloud(t, 100, 10, 10)
 	orig.Viewpoint = []float32{1, 2, 3, 1, 0, 0, 0}
-	p := newPreviousCloud(orig)
+	p := newUndoDataEntireCloud(orig)
 
 	var buf bytes.Buffer
 	if err := encodeUndoData(&buf, p); err != nil {

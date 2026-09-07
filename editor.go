@@ -106,7 +106,7 @@ func (e *editor) SetPointCloud(pp *pc.PointCloud, id cloudID) error {
 	switch id {
 	case cloudMain:
 		if e.pp != nil {
-			if err := e.push(newPreviousCloud(e.pp)); err != nil {
+			if err := e.push(newUndoDataEntireCloud(e.pp)); err != nil {
 				return err
 			}
 		}
@@ -157,7 +157,7 @@ func (e *editor) label(fn func(int, mat.Vec3) (uint32, bool)) error {
 		itL.Incr()
 		i++
 	}
-	if err := e.push(newPreviousCloud(e.pp)); err != nil {
+	if err := e.push(newUndoDataEntireCloud(e.pp)); err != nil {
 		return err
 	}
 	e.pp = pcNew
@@ -170,7 +170,7 @@ func (e *editor) passThrough(fn func(int, mat.Vec3) bool) error {
 	if err != nil {
 		return err
 	}
-	if err := e.push(newPreviousCloud(e.pp)); err != nil {
+	if err := e.push(newUndoDataEntireCloud(e.pp)); err != nil {
 		return err
 	}
 	e.pp = pp
@@ -183,7 +183,7 @@ func (e *editor) passThroughByMask(sel []uint32, mask, val uint32) error {
 	if err != nil {
 		return err
 	}
-	if err := e.push(newPreviousCloud(e.pp)); err != nil {
+	if err := e.push(newUndoDataEntireCloud(e.pp)); err != nil {
 		return err
 	}
 	e.pp = pp
@@ -219,7 +219,7 @@ func (e *editor) relabelPointsInLabelRange(minLabel, maxLabel, newLabel uint32) 
 		lt.SetUint32(newLabel)
 	}
 
-	if err := e.push(newPreviousCloud(e.pp)); err != nil {
+	if err := e.push(newUndoDataEntireCloud(e.pp)); err != nil {
 		return err
 	}
 	e.pp = pcNew
@@ -263,7 +263,7 @@ func (e *editor) unlabelPoints(labelsToKeep []uint32) error {
 		lt.SetUint32(0)
 	}
 
-	if err := e.push(newPreviousCloud(e.pp)); err != nil {
+	if err := e.push(newUndoDataEntireCloud(e.pp)); err != nil {
 		return err
 	}
 	e.pp = pcNew
@@ -367,7 +367,7 @@ func (e *editor) merge(pp *pc.PointCloud) error {
 	pcNew.Width = pcNew.Points
 	pcNew.Height = 1
 
-	if err := e.push(newPreviousCloud(e.pp)); err != nil {
+	if err := e.push(newUndoDataEntireCloud(e.pp)); err != nil {
 		return err
 	}
 	e.pp = pcNew
