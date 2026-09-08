@@ -313,16 +313,21 @@ var consoleCommands = map[string]func(c *console, updateSel updateSelectionFn, a
 	"view": func(c *console, updateSel updateSelectionFn, args []float32) ([][]float32, error) {
 		switch len(args) {
 		case 0:
-			x, y, yaw, pitch, distance := c.view.View()
+			x, y, yaw, pitch, distance, z := c.view.View()
 			return [][]float32{{
 				float32(x), float32(y),
 				float32(yaw), float32(pitch), float32(distance),
+				float32(z),
 			}}, nil
-		case 5:
+		case 5, 6:
+			_, _, _, _, _, z := c.view.View()
+			if len(args) == 6 {
+				z = float64(args[5])
+			}
 			x, y, yaw, pitch, distance :=
 				float64(args[0]), float64(args[1]),
 				float64(args[2]), float64(args[3]), float64(args[4])
-			return nil, c.view.SetView(x, y, yaw, pitch, distance)
+			return nil, c.view.SetView(x, y, yaw, pitch, distance, z)
 		default:
 			return nil, errArgumentNumber
 		}

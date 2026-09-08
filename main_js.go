@@ -600,7 +600,7 @@ L_MAIN:
 
 		modelViewMatrix = mat.Rotate(1, 0, 0, -float32(pe.vi.pitch)).
 			MulAffine(mat.Rotate(0, 0, 1, -float32(pe.vi.yaw))).
-			MulAffine(mat.Translate(float32(pe.vi.x), float32(pe.vi.y), -1.5))
+			MulAffine(mat.Translate(float32(pe.vi.x), float32(pe.vi.y), float32(pe.vi.z)))
 		if projectionType == ProjectionPerspective {
 			modelViewMatrix =
 				mat.Translate(vib3DX, 0, -float32(pe.vi.distance)).MulAffine(modelViewMatrix)
@@ -1308,17 +1308,29 @@ L_MAIN:
 				case "KeyW", "KeyA", "KeyS", "KeyD", "KeyQ", "KeyE":
 					switch e.Code {
 					case "KeyW":
-						pe.vi.Move(0.05, 0, 0)
+						pe.vi.Move(0.05, 0, 0, 0)
 					case "KeyA":
-						pe.vi.Move(0, 0.05, 0)
+						pe.vi.Move(0, 0.05, 0, 0)
 					case "KeyS":
-						pe.vi.Move(-0.05, 0, 0)
+						pe.vi.Move(-0.05, 0, 0, 0)
 					case "KeyD":
-						pe.vi.Move(0, -0.05, 0)
+						pe.vi.Move(0, -0.05, 0, 0)
 					case "KeyQ":
-						pe.vi.Move(0, 0, 0.02)
+						pe.vi.Move(0, 0, 0, 0.02)
 					case "KeyE":
-						pe.vi.Move(0, 0, -0.02)
+						pe.vi.Move(0, 0, 0, -0.02)
+					}
+				case "Space", "KeyC":
+					// Modifier combinations are shortcuts of the app or the
+					// browser, Ctrl+C being a copy, so they must not move.
+					if e.CtrlKey || e.AltKey {
+						break
+					}
+					switch e.Code {
+					case "Space":
+						pe.vi.Move(0, 0, 0.05, 0)
+					case "KeyC":
+						pe.vi.Move(0, 0, -0.05, 0)
 					}
 				case "BracketRight", "Backslash":
 					switch e.Code {
