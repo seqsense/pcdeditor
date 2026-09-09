@@ -1,40 +1,29 @@
+//go:build !js
 // +build !js
 
 package main
 
-import (
-	"github.com/seqsense/pcgol/pc"
-)
-
-// historyDummy is a dummy history implementation for testing.
-type historyDummy struct {
-	latest *pc.PointCloud
+func newHistory(n int) *history {
+	return &history{store: memStore{}, maxHistory: n}
 }
 
-func newHistory(_ int) history {
-	return &historyDummy{}
+// memStore keeps records on the Go heap.
+type memStore struct{}
+
+func (memStore) store(parts ...[]byte) record {
+	var total int
+	for _, d := range parts {
+		total += len(d)
+	}
+	b := make([]byte, 0, total)
+	for _, d := range parts {
+		b = append(b, d...)
+	}
+	return memRecord(b)
 }
 
-func (historyDummy) MaxHistory() int {
-	return 0
-}
+type memRecord []byte
 
-func (historyDummy) SetMaxHistory(_ int) {
-}
-
-func (h *historyDummy) push(pp *pc.PointCloud) *pc.PointCloud {
-	h.latest = pp
-	return pp
-}
-
-func (h *historyDummy) pop() *pc.PointCloud {
-	return h.latest
-}
-
-func (historyDummy) undo() (*pc.PointCloud, bool) {
-	return nil, false
-}
-
-func (h *historyDummy) clear() {
-	h.latest = nil
+func (r memRecord) load() []byte {
+	return r
 }
