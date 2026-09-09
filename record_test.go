@@ -74,6 +74,74 @@ func TestUndoDataLabelsRestore(t *testing.T) {
 	assertCloudEqual(t, orig, out)
 }
 
+func deleteForTest(pp *pc.PointCloud, removed map[int]bool) *undoDataRemovedPoints {
+	stride := pp.Stride()
+	p := &undoDataRemovedPoints{
+		OldWidth:  pp.Width,
+		OldHeight: pp.Height,
+	}
+	j := 0
+	for i := 0; i < pp.Points; i++ {
+		if removed[i] {
+			p.Indices = append(p.Indices, uint32(i))
+			p.points = append(p.points, pp.Data[i*stride:(i+1)*stride]...)
+			continue
+		}
+		if i != j {
+			copy(pp.Data[j*stride:(j+1)*stride], pp.Data[i*stride:(i+1)*stride])
+		}
+		j++
+	}
+	pp.Points = j
+	pp.Width = j
+	pp.Height = 1
+	pp.Data = pp.Data[:j*stride]
+	return p
+}
+
+func TestUndoDataRemovedPointsRestore(t *testing.T) {
+	for name, removed := range map[string]map[int]bool{
+		"Scattered": {1: true, 5: true, 6: true, 99: true},
+		"Head":      {0: true, 1: true, 2: true},
+		"Tail":      {97: true, 98: true, 99: true},
+		"All":       allIndices(100),
+		"None":      {},
+	} {
+		t.Run(name, func(t *testing.T) {
+			orig := makeTestCloud(t, 100, 10, 10)
+			t.Run("KeptCapacity", func(t *testing.T) {
+				pp := cloneCloud(orig)
+				p := deleteForTest(pp, removed)
+				out, err := p.restore(pp)
+				if err != nil {
+					t.Fatal(err)
+				}
+				assertCloudEqual(t, orig, out)
+			})
+			t.Run("NoSpareCapacity", func(t *testing.T) {
+				pp := cloneCloud(orig)
+				p := deleteForTest(pp, removed)
+				// Drop the spare capacity to exercise the reallocation
+				// path (a no-op for the None pattern).
+				pp.Data = append([]byte{}, pp.Data...)
+				out, err := p.restore(pp)
+				if err != nil {
+					t.Fatal(err)
+				}
+				assertCloudEqual(t, orig, out)
+			})
+		})
+	}
+}
+
+func allIndices(n int) map[int]bool {
+	m := map[int]bool{}
+	for i := 0; i < n; i++ {
+		m[i] = true
+	}
+	return m
+}
+
 func TestUndoDataSizeRestore(t *testing.T) {
 	orig := makeTestCloud(t, 100, 10, 10)
 	pp := cloneCloud(orig)
@@ -114,6 +182,11 @@ func TestRecordEncodeDecodeRoundTrip(t *testing.T) {
 		"EntireCloud": newUndoDataEntireCloud(orig),
 		"Labels":      &undoDataLabels{Indices: []uint32{1, 2, 42}, OldLabels: []uint32{7, 8, 9}},
 		"Size":        &undoDataSize{Points: 90, Width: 9, Height: 10},
+		"RemovedPoints": &undoDataRemovedPoints{
+			OldWidth: 10, OldHeight: 10,
+			Indices: []uint32{0, 50, 99},
+			points:  bytes.Repeat([]byte{1, 2, 3, 4}, 3*4),
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			var buf bytes.Buffer

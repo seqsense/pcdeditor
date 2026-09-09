@@ -22,6 +22,7 @@ func init() {
 	gob.Register(&undoDataEntireCloud{})
 	gob.Register(&undoDataLabels{})
 	gob.Register(&undoDataSize{})
+	gob.Register(&undoDataRemovedPoints{})
 }
 
 // pcgol caches an unsafe float32 alias of Data keyed only by its base pointer,
@@ -110,6 +111,58 @@ func (p *undoDataLabels) payload() []byte {
 }
 
 func (p *undoDataLabels) setPayload([]byte) {}
+
+type undoDataRemovedPoints struct {
+	OldWidth, OldHeight int
+	Indices             []uint32 // ascending original positions of the removed points
+	points              []byte
+}
+
+func (p *undoDataRemovedPoints) restore(pp *pc.PointCloud) (*pc.PointCloud, error) {
+	stride := pp.Stride()
+	if len(p.points) != len(p.Indices)*stride {
+		return nil, errBrokenRecord
+	}
+	oldN := pp.Points + len(p.Indices)
+	need := oldN * stride
+	var data []byte
+	if cap(pp.Data) >= need {
+		data = pp.Data[:need]
+	} else {
+		data = make([]byte, need)
+		copy(data, pp.Data)
+	}
+
+	// Walk backwards so that every move reads a not-yet-overwritten position
+	di := len(p.Indices) - 1
+	src := pp.Points - 1
+	for dst := oldN - 1; dst >= 0; dst-- {
+		if di >= 0 && int(p.Indices[di]) == dst {
+			copy(data[dst*stride:(dst+1)*stride], p.points[di*stride:(di+1)*stride])
+			di--
+		} else {
+			if src < 0 {
+				return nil, errBrokenRecord
+			}
+			if dst != src {
+				copy(data[dst*stride:(dst+1)*stride], data[src*stride:(src+1)*stride])
+			}
+			src--
+		}
+	}
+	if di >= 0 {
+		return nil, errBrokenRecord
+	}
+	return newCloudView(pp, oldN, p.OldWidth, p.OldHeight, data), nil
+}
+
+func (p *undoDataRemovedPoints) payload() []byte {
+	return p.points
+}
+
+func (p *undoDataRemovedPoints) setPayload(data []byte) {
+	p.points = data
+}
 
 type undoDataSize struct {
 	Points, Width, Height int
