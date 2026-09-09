@@ -74,6 +74,24 @@ func TestUndoDataLabelsRestore(t *testing.T) {
 	assertCloudEqual(t, orig, out)
 }
 
+func TestUndoDataSizeRestore(t *testing.T) {
+	orig := makeTestCloud(t, 100, 10, 10)
+	pp := cloneCloud(orig)
+
+	p := &undoDataSize{Points: pp.Points, Width: pp.Width, Height: pp.Height}
+	added := makeTestCloud(t, 10, 10, 1)
+	pp.Data = append(pp.Data, added.Data...)
+	pp.Points += added.Points
+	pp.Width = pp.Points
+	pp.Height = 1
+
+	out, err := p.restore(pp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertCloudEqual(t, orig, out)
+}
+
 func TestUndoDataEntireCloudRestore(t *testing.T) {
 	orig := makeTestCloud(t, 100, 10, 10)
 	pp := makeTestCloud(t, 5, 5, 1)
@@ -95,6 +113,7 @@ func TestRecordEncodeDecodeRoundTrip(t *testing.T) {
 	for name, d := range map[string]undoData{
 		"EntireCloud": newUndoDataEntireCloud(orig),
 		"Labels":      &undoDataLabels{Indices: []uint32{1, 2, 42}, OldLabels: []uint32{7, 8, 9}},
+		"Size":        &undoDataSize{Points: 90, Width: 9, Height: 10},
 	} {
 		t.Run(name, func(t *testing.T) {
 			var buf bytes.Buffer
