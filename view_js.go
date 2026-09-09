@@ -8,6 +8,7 @@ import (
 const (
 	defaultDistance = 100.0
 	defaultPitch    = math.Pi / 4
+	defaultZ        = -1.5
 	defaultFOV      = math.Pi / 3
 	fovMin          = math.Pi / 8
 	fovMax          = math.Pi * 2 / 3
@@ -16,9 +17,9 @@ const (
 )
 
 type viewImpl struct {
-	fov              float32
-	x, y, yaw, pitch float64
-	distance         float64
+	fov                 float32
+	x, y, z, yaw, pitch float64
+	distance            float64
 
 	x0, y0, yaw0, pitch0 float64
 	drag0                *webgl.MouseEvent
@@ -28,6 +29,7 @@ func newView() *viewImpl {
 	return &viewImpl{
 		distance: defaultDistance,
 		pitch:    defaultPitch,
+		z:        defaultZ,
 		fov:      defaultFOV,
 	}
 }
@@ -61,10 +63,11 @@ func (v *viewImpl) SetPitch(p float64) {
 	v.pitch = p
 }
 
-func (v *viewImpl) Move(dx, dy, dyaw float64) {
+func (v *viewImpl) Move(dx, dy, dz, dyaw float64) {
 	s, c := math.Sincos(v.yaw)
 	v.x += c*dy + s*dx
 	v.y += s*dy - c*dx
+	v.z -= dz
 	v.yaw += dyaw
 	v.yaw = math.Remainder(v.yaw, 2*math.Pi)
 }
@@ -164,10 +167,10 @@ func (v *viewImpl) mouseDrag(e *webgl.MouseEvent) {
 	}
 }
 
-func (v *viewImpl) View() (x, y, yaw, pitch, distance float64) {
-	return v.x, v.y, v.yaw, v.pitch, v.distance
+func (v *viewImpl) View() (x, y, yaw, pitch, distance, z float64) {
+	return v.x, v.y, v.yaw, v.pitch, v.distance, v.z
 }
-func (v *viewImpl) SetView(x, y, yaw, pitch, distance float64) error {
-	v.x, v.y, v.yaw, v.pitch, v.distance = x, y, yaw, pitch, distance
+func (v *viewImpl) SetView(x, y, yaw, pitch, distance, z float64) error {
+	v.x, v.y, v.yaw, v.pitch, v.distance, v.z = x, y, yaw, pitch, distance, z
 	return nil
 }
