@@ -220,6 +220,7 @@ class PCDEditor {
 
         // Edit menu
         const surfaceGridInput = this.qs('#surfaceGrid')
+        const voxelGridResInput = this.qs('#voxelGridRes')
         const labelIdInput = this.qs('#labelID')
 
         this.qs('#undo').onclick = () =>
@@ -227,6 +228,10 @@ class PCDEditor {
         this.qs('#createSurface').onclick = () => {
           const grid = surfaceGridInput.value
           pcdeditor.command(`add_surface ${grid}`).catch(this.logger)
+        }
+        this.qs('#voxelGrid').onclick = () => {
+          const res = voxelGridResInput.value
+          pcdeditor.command(`voxel_grid ${res}`).catch(this.logger)
         }
         this.qs('#unsetLabel').onclick = () =>
           pcdeditor.command('label 0').catch(this.logger)
@@ -779,6 +784,21 @@ class PCDEditor {
         />
       </div>
       <button id="${id('createSurface')}">Create surface</button>
+    </div>
+    <hr/>
+    <div class="${id('foldMenuElem')}">
+      <div class="${id('foldMenuElem')}">
+        <label
+          for="${id('voxelGridRes')}"
+          class="${id('inputLabelShort')}"
+        >Grid</label>
+        <input
+          id="${id('voxelGridRes')}"
+          type="number" value="0.05" min="0.01" step="0.01" max="1"
+          style="width: 4em; text-align: center;"
+        />
+      </div>
+      <button id="${id('voxelGrid')}">Reduce points</button>
     </div>
     <hr/>
     <div class="${id('foldMenuElem')}">
