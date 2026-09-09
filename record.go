@@ -2,7 +2,9 @@ package main
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/gob"
+	"errors"
 	"io"
 
 	"github.com/seqsense/pcgol/pc"
@@ -18,7 +20,13 @@ type undoData interface {
 
 func init() {
 	gob.Register(&undoDataEntireCloud{})
+	gob.Register(&undoDataLabels{})
 }
+
+var (
+	errBrokenRecord = errors.New("broken undo record")
+	errNoLabelField = errors.New("point cloud has no label field")
+)
 
 type undoDataEntireCloud struct {
 	Header pc.PointCloudHeader
@@ -47,6 +55,47 @@ func (p *undoDataEntireCloud) payload() []byte {
 func (p *undoDataEntireCloud) setPayload(data []byte) {
 	p.data = data
 }
+
+func fieldByteOffset(h *pc.PointCloudHeader, name string) (int, bool) {
+	offset := 0
+	for i, fn := range h.Fields {
+		if fn == name {
+			return offset, true
+		}
+		offset += h.Size[i] * h.Count[i]
+	}
+	return 0, false
+}
+
+type undoDataLabels struct {
+	Indices   []uint32
+	OldLabels []uint32
+}
+
+func (p *undoDataLabels) restore(pp *pc.PointCloud) (*pc.PointCloud, error) {
+	if len(p.Indices) != len(p.OldLabels) {
+		return nil, errBrokenRecord
+	}
+	off, ok := fieldByteOffset(&pp.PointCloudHeader, "label")
+	if !ok {
+		return nil, errNoLabelField
+	}
+	stride := pp.Stride()
+	for k, idx := range p.Indices {
+		i := int(idx)*stride + off
+		if i+4 > len(pp.Data) {
+			return nil, errBrokenRecord
+		}
+		binary.LittleEndian.PutUint32(pp.Data[i:], p.OldLabels[k])
+	}
+	return pp, nil
+}
+
+func (p *undoDataLabels) payload() []byte {
+	return nil
+}
+
+func (p *undoDataLabels) setPayload([]byte) {}
 
 // A record is this encoding followed by the raw payload.
 func encodeUndoData(w io.Writer, d undoData) error {
