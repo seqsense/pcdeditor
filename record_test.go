@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/binary"
 	"math/rand"
 	"reflect"
 	"testing"
@@ -53,6 +54,26 @@ func assertCloudEqual(t *testing.T, expected, got *pc.PointCloud) {
 	}
 }
 
+func TestUndoDataLabelsRestore(t *testing.T) {
+	orig := makeTestCloud(t, 100, 100, 1)
+	pp := cloneCloud(orig)
+
+	stride := pp.Stride()
+	p := &undoDataLabels{}
+	for _, i := range []uint32{0, 3, 42, 99} {
+		off := int(i)*stride + 12
+		p.Indices = append(p.Indices, i)
+		p.OldLabels = append(p.OldLabels, binary.LittleEndian.Uint32(pp.Data[off:]))
+		binary.LittleEndian.PutUint32(pp.Data[off:], 12345)
+	}
+
+	out, err := p.restore(pp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertCloudEqual(t, orig, out)
+}
+
 func TestUndoDataEntireCloudRestore(t *testing.T) {
 	orig := makeTestCloud(t, 100, 10, 10)
 	pp := makeTestCloud(t, 5, 5, 1)
@@ -71,18 +92,23 @@ func TestUndoDataEntireCloudRestore(t *testing.T) {
 func TestRecordEncodeDecodeRoundTrip(t *testing.T) {
 	orig := makeTestCloud(t, 100, 10, 10)
 	orig.Viewpoint = []float32{1, 2, 3, 1, 0, 0, 0}
-	p := newUndoDataEntireCloud(orig)
-
-	var buf bytes.Buffer
-	if err := encodeUndoData(&buf, p); err != nil {
-		t.Fatal(err)
-	}
-	buf.Write(p.payload())
-	decoded, err := decodeRecord(buf.Bytes())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !reflect.DeepEqual(undoData(p), decoded) {
-		t.Errorf("Expected %+v, got %+v", p, decoded)
+	for name, d := range map[string]undoData{
+		"EntireCloud": newUndoDataEntireCloud(orig),
+		"Labels":      &undoDataLabels{Indices: []uint32{1, 2, 42}, OldLabels: []uint32{7, 8, 9}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			var buf bytes.Buffer
+			if err := encodeUndoData(&buf, d); err != nil {
+				t.Fatal(err)
+			}
+			buf.Write(d.payload())
+			decoded, err := decodeRecord(buf.Bytes())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(d, decoded) {
+				t.Errorf("Expected %+v, got %+v", d, decoded)
+			}
+		})
 	}
 }

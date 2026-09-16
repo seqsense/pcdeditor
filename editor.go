@@ -131,38 +131,49 @@ func (e *editor) SetPointCloud(pp *pc.PointCloud, id cloudID) error {
 }
 
 func (e *editor) label(fn func(int, mat.Vec3) (uint32, bool)) error {
-	pcNew := &pc.PointCloud{
-		PointCloudHeader: e.pp.PointCloudHeader.Clone(),
-		Points:           e.pp.Points,
-		Data:             make([]byte, len(e.pp.Data)),
-	}
-	copy(pcNew.Data, e.pp.Data)
-
-	it, err := pcNew.Vec3Iterator()
+	it, err := e.pp.Vec3Iterator()
 	if err != nil {
 		return err
 	}
-	itL, err := pcNew.Uint32Iterator("label")
+	itL, err := e.pp.Uint32Iterator("label")
 	if err != nil {
 		return err
 	}
 
+	p := &undoDataLabels{}
 	i := 0
 	for it.IsValid() {
-		l, ok := fn(i, it.Vec3())
-		if ok {
-			itL.SetUint32(l)
+		if l, ok := fn(i, it.Vec3()); ok {
+			if old := itL.Uint32(); old != l {
+				p.Indices = append(p.Indices, uint32(i))
+				p.OldLabels = append(p.OldLabels, old)
+				itL.SetUint32(l)
+			}
 		}
 		it.Incr()
 		itL.Incr()
 		i++
 	}
-	if err := e.push(newUndoDataEntireCloud(e.pp)); err != nil {
+	return e.push(p)
+}
+
+func (e *editor) mutateLabels(fn func(i int, l uint32) (uint32, bool)) error {
+	lt, err := e.pp.Uint32Iterator("label")
+	if err != nil {
 		return err
 	}
-	e.pp = pcNew
-	runtime.GC()
-	return nil
+
+	p := &undoDataLabels{}
+	for i := 0; lt.IsValid(); i++ {
+		old := lt.Uint32()
+		if l, ok := fn(i, old); ok && l != old {
+			p.Indices = append(p.Indices, uint32(i))
+			p.OldLabels = append(p.OldLabels, old)
+			lt.SetUint32(l)
+		}
+		lt.Incr()
+	}
+	return e.push(p)
 }
 
 func (e *editor) passThrough(fn func(int, mat.Vec3) bool) error {
@@ -192,83 +203,23 @@ func (e *editor) passThroughByMask(sel []uint32, mask, val uint32) error {
 }
 
 func (e *editor) relabelPointsInLabelRange(minLabel, maxLabel, newLabel uint32) error {
-	_, err := e.pp.Uint32Iterator("label")
-	if err != nil {
-		return err
-	}
-
-	pcNew := &pc.PointCloud{
-		PointCloudHeader: e.pp.PointCloudHeader.Clone(),
-		Data:             make([]byte, len(e.pp.Data)),
-		Points:           e.pp.Points,
-	}
-	copy(pcNew.Data, e.pp.Data)
-	pcNew.Width = e.pp.Width
-	pcNew.Height = e.pp.Height
-
-	lt, err := pcNew.Uint32Iterator("label")
-	if err != nil {
-		return err
-	}
-
-	for ; lt.IsValid(); lt.Incr() {
-		l := lt.Uint32()
+	return e.mutateLabels(func(_ int, l uint32) (uint32, bool) {
 		if l == newLabel || l < minLabel || l > maxLabel {
-			continue
+			return 0, false
 		}
-		lt.SetUint32(newLabel)
-	}
-
-	if err := e.push(newUndoDataEntireCloud(e.pp)); err != nil {
-		return err
-	}
-	e.pp = pcNew
-	runtime.GC()
-	return nil
+		return newLabel, true
+	})
 }
 
 func (e *editor) unlabelPoints(labelsToKeep []uint32) error {
-	_, err := e.pp.Uint32Iterator("label")
-	if err != nil {
-		return err
-	}
-
-	pcNew := &pc.PointCloud{
-		PointCloudHeader: e.pp.PointCloudHeader.Clone(),
-		Data:             make([]byte, len(e.pp.Data)),
-		Points:           e.pp.Points,
-	}
-	copy(pcNew.Data, e.pp.Data)
-	pcNew.Width = e.pp.Width
-	pcNew.Height = e.pp.Height
-
-	lt, err := pcNew.Uint32Iterator("label")
-	if err != nil {
-		return err
-	}
-
-	isInLabelsToKeep := func(l uint32) bool {
+	return e.mutateLabels(func(_ int, l uint32) (uint32, bool) {
 		for _, kl := range labelsToKeep {
 			if kl == l {
-				return true
+				return 0, false
 			}
 		}
-		return false
-	}
-
-	for ; lt.IsValid(); lt.Incr() {
-		if isInLabelsToKeep(lt.Uint32()) {
-			continue
-		}
-		lt.SetUint32(0)
-	}
-
-	if err := e.push(newUndoDataEntireCloud(e.pp)); err != nil {
-		return err
-	}
-	e.pp = pcNew
-	runtime.GC()
-	return nil
+		return 0, true
+	})
 }
 
 func passThrough(pp *pc.PointCloud, fn func(int, mat.Vec3) bool) (*pc.PointCloud, error) {
