@@ -310,18 +310,16 @@ func passThroughImpl(pp *pc.PointCloud, core func(_, _ *pc.PointCloud) int) (*pc
 }
 
 func (e *editor) merge(pp *pc.PointCloud) error {
-	pcNew := &pc.PointCloud{
-		PointCloudHeader: e.pp.PointCloudHeader.Clone(),
-		Points:           e.pp.Points + pp.Points,
-		Data:             append(e.pp.Data[:e.pp.Stride()*e.pp.Points], pp.Data...),
-	}
-	pcNew.Width = pcNew.Points
-	pcNew.Height = 1
-
-	if err := e.push(newUndoDataEntireCloud(e.pp)); err != nil {
+	if err := e.push(&undoDataSize{
+		Points: e.pp.Points,
+		Width:  e.pp.Width,
+		Height: e.pp.Height,
+	}); err != nil {
 		return err
 	}
-	e.pp = pcNew
+	n := e.pp.Points + pp.Points
+	data := append(e.pp.Data[:e.pp.Stride()*e.pp.Points], pp.Data...)
+	e.pp = newCloudView(e.pp, n, n, 1, data)
 	runtime.GC()
 	return nil
 }

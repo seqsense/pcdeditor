@@ -21,6 +21,20 @@ type undoData interface {
 func init() {
 	gob.Register(&undoDataEntireCloud{})
 	gob.Register(&undoDataLabels{})
+	gob.Register(&undoDataSize{})
+}
+
+// pcgol caches an unsafe float32 alias of Data keyed only by its base pointer,
+// so a change of the Data length must be delivered in a fresh PointCloud.
+func newCloudView(pp *pc.PointCloud, points, width, height int, data []byte) *pc.PointCloud {
+	out := &pc.PointCloud{
+		PointCloudHeader: pp.PointCloudHeader.Clone(),
+		Points:           points,
+		Data:             data,
+	}
+	out.Width = width
+	out.Height = height
+	return out
 }
 
 var (
@@ -96,6 +110,25 @@ func (p *undoDataLabels) payload() []byte {
 }
 
 func (p *undoDataLabels) setPayload([]byte) {}
+
+type undoDataSize struct {
+	Points, Width, Height int
+}
+
+func (p *undoDataSize) restore(pp *pc.PointCloud) (*pc.PointCloud, error) {
+	stride := pp.Stride()
+	if stride <= 0 || p.Points < 0 || p.Width < 0 || p.Height < 0 ||
+		p.Points > pp.Points || p.Points > len(pp.Data)/stride {
+		return nil, errBrokenRecord
+	}
+	return newCloudView(pp, p.Points, p.Width, p.Height, pp.Data[:p.Points*stride]), nil
+}
+
+func (p *undoDataSize) payload() []byte {
+	return nil
+}
+
+func (p *undoDataSize) setPayload([]byte) {}
 
 // A record is this encoding followed by the raw payload.
 func encodeUndoData(w io.Writer, d undoData) error {
