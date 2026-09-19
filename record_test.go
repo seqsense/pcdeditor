@@ -121,8 +121,7 @@ func TestUndoDataRemovedPointsRestore(t *testing.T) {
 			t.Run("NoSpareCapacity", func(t *testing.T) {
 				pp := cloneCloud(orig)
 				p := deleteForTest(pp, removed)
-				// Drop the spare capacity to exercise the reallocation
-				// path (a no-op for the None pattern).
+				// Drop the spare capacity to exercise the reallocation path
 				pp.Data = append([]byte{}, pp.Data...)
 				out, err := p.restore(pp)
 				if err != nil {
