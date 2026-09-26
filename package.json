@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "description": "PCD editor",
   "main": "pcdeditor.js",
+  "type": "module",
   "types": {
     ".": "pcdeditor.d.ts",
     "./ReactPCDEditor": "./ReactPCDEditor/index.d.ts"
@@ -29,8 +30,8 @@
     "build": "make pcdeditor.esm.js ReactPCDEditor/index.js",
     "fmt": "prettier --write pcdeditor.js pcdeditor.d.ts ReactPCDEditor/index.tsx",
     "lint": "eslint",
-    "typecheck": "tsc --noEmit --allowJs --jsx react --esModuleInterop pcdeditor.js ReactPCDEditor/index.tsx",
-    "tsc": "tsc --declaration --jsx react --esModuleInterop ReactPCDEditor/index.tsx"
+    "typecheck": "tsc --noEmit",
+    "tsc": "tsc"
   },
   "directories": {
     "example": "examples"
@@ -52,7 +53,7 @@
     "globals": "17.6.0",
     "prettier": "3.8.4",
     "react": "19.2.7",
-    "typescript": "5.9.3",
+    "typescript": "6.0.3",
     "typescript-eslint": "8.61.1"
   },
   "overrides": {
