@@ -319,7 +319,7 @@ func (e *editor) merge(pp *pc.PointCloud) error {
 	}
 	n := e.pp.Points + pp.Points
 	data := append(e.pp.Data[:e.pp.Stride()*e.pp.Points], pp.Data...)
-	e.pp = newCloudView(e.pp, n, n, 1, data)
+	e.pp = resizeCloud(e.pp, n, n, 1, data)
 	runtime.GC()
 	return nil
 }

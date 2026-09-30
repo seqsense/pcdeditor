@@ -24,17 +24,12 @@ func init() {
 	gob.Register(&undoDataSize{})
 }
 
-// pcgol caches an unsafe float32 alias of Data keyed only by its base pointer,
-// so a change of the Data length must be delivered in a fresh PointCloud.
-func newCloudView(pp *pc.PointCloud, points, width, height int, data []byte) *pc.PointCloud {
-	out := &pc.PointCloud{
-		PointCloudHeader: pp.PointCloudHeader.Clone(),
-		Points:           points,
-		Data:             data,
-	}
-	out.Width = width
-	out.Height = height
-	return out
+func resizeCloud(pp *pc.PointCloud, points, width, height int, data []byte) *pc.PointCloud {
+	pp.Points = points
+	pp.Width = width
+	pp.Height = height
+	pp.Data = data
+	return pp
 }
 
 var (
@@ -121,7 +116,7 @@ func (p *undoDataSize) restore(pp *pc.PointCloud) (*pc.PointCloud, error) {
 		p.Points > pp.Points || p.Points > len(pp.Data)/stride {
 		return nil, errBrokenRecord
 	}
-	return newCloudView(pp, p.Points, p.Width, p.Height, pp.Data[:p.Points*stride]), nil
+	return resizeCloud(pp, p.Points, p.Width, p.Height, pp.Data[:p.Points*stride]), nil
 }
 
 func (p *undoDataSize) payload() []byte {
