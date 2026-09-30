@@ -254,7 +254,7 @@ func compactInPlace(pp *pc.PointCloud, keep func(i int) bool) (*pc.PointCloud, *
 		p.points = append(p.points, pp.Data[i*stride:(i+1)*stride]...)
 	}
 	flush(n)
-	return newCloudView(pp, j, j, 1, pp.Data[:j*stride]), p
+	return resizeCloud(pp, j, j, 1, pp.Data[:j*stride]), p
 }
 
 func passThrough(pp *pc.PointCloud, fn func(int, mat.Vec3) bool) (*pc.PointCloud, error) {
@@ -354,7 +354,7 @@ func (e *editor) merge(pp *pc.PointCloud) error {
 	}
 	n := e.pp.Points + pp.Points
 	data := append(e.pp.Data[:e.pp.Stride()*e.pp.Points], pp.Data...)
-	e.pp = newCloudView(e.pp, n, n, 1, data)
+	e.pp = resizeCloud(e.pp, n, n, 1, data)
 	runtime.GC()
 	return nil
 }
