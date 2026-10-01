@@ -21,6 +21,15 @@ type undoData interface {
 func init() {
 	gob.Register(&undoDataEntireCloud{})
 	gob.Register(&undoDataLabels{})
+	gob.Register(&undoDataSize{})
+}
+
+func resizeCloud(pp *pc.PointCloud, points, width, height int, data []byte) *pc.PointCloud {
+	pp.Points = points
+	pp.Width = width
+	pp.Height = height
+	pp.Data = data
+	return pp
 }
 
 var (
@@ -96,6 +105,25 @@ func (p *undoDataLabels) payload() []byte {
 }
 
 func (p *undoDataLabels) setPayload([]byte) {}
+
+type undoDataSize struct {
+	Points, Width, Height int
+}
+
+func (p *undoDataSize) restore(pp *pc.PointCloud) (*pc.PointCloud, error) {
+	stride := pp.Stride()
+	if stride <= 0 || p.Points < 0 || p.Width < 0 || p.Height < 0 ||
+		p.Points > pp.Points || p.Points > len(pp.Data)/stride {
+		return nil, errBrokenRecord
+	}
+	return resizeCloud(pp, p.Points, p.Width, p.Height, pp.Data[:p.Points*stride]), nil
+}
+
+func (p *undoDataSize) payload() []byte {
+	return nil
+}
+
+func (p *undoDataSize) setPayload([]byte) {}
 
 // A record is this encoding followed by the raw payload.
 func encodeUndoData(w io.Writer, d undoData) error {
