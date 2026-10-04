@@ -242,6 +242,46 @@ func TestHistorySquashLatest(t *testing.T) {
 	}
 }
 
+func TestEditorNoOpEditsAreNotRecorded(t *testing.T) {
+	pts := []mat.Vec3{{1, 0, 0}, {2, 0, 0}}
+	for name, edit := range map[string]func(*editor) error{
+		"Label": func(e *editor) error {
+			return e.label(func(int, mat.Vec3) (uint32, bool) { return 1, true })
+		},
+		"Relabel": func(e *editor) error {
+			return e.relabelPointsInLabelRange(5, 9, 1)
+		},
+		"Delete": func(e *editor) error {
+			return e.passThrough(func(int, mat.Vec3) bool { return true })
+		},
+		"DeleteByMask": func(e *editor) error {
+			return e.passThroughByMask([]uint32{0, 0}, selectBitmaskSegmentSelected, 0)
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			e := newEditor()
+			pp := makeCloud(t, pts, []uint32{0, 0})
+			pp.Width, pp.Height = 1, 2
+			if err := e.SetPointCloud(pp, cloudMain); err != nil {
+				t.Fatal(err)
+			}
+			if err := e.relabelPointsInLabelRange(0, 0, 1); err != nil {
+				t.Fatal(err)
+			}
+			if err := edit(e); err != nil {
+				t.Fatal(err)
+			}
+			if e.pp.Width != 1 || e.pp.Height != 2 {
+				t.Fatalf("Expected 1x2 cloud, got %dx%d", e.pp.Width, e.pp.Height)
+			}
+			if !e.Undo() {
+				t.Fatal("undo failed")
+			}
+			assertCloud(t, e.pp, pts, []uint32{0, 0})
+		})
+	}
+}
+
 // The tests below fuzz the same behavior with randomized edit sequences.
 
 func snapshotCloud(e *editor) *pc.PointCloud {
@@ -293,14 +333,19 @@ func TestEditorUndoRoundTrip(t *testing.T) {
 		const nOps = 8
 		snapshots := []*pc.PointCloud{snapshotCloud(e)}
 		for k := 0; k < nOps; k++ {
+			nSteps := len(e.steps)
 			applyRandomEdit(t, e, rnd)
+			if len(e.steps) == nSteps {
+				assertCloudEqual(t, snapshots[len(snapshots)-1], e.pp)
+				continue
+			}
 			snapshots = append(snapshots, snapshotCloud(e))
 		}
 
-		for k := nOps; k > 0; k-- {
+		for k := len(snapshots) - 1; k > 0; k-- {
 			assertCloudEqual(t, snapshots[k], e.pp)
 			if !e.Undo() {
-				t.Fatalf("trial %d: undo %d failed", trial, nOps-k)
+				t.Fatalf("trial %d: undo %d failed", trial, len(snapshots)-1-k)
 			}
 		}
 		assertCloudEqual(t, snapshots[0], e.pp)
