@@ -155,7 +155,7 @@ func newPCDEditor(this js.Value, args []js.Value) interface{} {
 
 func newCommandPromise(ch chan promiseCommand, data interface{}) js.Value {
 	promise := js.Global().Get("Promise")
-	return promise.New(js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	executor := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		resolve, reject := args[0], args[1]
 		cmd := promiseCommand{
 			data: data,
@@ -184,7 +184,9 @@ func newCommandPromise(ch chan promiseCommand, data interface{}) js.Value {
 			reject.Invoke()
 			return nil
 		}
-	}))
+	})
+	defer executor.Release()
+	return promise.New(executor)
 }
 
 func (pe *pcdeditor) Run(ctx context.Context) {
