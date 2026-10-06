@@ -1058,7 +1058,10 @@ L_MAIN:
 						break
 					}
 					r := 1.0 + float32(e.DeltaY*rate)
-					m, _ := pe.cmd.SelectMatrix()
+					m, selected := pe.cmd.SelectMatrix()
+					if !selected {
+						break
+					}
 					pe.cmd.TransformCursors(
 						m.InvAffine().
 							MulAffine(mat.Translate(0, 0, 0.5)).
