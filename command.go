@@ -617,6 +617,9 @@ func (c *commandContext) VoxelFilter(resolution float32) error {
 		if pp, err = passThrough(c.editor.pp, c.baseFilter(true)); err != nil {
 			return err
 		}
+		if pp.Points == 0 {
+			return errors.New("no points are selected")
+		}
 	} else {
 		pp = c.editor.pp
 	}
@@ -632,7 +635,9 @@ func (c *commandContext) VoxelFilter(resolution float32) error {
 	}
 
 	if selected {
-		c.editor.passThrough(c.baseFilter(false))
+		if err := c.editor.passThrough(c.baseFilter(false)); err != nil {
+			return err
+		}
 		if err := c.editor.merge(pcFiltered); err != nil {
 			return err
 		}

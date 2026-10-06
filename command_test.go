@@ -486,3 +486,28 @@ func TestRevisionCounters(t *testing.T) {
 		t.Error("Reset must bump the select mask revision")
 	}
 }
+
+func TestVoxelFilterWithoutSelectedPoints(t *testing.T) {
+	pts := []mat.Vec3{{1, 0, 0}, {2, 0, 0}}
+	c := newCommandContext(&dummyPCDIO{}, nil)
+	if err := c.SetPointCloud(makeCloud(t, pts, []uint32{0, 0}), cloudMain); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.RelabelPointsInLabelRange(0, 0, 1); err != nil {
+		t.Fatal(err)
+	}
+	for i, p := range []mat.Vec3{{10, 10, 0}, {11, 10, 0}, {11, 11, 0}} {
+		if !c.SetCursor(i, p) {
+			t.Fatal("failed to set cursor")
+		}
+	}
+	c.SetSelectMask([]uint32{0, 0})
+
+	if err := c.VoxelFilter(0.1); err == nil {
+		t.Fatal("VoxelFilter without selected points must fail")
+	}
+	if !c.Undo() {
+		t.Fatal("undo failed")
+	}
+	assertCloud(t, c.editor.pp, pts, []uint32{0, 0})
+}

@@ -154,6 +154,9 @@ func (e *editor) label(fn func(int, mat.Vec3) (uint32, bool)) error {
 		itL.Incr()
 		i++
 	}
+	if len(p.Indices) == 0 {
+		return nil
+	}
 	return e.push(p)
 }
 
@@ -173,6 +176,9 @@ func (e *editor) mutateLabels(fn func(i int, l uint32) (uint32, bool)) error {
 		}
 		lt.Incr()
 	}
+	if len(p.Indices) == 0 {
+		return nil
+	}
 	return e.push(p)
 }
 
@@ -185,6 +191,9 @@ func (e *editor) passThrough(fn func(int, mat.Vec3) bool) error {
 		return fn(i, it.Vec3At(i))
 	})
 	e.pp = pcNew
+	if len(p.Indices) == 0 {
+		return nil
+	}
 	if err := e.push(p); err != nil {
 		return err
 	}
@@ -197,6 +206,9 @@ func (e *editor) passThroughByMask(sel []uint32, mask, val uint32) error {
 		return sel[i]&mask == val
 	})
 	e.pp = pcNew
+	if len(p.Indices) == 0 {
+		return nil
+	}
 	if err := e.push(p); err != nil {
 		return err
 	}
@@ -254,6 +266,9 @@ func compactInPlace(pp *pc.PointCloud, keep func(i int) bool) (*pc.PointCloud, *
 		p.points = append(p.points, pp.Data[i*stride:(i+1)*stride]...)
 	}
 	flush(n)
+	if len(p.Indices) == 0 {
+		return pp, p
+	}
 	return resizeCloud(pp, j, j, 1, pp.Data[:j*stride]), p
 }
 
