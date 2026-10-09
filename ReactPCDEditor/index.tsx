@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react'
 
-import PCDEditor from '../'
+import PCDEditor from '@seqsense/pcdeditor'
 
 type AttachedCallback = (editor: PCDEditor) => void
 
