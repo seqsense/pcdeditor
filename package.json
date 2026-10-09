@@ -10,12 +10,16 @@
   },
   "exports": {
     ".": {
+      "types": "./pcdeditor.d.ts",
       "import": "./pcdeditor.esm.js",
       "require": "./pcdeditor.js",
       "node": "./pcdeditor.esm.js",
       "default": "./pcdeditor.esm.js"
     },
-    "./ReactPCDEditor": "./ReactPCDEditor/index.js"
+    "./ReactPCDEditor": {
+      "types": "./ReactPCDEditor/index.d.ts",
+      "default": "./ReactPCDEditor/index.js"
+    }
   },
   "files": [
     "pcdeditor.js",
