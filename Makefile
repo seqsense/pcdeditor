@@ -39,7 +39,3 @@ version-$(VERSION):
 .PHONY: publish
 publish-$(VERSION):
 	pnpm publish seqsense-pcdeditor-$(VERSION).tgz
-
-.PHONY: clean
-clean:
-	rm -f $(TARGET_FILES)
