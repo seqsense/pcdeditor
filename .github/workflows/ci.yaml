@@ -33,9 +33,7 @@ jobs:
       - name: Run go test
         run: go test ./... -v -race -coverprofile=cover.out -covermode atomic -coverpkg ./...
       - name: Build WASM
-        run: |
-          make pcdeditor.wasm
-          make clean # Re-build in prepack script
+        run: make pcdeditor.wasm
 
       - uses: codecov/codecov-action@v7
         with:
@@ -54,6 +52,10 @@ jobs:
           echo "${PACKAGE_VERSION}" | sed 's/^v//;s/^/PACKAGE_VERSION=/' >> ${GITHUB_ENV}
         env:
           PACKAGE_VERSION: ${{ github.event.release.tag_name }}
+      - name: Clean
+        run: make clean
+      - name: Status
+        run: git status
       - name: Pack
         run: |
           pnpm version ${PACKAGE_VERSION} --no-git-tag-version --allow-same-version
