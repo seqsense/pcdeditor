@@ -39,6 +39,7 @@ jobs:
         with:
           files: ./cover.out
           token: ${{ secrets.CODECOV_TOKEN }}
+          cleanup: true
 
       - name: Install
         run: pnpm install
