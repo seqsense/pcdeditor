@@ -30,6 +30,8 @@
     "ReactPCDEditor/index.d.ts"
   ],
   "scripts": {
+    "prepack": "make pcdeditor.esm.js pcdeditor.wasm wasm_exec.js ReactPCDEditor/index.js",
+    "postpack": "make clean",
     "build": "make pcdeditor.esm.js ReactPCDEditor/index.js",
     "fmt": "prettier --write pcdeditor.js pcdeditor.d.ts ReactPCDEditor/index.tsx",
     "lint": "eslint",

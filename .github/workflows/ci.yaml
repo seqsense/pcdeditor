@@ -33,7 +33,9 @@ jobs:
       - name: Run go test
         run: go test ./... -v -race -coverprofile=cover.out -covermode atomic -coverpkg ./...
       - name: Build WASM
-        run: make pcdeditor.wasm
+        run: |
+          make pcdeditor.wasm
+          make clean # Re-build in prepack script
 
       - uses: codecov/codecov-action@v7
         with:
